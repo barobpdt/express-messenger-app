@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebRTC PeerConnection Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #7c3aed, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d2f3e;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: #a78bfa;
+      letter-spacing: 0.03em;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-bottom: 4px;
+      margin-top: 10px;
+    }
+    input, textarea, select {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      color: #e0e0e0;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus { border-color: #7c3aed; }
+    textarea { resize: vertical; min-height: 60px; font-family: monospace; }
+
+    button {
+      margin-top: 14px;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #7c3aed, #2563eb);
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+
+    .result {
+      margin-top: 12px;
+      background: #0f1117;
+      border: 1px solid #2d2f3e;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.78rem;
+      font-family: monospace;
+      color: #86efac;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 40px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .result.error { color: #f87171; }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+      margin-bottom: 10px;
+    }
+    .post   { background: #166534; color: #86efac; }
+    .get    { background: #1e3a5f; color: #93c5fd; }
+    .patch  { background: #713f12; color: #fcd34d; }
+    .delete { background: #7f1d1d; color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+<h1>🔗 WebRTC PeerConnection API</h1>
+<p class="subtitle">Express 서버의 /api/peers 엔드포인트 데모</p>
+
+<div class="grid">
+
+  <!-- 피어 등록 -->
+  <div class="card">
+    <span class="badge post">POST</span>
+    <h2>/api/peers — 피어 등록</h2>
+    <label>Room ID</label>
+    <input id="reg-roomId" value="room-001" />
+    <label>Peer ID</label>
+    <input id="reg-peerId" value="peer-abc" />
+    <label>User ID (선택)</label>
+    <input id="reg-userId" value="user-1" />
+    <label>Type</label>
+    <select id="reg-type">
+      <option value="offer">offer</option>
+      <option value="answer">answer</option>
+    </select>
+    <label>SDP (선택)</label>
+    <textarea id="reg-sdp" placeholder="v=0&#10;o=- ..."></textarea>
+    <button onclick="registerPeer()">등록</button>
+    <div class="result" id="reg-result">-</div>
+  </div>
+
+  <!-- 룸 내 피어 조회 -->
+  <div class="card">
+    <span class="badge get">GET</span>
+    <h2>/api/peers/room/:roomId — 룸 전체 조회</h2>
+    <label>Room ID</label>
+    <input id="room-roomId" value="room-001" />
+    <button onclick="getPeersByRoom()">조회</button>
+    <div class="result" id="room-result">-</div>
+  </div>
+
+  <!-- 피어 단건 조회 -->
+  <div class="card">
+    <span class="badge get">GET</span>
+    <h2>/api/peers/:peerId — 단건 조회</h2>
+    <label>Peer ID</label>
+    <input id="single-peerId" value="peer-abc" />
+    <button onclick="getSinglePeer()">조회</button>
+    <div class="result" id="single-result">-</div>
+  </div>
+
+  <!-- 상태 업데이트 -->
+  <div class="card">
+    <span class="badge patch">PATCH</span>
+    <h2>/api/peers/:peerId/status — 상태 변경</h2>
+    <label>Peer ID</label>
+    <input id="patch-peerId" value="peer-abc" />
+    <label>Status</label>
+    <select id="patch-status">
+      <option value="active">active</option>
+      <option value="disconnected">disconnected</option>
+    </select>
+    <button onclick="updatePeerStatus()">변경</button>
+    <div class="result" id="patch-result">-</div>
+  </div>
+
+  <!-- 피어 삭제 -->
+  <div class="card">
+    <span class="badge delete">DELETE</span>
+    <h2>/api/peers/:roomId/:peerId — 피어 삭제</h2>
+    <label>Room ID</label>
+    <input id="del-roomId" value="room-001" />
+    <label>Peer ID</label>
+    <input id="del-peerId" value="peer-abc" />
+    <button onclick="deletePeer()">삭제</button>
+    <div class="result" id="del-result">-</div>
+  </div>
+
+</div>
+
+<script>
+  const BASE = "http://localhost:8081";
+
+  async function call(method, url, body, resultId) {
+    const el = document.getElementById(resultId);
+    el.classList.remove("error");
+    try {
+      const res = await fetch(BASE + url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json();
+      el.textContent = JSON.stringify(data, null, 2);
+      if (!res.ok) el.classList.add("error");
+    } catch (e) {
+      el.textContent = "❌ " + e.message;
+      el.classList.add("error");
+    }
+  }
+
+  function registerPeer() {
+    call("POST", "/api/peers", {
+      roomId: document.getElementById("reg-roomId").value,
+      peerId: document.getElementById("reg-peerId").value,
+      userId: document.getElementById("reg-userId").value,
+      type:   document.getElementById("reg-type").value,
+      sdp:    document.getElementById("reg-sdp").value || undefined,
+    }, "reg-result");
+  }
+
+  function getPeersByRoom() {
+    const roomId = document.getElementById("room-roomId").value;
+    call("GET", `/api/peers/room/${roomId}`, null, "room-result");
+  }
+
+  function getSinglePeer() {
+    const peerId = document.getElementById("single-peerId").value;
+    call("GET", `/api/peers/${peerId}`, null, "single-result");
+  }
+
+  function updatePeerStatus() {
+    const peerId = document.getElementById("patch-peerId").value;
+    const status = document.getElementById("patch-status").value;
+    call("PATCH", `/api/peers/${peerId}/status`, { status }, "patch-result");
+  }
+
+  function deletePeer() {
+    const roomId = document.getElementById("del-roomId").value;
+    const peerId = document.getElementById("del-peerId").value;
+    call("DELETE", `/api/peers/${roomId}/${peerId}`, null, "del-result");
+  }
+</script>
+</body>
+</html>

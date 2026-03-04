@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎵 노래 가사 검색</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #09090b;
+            --surface: #141417;
+            --border: #27272a;
+            --text: #fafafa;
+            --muted: #71717a;
+            --accent: #a855f7;
+            --accent2: #3b82f6;
+            --green: #22c55e;
+            --red: #ef4444;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Segoe UI', sans-serif;
+            font-size: 2rem;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── 헤더 ── */
+        header {
+            background: linear-gradient(135deg, #1a0533 0%, #0a0a1a 50%, #001a33 100%);
+            padding: 40px 20px 32px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #c084fc, #60a5fa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        /* ── 검색창 ── */
+        .search-wrap {
+            max-width: 640px;
+            margin: 28px auto;
+            padding: 0 16px;
+        }
+
+        .search-row>*+* {
+            margin-left: 8px;
+        }
+
+        .search-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .search-row input {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            outline: none;
+            font-family: inherit;
+            transition: border-color .2s;
+        }
+
+        .search-row input:focus {
+            border-color: var(--accent);
+        }
+
+        .search-row input::placeholder {
+            color: var(--muted);
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: opacity .2s, transform .1s;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            opacity: .85;
+        }
+
+        .btn:active {
+            transform: scale(.97);
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #7c3aed, #2563eb);
+            color: #fff;
+        }
+
+        /* ── 메인 레이아웃 ── */
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 16px 40px;
+        }
+
+        @media(max-width: 800px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── 가사 패널 ── */
+        .lyrics-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            min-height: 380px;
+        }
+
+        .lyrics-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+        }
+
+        .lyrics-header>*+* {
+            margin-left: 10px;
+        }
+
+        .lyrics-header .song-info h2 {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .lyrics-header .song-info p {
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .lyrics-header .badge {
+            margin-left: auto;
+            font-size: 0.65rem;
+            padding: 3px 9px;
+            border-radius: 99px;
+            font-weight: 700;
+        }
+
+        .badge-cache {
+            background: #14532d;
+            color: #86efac;
+        }
+
+        .badge-fresh {
+            background: #1e3a5f;
+            color: #93c5fd;
+        }
+
+        #lyrics-body {
+            padding: 20px;
+            line-height: 1.9;
+            font-size: 0.9rem;
+            color: #d4d4d8;
+            white-space: pre-wrap;
+            max-height: 520px;
+            overflow-y: auto;
+        }
+
+        .lyrics-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 280px;
+            color: var(--muted);
+        }
+
+        .lyrics-placeholder>*+* {
+            margin-top: 10px;
+        }
+
+        .lyrics-placeholder .icon {
+            font-size: 3rem;
+        }
+
+        /* ── 사이드바 ── */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar>*+* {
+            margin-top: 16px;
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .chart-title {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.88rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+
+        .chart-title>*+* {
+            margin-left: 6px;
+        }
+
+        .chart-list {
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .chart-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background .15s;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .chart-item>*+* {
+            margin-left: 12px;
+        }
+
+        .chart-item:last-child {
+            border-bottom: none;
+        }
+
+        .chart-item:hover {
+            background: #1f1f23;
+        }
+
+        .chart-item.active {
+            background: #1c1028;
+            border-left: 3px solid var(--accent);
+        }
+
+        .rank {
+            width: 24px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .rank.top1 {
+            color: #f59e0b;
+        }
+
+        .rank.top2 {
+            color: #9ca3af;
+        }
+
+        .rank.top3 {
+            color: #b45309;
+        }
+
+        .thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--border);
+        }
+
+        .chart-info {
+            overflow: hidden;
+        }
+
+        .chart-info b {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .chart-info span {
+            font-size: 0.72rem;
+            color: var(--muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+        }
+
+        /* ── 로딩 스피너 ── */
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── 스크롤바 ── */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 99px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>🎵 노래 가사 검색</h1>
+        <p>아티스트와 곡명을 입력하거나 차트에서 선택하세요</p>
+    </header>
+
+    <div class="search-wrap">
+        <div class="search-row">
+            <input id="inp-artist" placeholder="아티스트 (예: IU, BTS, Adele)" />
+            <input id="inp-title" placeholder="곡 제목 (예: Blueming)" />
+            <button class="btn btn-primary" onclick="searchLyrics()">🔍 검색</button>
+        </div>
+    </div>
+
+    <div class="layout">
+
+        <!-- 가사 패널 -->
+        <div class="lyrics-panel">
+            <div class="lyrics-header" id="lyrics-header" style="display:none">
+                <div class="song-info">
+                    <h2 id="song-title-disp">-</h2>
+                    <p id="song-artist-disp">-</p>
+                </div>
+                <span class="badge" id="cache-badge"></span>
+            </div>
+            <div id="lyrics-body">
+                <div class="lyrics-placeholder">
+                    <div class="icon">🎶</div>
+                    <p>아티스트와 곡명을 입력하거나<br>차트에서 곡을 선택하세요</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 사이드바 -->
+        <div class="sidebar">
+
+            <!-- 최신곡 -->
+            <div class="chart-card">
+                <div class="chart-title">🆕 최신곡 TOP 20 <small
+                        style="margin-left:auto;font-weight:400;color:var(--muted)">iTunes KR</small></div>
+                <div class="chart-list" id="new-list">
+                    <div style="padding:20px;text-align:center"><span class="spinner"></span></div>
+                </div>
+            </div>
+
+            <!-- 베스트곡 -->
+            <div class="chart-card">
+                <div class="chart-title">🏆 베스트곡 TOP 20 <small
+                        style="margin-left:auto;font-weight:400;color:var(--muted)">iTunes US</small></div>
+                <div class="chart-list" id="best-list">
+                    <div style="padding:20px;text-align:center"><span class="spinner"></span></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API = "http://localhost:8081";
+
+        // ── 가사 검색 ──────────────────────────────────────────────────────────────
+        async function searchLyrics(artist, title) {
+            artist = artist ?? document.getElementById("inp-artist").value.trim();
+            title = title ?? document.getElementById("inp-title").value.trim();
+            if (!artist || !title) { alert("아티스트와 곡 제목을 모두 입력해주세요."); return; }
+
+            document.getElementById("inp-artist").value = artist;
+            document.getElementById("inp-title").value = title;
+
+            const body = document.getElementById("lyrics-body");
+            body.innerHTML = `<div class="lyrics-placeholder"><span class="spinner"></span><p>가사 불러오는 중...</p></div>`;
+            document.getElementById("lyrics-header").style.display = "none";
+
+            try {
+                const res = await fetch(`${API}/api/songs/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "가사를 찾을 수 없습니다.");
+
+                document.getElementById("lyrics-header").style.display = "flex";
+                document.getElementById("song-title-disp").textContent = data.title;
+                document.getElementById("song-artist-disp").textContent = data.artist;
+
+                const badge = document.getElementById("cache-badge");
+                badge.textContent = data.cached ? "💾 캐시" : "🌐 신규";
+                badge.className = "badge " + (data.cached ? "badge-cache" : "badge-fresh");
+
+                body.textContent = data.lyrics?.trim() || "(가사 없음)";
+
+                // 현재 선택 하이라이트
+                document.querySelectorAll(".chart-item").forEach(el => {
+                    el.classList.toggle("active",
+                        el.dataset.artist === artist && el.dataset.title === title);
+                });
+            } catch (e) {
+                body.innerHTML = `<div class="lyrics-placeholder"><div class="icon">😢</div><p>${e.message}</p></div>`;
+            }
+        }
+
+        // Enter 키
+        ["inp-artist", "inp-title"].forEach(id =>
+            document.getElementById(id).addEventListener("keydown", e => e.key === "Enter" && searchLyrics())
+        );
+
+        // ── 차트 로드 ──────────────────────────────────────────────────────────────
+        async function loadChart(url, targetId) {
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+                const entries = json?.feed?.entry ?? [];
+                const el = document.getElementById(targetId);
+                el.innerHTML = "";
+
+                entries.slice(0, 20).forEach((entry, i) => {
+                    const artist = entry["im:artist"]?.label ?? "Unknown";
+                    const title = entry["im:name"]?.label ?? "Unknown";
+                    const thumb = entry["im:image"]?.[1]?.label ?? "";
+
+                    const item = document.createElement("div");
+                    item.className = "chart-item";
+                    item.dataset.artist = artist;
+                    item.dataset.title = title;
+                    item.innerHTML = `
+          <span class="rank ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</span>
+          <img class="thumb" src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none'" />
+          <div class="chart-info">
+            <b title="${title}">${title}</b>
+            <span title="${artist}">${artist}</span>
+          </div>`;
+                    item.onclick = () => searchLyrics(artist, title);
+                    el.appendChild(item);
+                });
+            } catch {
+                document.getElementById(targetId).innerHTML =
+                    `<p style="padding:16px;color:var(--muted);font-size:.82rem">차트를 불러올 수 없습니다.</p>`;
+            }
+        }
+
+        // iTunes KR 최신곡 / iTunes KR 베스트
+        loadChart("https://itunes.apple.com/kr/rss/topsongs/limit=20/json", "new-list");
+        loadChart("https://itunes.apple.com/kr/rss/topsongs/limit=20/json", "best-list");
+    </script>
+</body>
+
+</html>

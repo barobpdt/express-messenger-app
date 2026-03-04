@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC 파일 전송 데모</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            padding: 28px 16px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.6rem;
+            margin-bottom: 6px;
+            background: linear-gradient(90deg, #58a6ff, #bf91f4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .desc {
+            text-align: center;
+            color: #6e7681;
+            font-size: 0.85rem;
+            margin-bottom: 28px;
+        }
+
+        /* 연결 상태 배지 */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .status-bar>*+* {
+            margin-left: 10px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #374151;
+            transition: background 0.4s;
+        }
+
+        .dot.connected {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .dot.connecting {
+            background: #f59e0b;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        #status-text {
+            font-size: 0.85rem;
+            color: #6e7681;
+        }
+
+        /* 레이아웃 */
+        .peers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            max-width: 900px;
+            margin: 0 auto 24px;
+        }
+
+        @media(max-width:640px) {
+            .peers {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-title>*+* {
+            margin-left: 8px;
+        }
+
+        .tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 99px;
+            font-weight: 600;
+        }
+
+        .tag-a {
+            background: #1a3a5c;
+            color: #58a6ff;
+        }
+
+        .tag-b {
+            background: #2d1f4e;
+            color: #bf91f4;
+        }
+
+        /* 파일 드롭존 */
+        .dropzone {
+            border: 2px dashed #30363d;
+            border-radius: 10px;
+            padding: 28px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+        }
+
+        .dropzone:hover,
+        .dropzone.dragover {
+            border-color: #58a6ff;
+            background: #161f2e;
+        }
+
+        .dropzone input[type=file] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .dropzone .icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .dropzone p {
+            font-size: 0.82rem;
+            color: #6e7681;
+        }
+
+        #file-name {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        /* 버튼 */
+        button {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        button:hover:not(:disabled) {
+            opacity: 0.85;
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #1d6feb, #1a56a4);
+            color: #fff;
+        }
+
+        .btn-purple {
+            background: linear-gradient(90deg, #6d28d9, #8b5cf6);
+            color: #fff;
+        }
+
+        .btn-green {
+            background: linear-gradient(90deg, #166534, #22c55e);
+            color: #fff;
+        }
+
+        /* 진행바 */
+        .progress-wrap {
+            margin-top: 14px;
+            height: 6px;
+            background: #21262d;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #58a6ff, #bf91f4);
+            border-radius: 99px;
+            transition: width 0.2s;
+        }
+
+        .progress-label {
+            font-size: 0.75rem;
+            color: #6e7681;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        /* 수신 영역 */
+        .receive-area {
+            margin-top: 16px;
+            min-height: 90px;
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .receive-area>*+* {
+            margin-top: 10px;
+        }
+
+        .receive-area p {
+            font-size: 0.82rem;
+            color: #6e7681;
+        }
+
+        /* 로그 */
+        .log {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .log h3 {
+            font-size: 0.85rem;
+            color: #6e7681;
+            margin-bottom: 10px;
+        }
+
+        #log-body {
+            max-height: 160px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.78rem;
+        }
+
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .log-line span {
+            color: #6e7681;
+            margin-right: 6px;
+        }
+
+        .log-line.info b {
+            color: #58a6ff;
+        }
+
+        .log-line.ok b {
+            color: #22c55e;
+        }
+
+        .log-line.warn b {
+            color: #f59e0b;
+        }
+
+        .log-line.err b {
+            color: #f87171;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>📁 WebRTC 파일 전송</h1>
+    <p class="desc">같은 페이지의 두 피어(A ↔ B) 사이에서 파일을 직접 전송합니다</p>
+
+    <div class="status-bar">
+        <div class="dot" id="conn-dot"></div>
+        <span id="status-text">연결 안 됨</span>
+    </div>
+
+    <div class="peers">
+
+        <!-- Peer A (발신) -->
+        <div class="card">
+            <div class="card-title">
+                <span class="tag tag-a">Peer A</span> 파일 선택 &amp; 전송
+            </div>
+
+            <div class="dropzone" id="dropzone">
+                <input type="file" id="file-input" />
+                <div class="icon">📂</div>
+                <p>클릭하거나 파일을 드래그하세요</p>
+                <div id="file-name"></div>
+            </div>
+
+            <button class="btn-primary" id="btn-connect" onclick="startConnection()">🔗 연결 시작 (Offer 생성)</button>
+            <button class="btn-green" id="btn-send" onclick="sendFile()" disabled>📤 파일 전송</button>
+
+            <div class="progress-wrap">
+                <div class="progress-bar" id="send-progress"></div>
+            </div>
+            <div class="progress-label" id="send-label"></div>
+        </div>
+
+        <!-- Peer B (수신) -->
+        <div class="card">
+            <div class="card-title">
+                <span class="tag tag-b">Peer B</span> 수신 대기
+            </div>
+
+            <p style="font-size:0.82rem;color:#6e7681;margin-bottom:12px;">
+                Peer A가 Offer를 생성하면 자동으로 Answer를 생성합니다.
+            </p>
+
+            <div class="receive-area" id="receive-area">
+                <p>수신 대기 중...</p>
+            </div>
+
+            <div class="progress-wrap">
+                <div class="progress-bar" id="recv-progress"></div>
+            </div>
+            <div class="progress-label" id="recv-label"></div>
+        </div>
+
+    </div>
+
+    <!-- 로그 -->
+    <div class="log">
+        <h3>📋 이벤트 로그</h3>
+        <div id="log-body"></div>
+    </div>
+
+    <script>
+        // ── 상수 ──────────────────────────────────────────────────────────────────
+        const CHUNK_SIZE = 16 * 1024; // 16KB
+
+        // ── 상태 ──────────────────────────────────────────────────────────────────
+        let pcA, pcB;           // RTCPeerConnection
+        let channelA, channelB; // DataChannel
+        let selectedFile = null;
+        let recvBuffers = [], recvBytes = 0, recvMeta = null;
+
+        // ── UI 헬퍼 ───────────────────────────────────────────────────────────────
+        const $ = id => document.getElementById(id);
+
+        function log(msg, type = "info") {
+            const el = document.createElement("div");
+            el.className = `log-line ${type}`;
+            el.innerHTML = `<span>${new Date().toLocaleTimeString()}</span><b>${msg}</b>`;
+            $("log-body").prepend(el);
+        }
+
+        function setStatus(text, state) {
+            $("status-text").textContent = text;
+            const dot = $("conn-dot");
+            dot.className = "dot" + (state ? " " + state : "");
+        }
+
+        function setProgress(barId, labelId, pct, extra = "") {
+            $(barId).style.width = pct + "%";
+            $(labelId).textContent = extra || `${pct.toFixed(1)}%`;
+        }
+
+        // ── 파일 선택 ─────────────────────────────────────────────────────────────
+        const dropzone = $("dropzone");
+        $("file-input").addEventListener("change", e => setFile(e.target.files[0]));
+        dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("dragover"); });
+        dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+        dropzone.addEventListener("drop", e => {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+            setFile(e.dataTransfer.files[0]);
+        });
+
+        function setFile(file) {
+            if (!file) return;
+            selectedFile = file;
+            $("file-name").textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            log(`파일 선택: ${file.name} (${file.size} bytes)`, "ok");
+        }
+
+        // ── WebRTC 연결 ───────────────────────────────────────────────────────────
+        const iceConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+        async function startConnection() {
+            $("btn-connect").disabled = true;
+            setStatus("연결 중...", "connecting");
+            log("Peer A: RTCPeerConnection 생성");
+
+            pcA = new RTCPeerConnection(iceConfig);
+            pcB = new RTCPeerConnection(iceConfig);
+
+            // ICE candidate 교환 (같은 페이지이므로 직접 전달)
+            pcA.onicecandidate = e => { if (e.candidate) { log("ICE candidate A→B"); pcB.addIceCandidate(e.candidate); } };
+            pcB.onicecandidate = e => { if (e.candidate) { log("ICE candidate B→A"); pcA.addIceCandidate(e.candidate); } };
+
+            // Peer B: DataChannel 수신
+            pcB.ondatachannel = e => {
+                channelB = e.channel;
+                channelB.binaryType = "arraybuffer";
+                log("Peer B: DataChannel 수신", "ok");
+                setupReceiver(channelB);
+            };
+
+            // Peer A: DataChannel 생성
+            channelA = pcA.createDataChannel("fileTransfer");
+            channelA.binaryType = "arraybuffer";
+            channelA.onopen = () => {
+                log("DataChannel 열림 ✅", "ok");
+                setStatus("연결됨", "connected");
+                $("btn-send").disabled = false;
+            };
+            channelA.onerror = e => log("채널 오류: " + e.error, "err");
+
+            // Offer → Answer 교환
+            const offer = await pcA.createOffer();
+            await pcA.setLocalDescription(offer);
+            log("Peer A: Offer 생성");
+
+            await pcB.setRemoteDescription(offer);
+            const answer = await pcB.createAnswer();
+            await pcB.setLocalDescription(answer);
+            log("Peer B: Answer 생성");
+
+            await pcA.setRemoteDescription(answer);
+            log("Peer A: Answer 수신 → 연결 협상 완료", "ok");
+        }
+
+        // ── 수신 처리 ─────────────────────────────────────────────────────────────
+        function setupReceiver(channel) {
+            recvBuffers = []; recvBytes = 0; recvMeta = null;
+
+            channel.onmessage = e => {
+                if (typeof e.data === "string") {
+                    // 메타데이터 수신
+                    recvMeta = JSON.parse(e.data);
+                    log(`수신 시작: ${recvMeta.name} (${recvMeta.size} bytes)`, "info");
+                    $("receive-area").innerHTML = `<p>📥 받는 중: <b>${recvMeta.name}</b></p>`;
+                    return;
+                }
+
+                // 청크 수신
+                recvBuffers.push(e.data);
+                recvBytes += e.data.byteLength;
+                const pct = (recvBytes / recvMeta.size * 100);
+                setProgress("recv-progress", "recv-label", pct,
+                    `${(recvBytes / 1024).toFixed(1)} / ${(recvMeta.size / 1024).toFixed(1)} KB`);
+
+                if (recvBytes >= recvMeta.size) {
+                    log(`수신 완료: ${recvMeta.name}`, "ok");
+                    const blob = new Blob(recvBuffers, { type: recvMeta.type });
+                    const url = URL.createObjectURL(blob);
+                    $("receive-area").innerHTML = `
+          <p>✅ 수신 완료: <b>${recvMeta.name}</b></p>
+          <a href="${url}" download="${recvMeta.name}"
+             style="padding:8px 20px;background:#22c55e;color:#000;border-radius:8px;
+                    font-size:0.85rem;font-weight:700;text-decoration:none;">
+            💾 다운로드
+          </a>`;
+                    setProgress("recv-progress", "recv-label", 100, "완료!");
+                }
+            };
+        }
+
+        // ── 파일 전송 ─────────────────────────────────────────────────────────────
+        async function sendFile() {
+            if (!selectedFile) { alert("파일을 먼저 선택해주세요."); return; }
+            if (!channelA || channelA.readyState !== "open") { alert("연결이 아직 준비되지 않았습니다."); return; }
+
+            $("btn-send").disabled = true;
+            log(`전송 시작: ${selectedFile.name}`, "info");
+
+            // 메타데이터 먼저 전송
+            channelA.send(JSON.stringify({ name: selectedFile.name, size: selectedFile.size, type: selectedFile.type }));
+
+            const buffer = await selectedFile.arrayBuffer();
+            const total = buffer.byteLength;
+            let offset = 0;
+
+            function sendChunk() {
+                if (offset >= total) {
+                    log(`전송 완료: ${selectedFile.name}`, "ok");
+                    setProgress("send-progress", "send-label", 100, "전송 완료!");
+                    $("btn-send").disabled = false;
+                    return;
+                }
+
+                // 버퍼 여유 확인
+                if (channelA.bufferedAmount > CHUNK_SIZE * 8) {
+                    channelA.onbufferedamountlow = () => { channelA.onbufferedamountlow = null; sendChunk(); };
+                    channelA.bufferedAmountLowThreshold = CHUNK_SIZE;
+                    return;
+                }
+
+                const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
+                channelA.send(chunk);
+                offset += chunk.byteLength;
+
+                const pct = (offset / total * 100);
+                setProgress("send-progress", "send-label", pct,
+                    `${(offset / 1024).toFixed(1)} / ${(total / 1024).toFixed(1)} KB`);
+
+                setTimeout(sendChunk, 0);
+            }
+
+            sendChunk();
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📅 영상 스케줄 관리</title>
+
+    <!-- FullCalendar CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <!-- 한국어 locale -->
+    <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/ko.global.min.js"></script>
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            height: 100dvh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+        }
+
+        /* ── 헤더 ── */
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #21262d;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header h1 {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .header-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: .82rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: opacity .2s;
+        }
+
+        button:hover {
+            opacity: .85;
+        }
+
+        .btn-blue {
+            background: #1d6feb;
+            color: #fff;
+        }
+
+        .btn-green {
+            background: #166534;
+            color: #22c55e;
+            border: 1px solid #15803d;
+        }
+
+        .btn-red {
+            background: #450a0a;
+            color: #f87171;
+            border: 1px solid #7f1d1d;
+        }
+
+        .btn-gray {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: .78rem;
+        }
+
+        /* 범례 */
+        .legend {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: .76rem;
+            color: #6e7681;
+        }
+
+        .leg {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .leg-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
+        /* ── 캘린더 영역 ── */
+        #calendar-wrap {
+            overflow: hidden;
+            padding: 16px;
+        }
+
+        /* FullCalendar 다크 테마 */
+        .fc {
+            height: 100%;
+            color: #c9d1d9;
+        }
+
+        .fc-theme-standard td,
+        .fc-theme-standard th {
+            border-color: #21262d;
+        }
+
+        .fc-theme-standard .fc-scrollgrid {
+            border-color: #21262d;
+        }
+
+        .fc-col-header-cell {
+            background: #161b22;
+        }
+
+        .fc-timegrid-slot {
+            border-color: #21262d;
+        }
+
+        .fc-timegrid-slot-label {
+            color: #6e7681;
+            font-size: .75rem;
+        }
+
+        .fc-day-today {
+            background: rgba(29, 111, 235, .08) !important;
+        }
+
+        .fc-button {
+            background: #21262d !important;
+            border-color: #30363d !important;
+            color: #c9d1d9 !important;
+            font-size: .8rem !important;
+        }
+
+        .fc-button:hover {
+            background: #30363d !important;
+        }
+
+        .fc-button-primary:not(:disabled).fc-button-active {
+            background: #1d6feb !important;
+            border-color: #1d6feb !important;
+            color: #fff !important;
+        }
+
+        .fc-toolbar-title {
+            font-size: 1rem !important;
+            color: #c9d1d9 !important;
+        }
+
+        .fc-event {
+            cursor: pointer;
+            font-size: .78rem !important;
+            border-radius: 6px !important;
+            border: none !important;
+        }
+
+        .fc-popover {
+            background: #161b22 !important;
+            border: 1px solid #30363d !important;
+        }
+
+        .fc-popover-title {
+            background: #21262d !important;
+            color: #c9d1d9 !important;
+        }
+
+        .fc-daygrid-event-dot {
+            border-color: currentColor !important;
+        }
+
+        /* ── 모달 ── */
+        .modal-bg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .75);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-bg.show {
+            display: flex;
+        }
+
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 24px;
+            width: min(520px, 95vw);
+            max-height: 90dvh;
+            overflow-y: auto;
+        }
+
+        .modal-title {
+            font-size: .95rem;
+            font-weight: 700;
+            color: #58a6ff;
+            margin-bottom: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-x {
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-label {
+            font-size: .75rem;
+            color: #6e7681;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #c9d1d9;
+            padding: 9px 12px;
+            font-size: .84rem;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            border-color: #58a6ff;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .prog-wrap {
+            height: 5px;
+            background: #21262d;
+            border-radius: 99px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .prog-bar {
+            height: 100%;
+            width: 0;
+            background: #1d6feb;
+            transition: width .2s;
+        }
+
+        .repeat-info {
+            font-size: .72rem;
+            color: #f59e0b;
+            background: rgba(245, 158, 11, .1);
+            border: 1px solid rgba(245, 158, 11, .3);
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-top: 6px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 18px;
+            justify-content: flex-end;
+        }
+
+        /* 영상 선택 목록 */
+        .video-list {
+            max-height: 140px;
+            overflow-y: auto;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+        }
+
+        .video-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background .15s;
+            font-size: .82rem;
+        }
+
+        .video-item:hover {
+            background: #21262d;
+        }
+
+        .video-item.selected {
+            background: #1a3a5c;
+        }
+
+        .video-item input[type=radio] {
+            accent-color: #1d6feb;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 99px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <span>📅</span>
+        <h1>영상 스케줄 관리</h1>
+        <div class="legend">
+            <div class="leg">
+                <div class="leg-dot" style="background:#166534"></div>1회
+            </div>
+            <div class="leg">
+                <div class="leg-dot" style="background:#1d6feb"></div>매일
+            </div>
+            <div class="leg">
+                <div class="leg-dot" style="background:#6d28d9"></div>매주
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-green" onclick="openAddModal()">＋ 스케줄 추가</button>
+            <a href="/video-player.html"><button class="btn-gray">📺 플레이어</button></a>
+        </div>
+    </div>
+
+    <div id="calendar-wrap">
+        <div id="calendar"></div>
+    </div>
+
+    <!-- ── 추가/수정 모달 ── -->
+    <div class="modal-bg" id="modal-bg">
+        <div class="modal" style="width:min(600px,96vw)">
+            <div class="modal-title">
+                <span id="modal-title-text">📌 스케줄 추가</span>
+                <span class="close-x" onclick="closeModal()">✕</span>
+            </div>
+
+            <!-- 시간/반복 설정 -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">시작 시간</label>
+                    <input class="form-input" id="f-start" type="time" value="09:00" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">종료 시간</label>
+                    <input class="form-input" id="f-end" type="time" value="18:00" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">반복 유형</label>
+                    <select class="form-select" id="f-repeat" onchange="onRepeatChange()">
+                        <option value="once">1회 (특정 날짜)</option>
+                        <option value="daily">매일</option>
+                        <option value="weekly">매주 같은 요일</option>
+                    </select>
+                </div>
+                <div class="form-group" id="date-group">
+                    <label class="form-label">날짜</label>
+                    <input class="form-input" id="f-date" type="date" />
+                </div>
+            </div>
+            <div class="repeat-info" id="repeat-info" style="display:none"></div>
+
+            <hr style="border-color:#21262d;margin:12px 0" />
+
+            <!-- 플레이리스트 -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:.8rem;color:#58a6ff;font-weight:600">🎬 재생 순서 목록</span>
+                <button class="btn-green btn-sm" onclick="addVideoRow()">＋ 영상 추가</button>
+            </div>
+
+            <div id="playlist-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+
+            <!-- 새 영상 업로드 공통 -->
+            <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:10px;margin-bottom:10px">
+                <div style="font-size:.74rem;color:#6e7681;margin-bottom:6px">📤 새 영상 업로드 후 목록에 추가</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input class="form-input" id="f-file" type="file" accept="video/*"
+                        style="flex:1;padding:6px;font-size:.78rem" />
+                    <button class="btn-blue btn-sm" onclick="uploadAndAdd()">업로드 후 추가</button>
+                </div>
+                <div class="prog-wrap" id="up-prog-wrap" style="display:none">
+                    <div class="prog-bar" id="up-prog"></div>
+                </div>
+                <div id="up-msg" style="font-size:.72rem;color:#6e7681;margin-top:3px"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-gray btn-sm" onclick="closeModal()">취소</button>
+                <button class="btn-blue btn-sm" onclick="saveSchedule()">💾 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+        let calendar;
+        let existingVideos = [];  // { filename, title } 중복제거 목록
+
+        // ── FullCalendar 초기화 ────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(el, {
+                locale: 'ko',
+                initialView: 'timeGridWeek',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay',
+                },
+                slotMinTime: '00:00', slotMaxTime: '24:00',
+                slotDuration: '00:30:00', slotLabelInterval: '01:00',
+                allDaySlot: false, nowIndicator: true, height: '100%',
+                events: fetchEvents,
+                eventClick: onEventClick,
+                dateClick: info => {
+                    const dt = new Date(info.dateStr);
+                    const hh = String(dt.getHours()).padStart(2, '0');
+                    const mm = String(dt.getMinutes()).padStart(2, '0');
+                    openAddModal(dt.toISOString().slice(0, 10), `${hh}:${mm}`);
+                },
+            });
+            calendar.render();
+        });
+
+        async function fetchEvents(info, success, failure) {
+            try {
+                const res = await fetch(`${API}/api/schedule/events?start=${info.startStr.slice(0, 10)}&end=${info.endStr.slice(0, 10)}`);
+                success(await res.json());
+            } catch (e) { failure(e); }
+        }
+
+        // ── 이벤트 클릭 (기존 수정은 단건 삭제만 지원) ───────────────────────────
+        async function onEventClick(info) {
+            const id = info.event.id;
+            if (!confirm(`"${info.event.title}" 스케줄을 삭제하시겠습니까?`)) return;
+            await fetch(`${API}/api/schedule/${id}`, { method: 'DELETE' });
+            calendar.refetchEvents();
+        }
+
+        // ── 모달 열기 ────────────────────────────────────────────────────────────
+        async function openAddModal(date = '', startTime = '09:00') {
+            await loadExistingVideos();
+            document.getElementById('f-start').value = startTime;
+            document.getElementById('f-end').value = addHour(startTime, 1);
+            document.getElementById('f-repeat').value = date ? 'once' : 'daily';
+            document.getElementById('f-date').value = date;
+            document.getElementById('up-msg').textContent = '';
+            document.getElementById('up-prog-wrap').style.display = 'none';
+            onRepeatChange();
+            // 첫 행 자동 추가
+            document.getElementById('playlist-rows').innerHTML = '';
+            addVideoRow();
+            document.getElementById('modal-bg').classList.add('show');
+        }
+
+        function closeModal() { document.getElementById('modal-bg').classList.remove('show'); }
+
+        function addHour(time, h) {
+            const [hh, mm] = time.split(':').map(Number);
+            return `${String(Math.min(hh + h, 23)).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+        }
+
+        function onRepeatChange() {
+            const type = document.getElementById('f-repeat').value;
+            document.getElementById('date-group').style.display = type === 'daily' ? 'none' : '';
+            const info = document.getElementById('repeat-info');
+            if (type === 'daily') {
+                info.style.display = ''; info.textContent = '⚡ 매일 반복 — 해당 시간대에 매일 재생됩니다.';
+            } else if (type === 'weekly') {
+                info.style.display = ''; info.textContent = '📅 선택한 날짜의 요일마다 반복됩니다.';
+            } else { info.style.display = 'none'; }
+        }
+
+        // ── 기존 영상 목록 로드 ───────────────────────────────────────────────────
+        async function loadExistingVideos() {
+            const res = await fetch(`${API}/api/schedule`);
+            const all = await res.json();
+            existingVideos = [...new Map(all.map(s => [s.filename, s])).values()];
+        }
+
+        // ── 영상 행 추가 ──────────────────────────────────────────────────────────
+        let rowId = 0;
+        function addVideoRow(filename = '', title = '') {
+            const id = ++rowId;
+            const opts = existingVideos.map(v =>
+                `<option value="${v.filename}" ${v.filename === filename ? 'selected' : ''}>${v.title} (${v.filename.slice(0, 10)}…)</option>`
+            ).join('');
+
+            const row = document.createElement('div');
+            row.id = `row-${id}`;
+            row.style.cssText = 'display:flex;gap:8px;align-items:center;background:#0d1117;border:1px solid #21262d;border-radius:10px;padding:8px 10px';
+            row.innerHTML = `
+                <span style="color:#6e7681;font-size:.8rem;flex-shrink:0">#<span class="row-num"></span></span>
+                <select class="form-select" id="row-sel-${id}" style="flex:1;padding:7px 10px;font-size:.82rem">
+                    ${opts.length ? `<option value="">— 영상 선택 —</option>${opts}` : '<option value="">업로드한 영상 없음</option>'}
+                </select>
+                <button class="btn-red btn-sm" onclick="removeRow(${id})" style="flex-shrink:0">✕</button>`;
+            document.getElementById('playlist-rows').appendChild(row);
+            reorderRowNums();
+        }
+
+        function removeRow(id) {
+            const el = document.getElementById(`row-${id}`);
+            if (el) el.remove();
+            reorderRowNums();
+        }
+
+        function reorderRowNums() {
+            document.querySelectorAll('#playlist-rows .row-num').forEach((el, i) => el.textContent = i + 1);
+        }
+
+        // ── 업로드 후 행 자동 추가 ───────────────────────────────────────────────
+        async function uploadAndAdd() {
+            const file = document.getElementById('f-file').files[0];
+            if (!file) { alert('파일을 선택하세요'); return; }
+
+            document.getElementById('up-prog-wrap').style.display = 'block';
+            document.getElementById('up-prog').style.width = '0';
+            document.getElementById('up-msg').textContent = '업로드 중...';
+
+            const form = new FormData();
+            form.append('video', file);
+            form.append('title', file.name.replace(/\.[^.]+$/, ''));
+            form.append('sortOrder', '0');
+            form.append('startTime', document.getElementById('f-start').value);
+            form.append('endTime', document.getElementById('f-end').value);
+            form.append('repeatType', 'once');  // 임시 — 실제 저장 시 덮어씀
+            form.append('playDate', '2000-01-01'); // 임시
+
+            const result = await new Promise(resolve => {
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = e => {
+                    if (e.lengthComputable)
+                        document.getElementById('up-prog').style.width = (e.loaded / e.total * 100) + '%';
+                };
+                xhr.onload = () => resolve(xhr.status < 300 ? JSON.parse(xhr.responseText) : null);
+                xhr.onerror = () => resolve(null);
+                xhr.open('POST', `${API}/api/schedule`);
+                xhr.send(form);
+            });
+
+            if (!result) { document.getElementById('up-msg').textContent = '❌ 업로드 실패'; return; }
+            document.getElementById('up-msg').textContent = `✅ ${result.title || file.name} 업로드 완료 — 목록에 추가됨`;
+            document.getElementById('f-file').value = '';
+
+            // 새 영상을 droptdown에 반영
+            existingVideos.push({ filename: result.filename, title: result.title || file.name });
+            // 기존 select 모두 갱신
+            document.querySelectorAll('#playlist-rows select').forEach(sel => {
+                const wasEmpty = !sel.querySelector('option[value]:not([value=""])');
+                if (wasEmpty) sel.innerHTML = '<option value="">— 영상 선택 —</option>';
+                const opt = document.createElement('option');
+                opt.value = result.filename;
+                opt.textContent = `${result.title || file.name} (${result.filename.slice(0, 10)}…)`;
+                sel.appendChild(opt);
+            });
+            addVideoRow(result.filename);
+        }
+
+        // ── 저장 (각 행마다 DB 등록) ─────────────────────────────────────────────
+        async function saveSchedule() {
+            const startTime = document.getElementById('f-start').value;
+            const endTime = document.getElementById('f-end').value;
+            const repeatType = document.getElementById('f-repeat').value;
+            const playDate = repeatType === 'daily' ? null : document.getElementById('f-date').value;
+
+            if (repeatType !== 'daily' && !playDate) { alert('날짜를 선택하세요'); return; }
+            if (startTime >= endTime) { alert('종료 시간이 시작 시간보다 늦어야 합니다'); return; }
+
+            const rows = [...document.querySelectorAll('#playlist-rows select')];
+            const selected = rows.map((sel, idx) => ({
+                filename: sel.value,
+                title: sel.options[sel.selectedIndex]?.text.split(' (')[0] || '',
+                sortOrder: idx,
+            })).filter(r => r.filename);
+
+            if (!selected.length) { alert('영상을 최소 1개 이상 선택하세요'); return; }
+
+            await Promise.all(selected.map(item =>
+                fetch(`${API}/api/schedule`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: item.title,
+                        filename: item.filename,
+                        startTime, endTime, repeatType,
+                        playDate: playDate || null,
+                        sortOrder: item.sortOrder,
+                    }),
+                })
+            ));
+
+            calendar.refetchEvents();
+            closeModal();
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    </script>
+</body>
+
+</html>

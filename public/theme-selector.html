@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테마 선택 - 노래방 선곡 시스템</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="./css/styles.css">
+    <link rel="stylesheet" href="./css/theme-selector.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">🎨 테마 선택</h1>
+                <nav class="nav-tabs">
+                    <button class="nav-tab" onclick="location.href='music_select.html'">메인으로</button>
+                    <button class="nav-tab" onclick="location.href='color-table.html'">색상 테이블</button>
+                    <button class="nav-tab active" onclick="location.href='theme-selector.html'">테마 선택</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <div class="theme-selector-container">
+                <div class="section-header">
+                    <h2 class="section-title">테마 선택</h2>
+                    <p class="section-subtitle">원하는 테마를 선택하여 노래방 시스템의 분위기를 바꿔보세요</p>
+                </div>
+
+                <!-- Theme Grid -->
+                <div class="theme-grid">
+                    <!-- Purple Dream (Default) -->
+                    <div class="theme-card active" data-theme="purple-dream">
+                        <div class="theme-preview purple-dream-preview">
+                            <div class="preview-header">
+                                <div class="preview-title">🎤 노래방 선곡</div>
+                                <div class="preview-tabs">
+                                    <span class="preview-tab active">선곡</span>
+                                    <span class="preview-tab">예약</span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-card">
+                                    <div class="preview-badge">43215</div>
+                                    <div class="preview-text">사랑했지만</div>
+                                    <div class="preview-subtext">김광석</div>
+                                    <div class="preview-button">예약하기</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Purple Dream</div>
+                            <div class="theme-description">기본 보라색-핑크 그라디언트 테마</div>
+                            <div class="theme-colors">
+                                <span class="theme-color" style="background: hsl(280, 85%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(330, 85%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(200, 90%, 55%);"></span>
+                            </div>
+                        </div>
+                        <button class="apply-theme-btn active">적용됨</button>
+                    </div>
+
+                    <!-- Ocean Blue -->
+                    <div class="theme-card" data-theme="ocean-blue">
+                        <div class="theme-preview ocean-blue-preview">
+                            <div class="preview-header">
+                                <div class="preview-title">🎤 노래방 선곡</div>
+                                <div class="preview-tabs">
+                                    <span class="preview-tab active">선곡</span>
+                                    <span class="preview-tab">예약</span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-card">
+                                    <div class="preview-badge">43215</div>
+                                    <div class="preview-text">사랑했지만</div>
+                                    <div class="preview-subtext">김광석</div>
+                                    <div class="preview-button">예약하기</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Ocean Blue</div>
+                            <div class="theme-description">시원한 파란색 계열 테마</div>
+                            <div class="theme-colors">
+                                <span class="theme-color" style="background: hsl(200, 85%, 55%);"></span>
+                                <span class="theme-color" style="background: hsl(220, 85%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(180, 80%, 50%);"></span>
+                            </div>
+                        </div>
+                        <button class="apply-theme-btn">적용하기</button>
+                    </div>
+
+                    <!-- Sunset Orange -->
+                    <div class="theme-card" data-theme="sunset-orange">
+                        <div class="theme-preview sunset-orange-preview">
+                            <div class="preview-header">
+                                <div class="preview-title">🎤 노래방 선곡</div>
+                                <div class="preview-tabs">
+                                    <span class="preview-tab active">선곡</span>
+                                    <span class="preview-tab">예약</span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-card">
+                                    <div class="preview-badge">43215</div>
+                                    <div class="preview-text">사랑했지만</div>
+                                    <div class="preview-subtext">김광석</div>
+                                    <div class="preview-button">예약하기</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Sunset Orange</div>
+                            <div class="theme-description">따뜻한 오렌지-레드 테마</div>
+                            <div class="theme-colors">
+                                <span class="theme-color" style="background: hsl(25, 95%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(0, 85%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(45, 95%, 60%);"></span>
+                            </div>
+                        </div>
+                        <button class="apply-theme-btn">적용하기</button>
+                    </div>
+
+                    <!-- Mint Fresh -->
+                    <div class="theme-card" data-theme="mint-fresh">
+                        <div class="theme-preview mint-fresh-preview">
+                            <div class="preview-header">
+                                <div class="preview-title">🎤 노래방 선곡</div>
+                                <div class="preview-tabs">
+                                    <span class="preview-tab active">선곡</span>
+                                    <span class="preview-tab">예약</span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-card">
+                                    <div class="preview-badge">43215</div>
+                                    <div class="preview-text">사랑했지만</div>
+                                    <div class="preview-subtext">김광석</div>
+                                    <div class="preview-button">예약하기</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Mint Fresh</div>
+                            <div class="theme-description">상쾌한 민트-그린 테마</div>
+                            <div class="theme-colors">
+                                <span class="theme-color" style="background: hsl(160, 70%, 55%);"></span>
+                                <span class="theme-color" style="background: hsl(140, 70%, 55%);"></span>
+                                <span class="theme-color" style="background: hsl(180, 65%, 50%);"></span>
+                            </div>
+                        </div>
+                        <button class="apply-theme-btn">적용하기</button>
+                    </div>
+
+                    <!-- Rose Pink -->
+                    <div class="theme-card" data-theme="rose-pink">
+                        <div class="theme-preview rose-pink-preview">
+                            <div class="preview-header">
+                                <div class="preview-title">🎤 노래방 선곡</div>
+                                <div class="preview-tabs">
+                                    <span class="preview-tab active">선곡</span>
+                                    <span class="preview-tab">예약</span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-card">
+                                    <div class="preview-badge">43215</div>
+                                    <div class="preview-text">사랑했지만</div>
+                                    <div class="preview-subtext">김광석</div>
+                                    <div class="preview-button">예약하기</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Rose Pink</div>
+                            <div class="theme-description">로맨틱한 핑크 계열 테마</div>
+                            <div class="theme-colors">
+                                <span class="theme-color" style="background: hsl(340, 80%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(320, 75%, 65%);"></span>
+                                <span class="theme-color" style="background: hsl(0, 70%, 70%);"></span>
+                            </div>
+                        </div>
+                        <button class="apply-theme-btn">적용하기</button>
+                    </div>
+
+                    <!-- Neon Cyber -->
+                    <div class="theme-card" data-theme="neon-cyber">
+                        <div class="theme-preview neon-cyber-preview">
+                            <div class="preview-header">
+                                <div class="preview-title">🎤 노래방 선곡</div>
+                                <div class="preview-tabs">
+                                    <span class="preview-tab active">선곡</span>
+                                    <span class="preview-tab">예약</span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-card">
+                                    <div class="preview-badge">43215</div>
+                                    <div class="preview-text">사랑했지만</div>
+                                    <div class="preview-subtext">김광석</div>
+                                    <div class="preview-button">예약하기</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Neon Cyber</div>
+                            <div class="theme-description">사이버펑크 네온 테마</div>
+                            <div class="theme-colors">
+                                <span class="theme-color" style="background: hsl(300, 100%, 60%);"></span>
+                                <span class="theme-color" style="background: hsl(180, 100%, 50%);"></span>
+                                <span class="theme-color" style="background: hsl(60, 100%, 50%);"></span>
+                            </div>
+                        </div>
+                        <button class="apply-theme-btn">적용하기</button>
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="preview-section">
+                    <h3 class="preview-section-title">실시간 미리보기</h3>
+                    <div class="live-preview">
+                        <div class="live-preview-header">
+                            <h1 class="live-preview-title">🎤 노래방 선곡</h1>
+                        </div>
+                        <div class="live-preview-content">
+                            <div class="live-preview-card">
+                                <div class="live-preview-number">43215</div>
+                                <div class="live-preview-song">사랑했지만</div>
+                                <div class="live-preview-artist">김광석</div>
+                                <button class="live-preview-button">예약하기</button>
+                            </div>
+                            <div class="live-preview-card">
+                                <div class="live-preview-number">58392</div>
+                                <div class="live-preview-song">거리에서</div>
+                                <div class="live-preview-artist">성시경</div>
+                                <button class="live-preview-button">예약하기</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="./js/theme-selector.js"></script>
+</body>
+
+</html>

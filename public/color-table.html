@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>색상 테이블 - 노래방 선곡 시스템</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="./css/styles.css">
+    <link rel="stylesheet" href="./css/color-table.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">🎨 색상 테이블</h1>
+                <nav class="nav-tabs">
+                    <button class="nav-tab" onclick="location.href='music_select.html'">메인으로</button>
+                    <button class="nav-tab active" onclick="location.href='color-table.html'">색상 테이블</button>
+                    <button class="nav-tab" onclick="location.href='theme-selector.html'">테마 선택</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <div class="color-table-container">
+                <div class="section-header">
+                    <h2 class="section-title">현재 테마 색상</h2>
+                    <p class="section-subtitle">시스템에서 사용 중인 모든 색상 변수를 확인할 수 있습니다</p>
+                </div>
+
+                <!-- Primary Colors -->
+                <section class="color-section">
+                    <h3 class="color-section-title">주요 색상 (Primary Colors)</h3>
+                    <div class="color-grid">
+                        <div class="color-card" data-var="--color-primary">
+                            <div class="color-preview" style="background: var(--color-primary);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Primary</div>
+                                <div class="color-var">--color-primary</div>
+                                <div class="color-value" id="val-primary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-primary-light">
+                            <div class="color-preview" style="background: var(--color-primary-light);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Primary Light</div>
+                                <div class="color-var">--color-primary-light</div>
+                                <div class="color-value" id="val-primary-light"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-primary-dark">
+                            <div class="color-preview" style="background: var(--color-primary-dark);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Primary Dark</div>
+                                <div class="color-var">--color-primary-dark</div>
+                                <div class="color-value" id="val-primary-dark"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Secondary Colors -->
+                <section class="color-section">
+                    <h3 class="color-section-title">보조 색상 (Secondary Colors)</h3>
+                    <div class="color-grid">
+                        <div class="color-card" data-var="--color-secondary">
+                            <div class="color-preview" style="background: var(--color-secondary);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Secondary</div>
+                                <div class="color-var">--color-secondary</div>
+                                <div class="color-value" id="val-secondary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-secondary-light">
+                            <div class="color-preview" style="background: var(--color-secondary-light);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Secondary Light</div>
+                                <div class="color-var">--color-secondary-light</div>
+                                <div class="color-value" id="val-secondary-light"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-accent">
+                            <div class="color-preview" style="background: var(--color-accent);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Accent</div>
+                                <div class="color-var">--color-accent</div>
+                                <div class="color-value" id="val-accent"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-accent-light">
+                            <div class="color-preview" style="background: var(--color-accent-light);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Accent Light</div>
+                                <div class="color-var">--color-accent-light</div>
+                                <div class="color-value" id="val-accent-light"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Status Colors -->
+                <section class="color-section">
+                    <h3 class="color-section-title">상태 색상 (Status Colors)</h3>
+                    <div class="color-grid">
+                        <div class="color-card" data-var="--color-success">
+                            <div class="color-preview" style="background: var(--color-success);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Success</div>
+                                <div class="color-var">--color-success</div>
+                                <div class="color-value" id="val-success"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-warning">
+                            <div class="color-preview" style="background: var(--color-warning);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Warning</div>
+                                <div class="color-var">--color-warning</div>
+                                <div class="color-value" id="val-warning"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-danger">
+                            <div class="color-preview" style="background: var(--color-danger);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Danger</div>
+                                <div class="color-var">--color-danger</div>
+                                <div class="color-value" id="val-danger"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Background Colors -->
+                <section class="color-section">
+                    <h3 class="color-section-title">배경 색상 (Background Colors)</h3>
+                    <div class="color-grid">
+                        <div class="color-card" data-var="--color-bg-primary">
+                            <div class="color-preview"
+                                style="background: var(--color-bg-primary); border: 1px solid var(--color-border);">
+                            </div>
+                            <div class="color-info">
+                                <div class="color-name">BG Primary</div>
+                                <div class="color-var">--color-bg-primary</div>
+                                <div class="color-value" id="val-bg-primary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-bg-secondary">
+                            <div class="color-preview"
+                                style="background: var(--color-bg-secondary); border: 1px solid var(--color-border);">
+                            </div>
+                            <div class="color-info">
+                                <div class="color-name">BG Secondary</div>
+                                <div class="color-var">--color-bg-secondary</div>
+                                <div class="color-value" id="val-bg-secondary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-bg-tertiary">
+                            <div class="color-preview"
+                                style="background: var(--color-bg-tertiary); border: 1px solid var(--color-border);">
+                            </div>
+                            <div class="color-info">
+                                <div class="color-name">BG Tertiary</div>
+                                <div class="color-var">--color-bg-tertiary</div>
+                                <div class="color-value" id="val-bg-tertiary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-bg-glass">
+                            <div class="color-preview"
+                                style="background: var(--color-bg-glass); border: 1px solid var(--color-border);"></div>
+                            <div class="color-info">
+                                <div class="color-name">BG Glass</div>
+                                <div class="color-var">--color-bg-glass</div>
+                                <div class="color-value" id="val-bg-glass"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Text Colors -->
+                <section class="color-section">
+                    <h3 class="color-section-title">텍스트 색상 (Text Colors)</h3>
+                    <div class="color-grid">
+                        <div class="color-card" data-var="--color-text-primary">
+                            <div class="color-preview" style="background: var(--color-text-primary);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Text Primary</div>
+                                <div class="color-var">--color-text-primary</div>
+                                <div class="color-value" id="val-text-primary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-text-secondary">
+                            <div class="color-preview" style="background: var(--color-text-secondary);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Text Secondary</div>
+                                <div class="color-var">--color-text-secondary</div>
+                                <div class="color-value" id="val-text-secondary"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-text-tertiary">
+                            <div class="color-preview" style="background: var(--color-text-tertiary);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Text Tertiary</div>
+                                <div class="color-var">--color-text-tertiary</div>
+                                <div class="color-value" id="val-text-tertiary"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Border Colors -->
+                <section class="color-section">
+                    <h3 class="color-section-title">테두리 색상 (Border Colors)</h3>
+                    <div class="color-grid">
+                        <div class="color-card" data-var="--color-border">
+                            <div class="color-preview" style="background: var(--color-border);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Border</div>
+                                <div class="color-var">--color-border</div>
+                                <div class="color-value" id="val-border"></div>
+                            </div>
+                        </div>
+
+                        <div class="color-card" data-var="--color-divider">
+                            <div class="color-preview" style="background: var(--color-divider);"></div>
+                            <div class="color-info">
+                                <div class="color-name">Divider</div>
+                                <div class="color-var">--color-divider</div>
+                                <div class="color-value" id="val-divider"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="./js/color-table.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FUNYMUSIC</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --cyan: #00e5ff;
+            --magenta: #d400ff;
+            --yellow: #c8ff00;
+            --text: #ffffff;
+            --dim: #aaaaaa;
+            --surface: #111118;
+            --glow-cyan: 0 0 8px #00e5ff, 0 0 20px rgba(0, 229, 255, 0.4);
+            --glow-mag: 0 0 8px #d400ff, 0 0 20px rgba(212, 0, 255, 0.4);
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Noto Sans KR', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            user-select: none;
+        }
+
+        /* ── 전체 레이아웃 ── */
+        .root {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            width: 100vw;
+            height: 100vh;
+            min-width: 320px;
+        }
+
+        /* ── 헤더 ── */
+        header {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            background: #06060c;
+            border-bottom: 2px solid var(--cyan);
+            box-shadow: var(--glow-cyan);
+            min-height: 44px;
+            flex-wrap: nowrap;
+        }
+
+        .logo {
+            font-size: clamp(0.85rem, 2vw, 1.4rem);
+            font-weight: 900;
+            color: var(--yellow);
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(200, 255, 0, .8);
+            flex-shrink: 0;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+
+        .status-msg {
+            flex: 1;
+            text-align: center;
+            font-size: clamp(0.75rem, 2.2vw, 1.35rem);
+            font-weight: 700;
+            color: var(--cyan);
+            text-shadow: var(--glow-cyan);
+            letter-spacing: 0.5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 6px;
+        }
+
+        .table-no {
+            text-align: right;
+            font-size: clamp(0.72rem, 1.5vw, 1.1rem);
+            font-weight: 700;
+            color: var(--text);
+            flex-shrink: 0;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        .table-no span {
+            font-size: clamp(0.9rem, 2vw, 1.6rem);
+            font-weight: 900;
+            color: var(--cyan);
+        }
+
+        /* ── 바디 ── */
+        .body {
+            display: grid;
+            grid-template-columns: minmax(90px, 13%) 1fr minmax(130px, 22%);
+            overflow: hidden;
+        }
+
+        /* ── 좌측 메뉴 ── */
+        .left-menu {
+            background: #080810;
+            border-right: 2px solid var(--cyan);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: center;
+            padding: clamp(6px, 1.5vw, 12px) clamp(4px, 1vw, 8px);
+            overflow: hidden;
+        }
+
+        .left-menu>*+* {
+            margin-top: clamp(4px, 1vh, 10px);
+        }
+
+        .menu-btn {
+            width: 100%;
+            padding: clamp(6px, 1.5vh, 13px) 0;
+            background: transparent;
+            border: 2px solid var(--cyan);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: clamp(0.7rem, 1.8vw, 1rem);
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background .15s, box-shadow .15s;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .menu-btn:hover,
+        .menu-btn:active {
+            background: rgba(0, 229, 255, .12);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .center {
+            display: flex;
+            flex-direction: column;
+            padding: clamp(6px, 1.5vw, 12px);
+            min-width: 0;
+        }
+
+        .center>*+* {
+            margin-top: clamp(4px, 1vh, 10px);
+        }
+
+        /* 영상 영역 */
+        .video-wrap {
+            flex: 1;
+            border: 2px solid var(--cyan);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+            box-shadow: var(--glow-cyan);
+            min-height: 0;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-placeholder>*+* {
+            margin-top: 8px;
+        }
+
+        .video-placeholder .mic-icon {
+            font-size: 4rem;
+            opacity: .5;
+        }
+
+        .video-placeholder p {
+            color: var(--dim);
+            font-size: .9rem;
+        }
+
+        /* 노래방 영상 데모 — 가수 이미지 */
+        .video-inner {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(ellipse at 50% 80%, #1a003a, #000014);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stage-light {
+            position: absolute;
+            width: 200px;
+            height: 400px;
+            background: conic-gradient(from 160deg at 50% 0, transparent, rgba(180, 100, 255, .18), transparent);
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .singer-silhouette {
+            font-size: 6rem;
+            z-index: 1;
+            filter: drop-shadow(0 0 20px rgba(180, 100, 255, .8));
+            animation: sway 3s ease-in-out infinite;
+        }
+
+        @keyframes sway {
+
+            0%,
+            100% {
+                transform: rotate(-2deg);
+            }
+
+            50% {
+                transform: rotate(2deg);
+            }
+        }
+
+        .lyrics-overlay {
+            position: absolute;
+            bottom: 14px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 2;
+        }
+
+        .lyrics-overlay .current-lyric {
+            font-size: clamp(0.75rem, 1.8vw, 1.1rem);
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 8px #00e5ff;
+        }
+
+        .lyrics-overlay .next-lyric {
+            font-size: clamp(0.65rem, 1.3vw, 0.85rem);
+            color: var(--dim);
+            margin-top: 4px;
+        }
+
+        .event-bar {
+            flex-shrink: 0;
+            border: 2px solid var(--cyan);
+            border-radius: 6px;
+            padding: clamp(8px, 1.5vh, 14px) 12px;
+            background: #0c0c18;
+            box-shadow: var(--glow-cyan);
+            font-size: clamp(0.78rem, 1.8vw, 1.15rem);
+            font-weight: 700;
+            color: var(--text);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .event-bar-inner {
+            display: inline-block;
+            animation: marquee 18s linear infinite;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        /* ── 우측 패널 ── */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            border-left: 2px solid var(--cyan);
+            box-shadow: inset 2px 0 12px rgba(0, 229, 255, .05);
+        }
+
+        .song-list-wrap {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 14px;
+        }
+
+        .song-list-wrap::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .song-list-wrap::-webkit-scrollbar-thumb {
+            background: var(--cyan);
+            border-radius: 99px;
+        }
+
+        .song-list-title {
+            font-size: clamp(0.82rem, 1.5vw, 1rem);
+            font-weight: 700;
+            color: var(--cyan);
+            text-shadow: var(--glow-cyan);
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(0, 229, 255, .3);
+        }
+
+        .song-list {
+            list-style: none;
+        }
+
+        .song-list li {
+            padding: clamp(3px, 0.8vh, 5px) 0;
+            font-size: clamp(0.72rem, 1.4vw, 0.92rem);
+            border-bottom: 1px solid rgba(255, 255, 255, .05);
+            cursor: pointer;
+            transition: color .15s;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .song-list li>*+* {
+            margin-left: 8px;
+        }
+
+        .song-list li:hover {
+            color: var(--cyan);
+        }
+
+        .song-list li .num {
+            color: var(--dim);
+            font-size: .78rem;
+            width: 20px;
+            flex-shrink: 0;
+        }
+
+        .song-list li.playing {
+            color: var(--cyan);
+            font-weight: 700;
+        }
+
+        .song-list li.playing .num {
+            color: var(--magenta);
+        }
+
+        .call-btn-wrap {
+            padding: clamp(6px, 1.5vh, 12px) clamp(6px, 1.5vw, 14px);
+            border-top: 2px solid var(--magenta);
+            flex-shrink: 0;
+        }
+
+        .call-btn {
+            width: 100%;
+            padding: clamp(8px, 1.8vh, 14px) 0;
+            background: rgba(212, 0, 255, .15);
+            border: 2px solid var(--magenta);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: clamp(0.78rem, 1.8vw, 1.1rem);
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: center;
+            transition: background .15s, box-shadow .15s;
+            box-shadow: var(--glow-mag);
+        }
+
+        .call-btn:hover {
+            background: rgba(212, 0, 255, .35);
+        }
+
+        .call-btn.calling {
+            animation: pulse-btn 0.6s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse-btn {
+            from {
+                box-shadow: var(--glow-mag);
+            }
+
+            to {
+                box-shadow: 0 0 20px #d400ff, 0 0 50px rgba(212, 0, 255, .6);
+            }
+        }
+
+        /* ── 모달 (예약신청 등) ── */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: rgba(0, 0, 0, .8);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-box {
+            background: #0e0e1a;
+            border: 2px solid var(--cyan);
+            border-radius: 10px;
+            padding: 28px 32px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: var(--glow-cyan);
+        }
+
+        .modal-box h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--cyan);
+            margin-bottom: 18px;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: #060610;
+            border: 1px solid rgba(0, 229, 255, .5);
+            border-radius: 6px;
+            color: var(--text);
+            padding: 10px 12px;
+            font-size: .95rem;
+            font-family: inherit;
+            margin-bottom: 12px;
+            outline: none;
+        }
+
+        .modal-input:focus {
+            border-color: var(--cyan);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .modal-btns {
+            display: flex;
+            margin-top: 8px;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 11px 0;
+            border: 2px solid var(--cyan);
+            border-radius: 6px;
+            background: rgba(0, 229, 255, .1);
+            color: var(--text);
+            font-size: .95rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+        .modal-btn:hover {
+            background: rgba(0, 229, 255, .25);
+        }
+
+        .modal-btn.cancel {
+            border-color: rgba(255, 255, 255, .2);
+            background: none;
+        }
+
+        .modal-btn.cancel:hover {
+            background: rgba(255, 255, 255, .08);
+        }
+
+        /* 알림 토스트 */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            border: 1px solid var(--cyan);
+            border-radius: 8px;
+            padding: 12px 28px;
+            font-size: .92rem;
+            font-weight: 600;
+            color: var(--cyan);
+            box-shadow: var(--glow-cyan);
+            opacity: 0;
+            transition: opacity .3s;
+            z-index: 999;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* ── 예약신청 전용 모달 ── */
+        .rsv-modal {
+            background: #2255aa;
+            border: 3px solid #70b0ff;
+            border-radius: 12px;
+            padding: 0;
+            width: 92%;
+            max-width: 440px;
+            box-shadow: 0 0 30px rgba(0, 100, 255, .5);
+            overflow: hidden;
+        }
+
+        .rsv-header {
+            background: rgba(255, 255, 255, .15);
+            border: 2px solid rgba(255, 255, 255, .6);
+            border-radius: 8px;
+            margin: 14px 14px 10px;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: clamp(1rem, 3vw, 1.3rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .rsv-list {
+            padding: 0 14px;
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        .rsv-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .rsv-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .4);
+            border-radius: 99px;
+        }
+
+        .rsv-item {
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .2);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .rsv-item>*+* {
+            margin-left: 10px;
+        }
+
+        .rsv-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .rsv-title {
+            font-size: clamp(0.85rem, 2vw, 1rem);
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .rsv-sub {
+            font-size: clamp(0.7rem, 1.5vw, 0.82rem);
+            color: rgba(255, 255, 255, .7);
+            margin-top: 3px;
+        }
+
+        .rsv-meta {
+            text-align: right;
+            flex-shrink: 0;
+            font-size: clamp(0.7rem, 1.5vw, 0.82rem);
+        }
+
+        .rsv-key {
+            color: rgba(255, 255, 255, .85);
+            font-weight: 600;
+        }
+
+        .rsv-score {
+            color: rgba(255, 255, 255, .65);
+            margin-top: 3px;
+        }
+
+        .rsv-confirm-btn {
+            flex-shrink: 0;
+            padding: 10px 14px;
+            background: #ff8c7a;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: clamp(0.72rem, 1.6vw, 0.88rem);
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .15s, transform .1s;
+        }
+
+        .rsv-confirm-btn:hover {
+            background: #ff6b55;
+        }
+
+        .rsv-confirm-btn:active {
+            transform: scale(.96);
+        }
+
+        .rsv-confirm-btn.done {
+            background: #4caf88;
+        }
+
+        .rsv-note {
+            padding: 10px 14px 14px;
+            text-align: center;
+            font-size: clamp(0.7rem, 1.4vw, 0.82rem);
+            color: rgba(255, 255, 255, .75);
+            line-height: 1.5;
+        }
+
+        .rsv-add-row {
+            padding: 0 14px 10px;
+            display: flex;
+        }
+
+        .rsv-add-row>*+* {
+            margin-left: 8px;
+        }
+
+        .rsv-add-input {
+            flex: 1;
+            background: rgba(0, 0, 0, .3);
+            border: 1px solid rgba(255, 255, 255, .4);
+            border-radius: 6px;
+            color: #fff;
+            padding: 8px 10px;
+            font-size: .85rem;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .rsv-add-input::placeholder {
+            color: rgba(255, 255, 255, .4);
+        }
+
+        .rsv-add-input:focus {
+            border-color: rgba(255, 255, 255, .8);
+        }
+
+        .rsv-add-btn {
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, .2);
+            border: 1px solid rgba(255, 255, 255, .5);
+            border-radius: 6px;
+            color: #fff;
+            font-size: .85rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .rsv-add-btn:hover {
+            background: rgba(255, 255, 255, .3);
+        }
+
+        .rsv-close-btn {
+            display: block;
+            width: calc(100% - 28px);
+            margin: 0 14px 14px;
+            padding: 11px 0;
+            background: rgba(0, 0, 0, .3);
+            border: 2px solid rgba(255, 255, 255, .5);
+            border-radius: 8px;
+            color: #fff;
+            font-size: .9rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .rsv-close-btn:hover {
+            background: rgba(0, 0, 0, .5);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="root">
+
+        <!-- ── 헤더 ── -->
+        <header>
+            <div class="logo">FUNYMUSIC</div>
+            <div class="status-msg" id="status-msg">예약 승인 대기중입니다</div>
+            <div class="table-no">Table No. <span id="table-num">—</span></div>
+        </header>
+
+        <!-- ── 바디 ── -->
+        <div class="body">
+
+            <!-- 좌측 메뉴 -->
+            <aside class="left-menu">
+                <button class="menu-btn" onclick="openReservation()">예약신청</button>
+                <button class="menu-btn" onclick="openModal('search')">곡목검색</button>
+                <button class="menu-btn" onclick="openModal('record')">녹화예약</button>
+                <button class="menu-btn" onclick="openModal('match')">매치신청</button>
+                <button class="menu-btn" onclick="openModal('gift')">선물하기</button>
+                <button class="menu-btn" onclick="openModal('order')">주문하기</button>
+            </aside>
+
+            <!-- 중앙 -->
+            <main class="center">
+                <!-- 영상 -->
+                <div class="video-wrap">
+                    <div class="video-inner">
+                        <div class="stage-light"></div>
+                        <div class="singer-silhouette">🎤</div>
+                        <div class="lyrics-overlay">
+                            <div class="current-lyric" id="current-lyric">♪ 지금 재생 중인 곡이 없습니다</div>
+                            <div class="next-lyric" id="next-lyric">예약신청 버튼으로 곡을 예약하세요</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 이벤트 알림 -->
+                <div class="event-bar">
+                    <span class="event-bar-inner">
+                        🎉 이벤트 알림&nbsp;·&nbsp;신곡 이벤트&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        ⭐ 오늘의 인기곡 TOP 10 이벤트 진행중!&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        🎁 생일자 무료 음료 제공&nbsp;·&nbsp;직원에게 문의하세요&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        🎉 이벤트 알림&nbsp;·&nbsp;신곡 이벤트&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        ⭐ 오늘의 인기곡 TOP 10 이벤트 진행중!&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        🎁 생일자 무료 음료 제공&nbsp;·&nbsp;직원에게 문의하세요&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    </span>
+                </div>
+            </main>
+
+            <!-- 우측 패널 -->
+            <aside class="right-panel">
+                <div class="song-list-wrap">
+                    <div class="song-list-title">애창곡 리스트</div>
+                    <ul class="song-list" id="song-list">
+                        <li class="playing"><span class="num">1.</span>인기곡 01</li>
+                        <li><span class="num">2.</span>인기곡 02</li>
+                        <li><span class="num">3.</span>인기곡 03</li>
+                        <li><span class="num">4.</span>인기곡 04</li>
+                        <li><span class="num">5.</span>인기곡 05</li>
+                        <li><span class="num">6.</span>인기곡 06</li>
+                        <li><span class="num">7.</span>인기곡 07</li>
+                        <li><span class="num">8.</span>인기곡 08</li>
+                        <li><span class="num">9.</span>인기곡 09</li>
+                        <li><span class="num">10.</span>인기곡 10</li>
+                    </ul>
+                </div>
+                <div class="call-btn-wrap">
+                    <button class="call-btn" id="call-btn" onclick="callStaff()">직원호출</button>
+                </div>
+            </aside>
+
+        </div><!-- /body -->
+    </div><!-- /root -->
+
+    <!-- ── 모달 ── -->
+    <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+        <div class="modal-box">
+            <h2 id="modal-title"></h2>
+            <div id="modal-content"></div>
+            <div class="modal-btns">
+                <button class="modal-btn" id="modal-ok" onclick="modalConfirm()">확인</button>
+                <button class="modal-btn cancel" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 알림 -->
+    <div class="toast" id="toast"></div>
+
+    <!-- ── 예약신청 전용 모달 ── -->
+    <div class="modal-overlay" id="rsv-modal-overlay" onclick="if(event.target===this)closeReservation()">
+        <div class="rsv-modal">
+            <div class="rsv-header">예약곡 녹화 신청</div>
+            <div class="rsv-list" id="rsv-list"></div>
+            <!-- 신곡 추가 입력 -->
+            <div class="rsv-add-row">
+                <input class="rsv-add-input" id="rsv-new-title" placeholder="곡 제목" />
+                <input class="rsv-add-input" id="rsv-new-artist" placeholder="가수" style="max-width:90px" />
+                <button class="rsv-add-btn" onclick="addReservation()">추가</button>
+            </div>
+            <div class="rsv-note">
+                신청취소는 신청완료 버튼을 누르시고<br>확인 버튼을 누르시면 됩니다.
+            </div>
+            <button class="rsv-close-btn" onclick="closeReservation()">닫기</button>
+        </div>
+    </div>
+
+    <script>
+        // ── 테이블 번호 (URL 파라미터 ?table=5 or 기본값)
+        const params = new URLSearchParams(location.search);
+        const tableNum = params.get('table') || '—';
+        document.getElementById('table-num').textContent = tableNum;
+
+        // ── 곡 목록 클릭
+        document.querySelectorAll('#song-list li').forEach((li, idx) => {
+            li.addEventListener('click', () => {
+                document.querySelectorAll('#song-list li').forEach(el => el.classList.remove('playing'));
+                li.classList.add('playing');
+                const name = li.textContent.replace(/^\d+\.\s*/, '');
+                document.getElementById('current-lyric').textContent = `♪ ${name} — 재생 중`;
+                document.getElementById('next-lyric').textContent = '잠시 후 가사가 표시됩니다';
+                showToast(`🎵 "${name}" 재생 시작`);
+            });
+        });
+
+        // ── 직원 호출
+        let callTimer = null;
+        function callStaff() {
+            const btn = document.getElementById('call-btn');
+            if (btn.classList.contains('calling')) {
+                btn.classList.remove('calling');
+                btn.textContent = '직원호출';
+                clearTimeout(callTimer);
+                showToast('직원 호출이 취소되었습니다.');
+                return;
+            }
+            btn.classList.add('calling');
+            btn.textContent = '호출 중... (취소하려면 클릭)';
+            showToast('📣 직원을 호출했습니다. 잠시만 기다려주세요.');
+            callTimer = setTimeout(() => {
+                btn.classList.remove('calling');
+                btn.textContent = '직원호출';
+            }, 15000);
+        }
+
+        // ── 예약 목록 데이터
+        let reservations = [
+            { id: 1, title: '행복한 인연', num: '80275', artist: '영 조', key: 'Bbm(+1)', score: 78, done: false },
+            { id: 2, title: '꿈이어도 사랑할래요', num: '8141', artist: '임지훈', key: 'G', score: 64, done: false },
+            { id: 3, title: '잊었니 (드라마"신들...', num: '60533', artist: '이승철', key: 'G(-2)', score: 88, done: false },
+        ];
+        let rsvIdSeq = reservations.length;
+
+        function openReservation() {
+            renderRsvList();
+            document.getElementById('rsv-modal-overlay').classList.add('show');
+        }
+        function closeReservation() {
+            document.getElementById('rsv-modal-overlay').classList.remove('show');
+        }
+
+        function renderRsvList() {
+            const list = document.getElementById('rsv-list');
+            if (!reservations.length) {
+                list.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.6);padding:20px;font-size:.9rem">예약된 곡이 없습니다.<br>아래에서 곡을 추가하세요.</div>';
+                return;
+            }
+            list.innerHTML = reservations.map(r => `
+              <div class="rsv-item" id="rsv-item-${r.id}">
+                <div class="rsv-info">
+                  <div class="rsv-title">${r.title}</div>
+                  <div class="rsv-sub">${r.num}&nbsp;&nbsp;${r.artist}</div>
+                </div>
+                <div class="rsv-meta">
+                  <div class="rsv-key">${r.key}</div>
+                  <div class="rsv-score">${r.score}</div>
+                </div>
+                <button class="rsv-confirm-btn${r.done ? ' done' : ''}" onclick="toggleRsvDone(${r.id})">
+                  ${r.done ? '취소' : '신청완료'}
+                </button>
+              </div>`).join('');
+        }
+
+        function toggleRsvDone(id) {
+            const r = reservations.find(x => x.id === id);
+            if (!r) return;
+            r.done = !r.done;
+            renderRsvList();
+            if (r.done) showToast(`✅ "${r.title}" 신청 완료`);
+            else showToast(`↩️ "${r.title}" 신청 취소`);
+        }
+
+        function addReservation() {
+            const titleEl = document.getElementById('rsv-new-title');
+            const artistEl = document.getElementById('rsv-new-artist');
+            const title = titleEl.value.trim();
+            const artist = artistEl.value.trim();
+            if (!title) { titleEl.focus(); return; }
+            rsvIdSeq++;
+            const KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'Bb', 'Am', 'Dm'];
+            reservations.push({
+                id: rsvIdSeq, title, num: String(10000 + rsvIdSeq),
+                artist: artist || '—',
+                key: KEYS[Math.floor(Math.random() * KEYS.length)],
+                score: Math.floor(Math.random() * 40) + 55,
+                done: false
+            });
+            titleEl.value = ''; artistEl.value = '';
+            renderRsvList();
+            // 우측 곡 목록에도 추가
+            addSongToList(title);
+            showToast(`🎵 "${title}" 예약 추가!`);
+        }
+        const MODALS = {
+            reservation: {
+                title: '🎵 예약신청',
+                html: `<input class="modal-input" id="m-artist" placeholder="아티스트 이름" />
+             <input class="modal-input" id="m-song" placeholder="곡 제목" />`
+            },
+            search: {
+                title: '🔍 곡목검색',
+                html: `<input class="modal-input" id="m-search" placeholder="곡명 또는 아티스트 검색" />`
+            },
+            record: {
+                title: '📹 녹화예약',
+                html: `<p style="color:#aaa;font-size:.9rem;margin-bottom:12px">다음 곡부터 녹화를 시작합니다.</p>
+             <input class="modal-input" id="m-rec-name" placeholder="녹화 파일명 (선택)" />`
+            },
+            match: {
+                title: '🤝 매치신청',
+                html: `<p style="color:#aaa;font-size:.9rem;margin-bottom:12px">다른 방의 손님과 매치 대결을 신청합니다.</p>
+             <input class="modal-input" id="m-match-table" placeholder="상대방 테이블 번호" />`
+            },
+            gift: {
+                title: '🎁 선물하기',
+                html: `<input class="modal-input" id="m-gift-table" placeholder="받을 테이블 번호" />
+             <input class="modal-input" id="m-gift-msg" placeholder="메시지 (선택)" />`
+            },
+            order: {
+                title: '🍺 주문하기',
+                html: `<p style="color:#aaa;font-size:.9rem;margin-bottom:10px">주문할 항목을 선택하세요.</p>
+             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+               <button class="menu-btn" style="padding:10px;font-size:.88rem" onclick="addOrder('소주')">소주 ₩5,000</button>
+               <button class="menu-btn" style="padding:10px;font-size:.88rem" onclick="addOrder('맥주')">맥주 ₩5,000</button>
+               <button class="menu-btn" style="padding:10px;font-size:.88rem" onclick="addOrder('안주')">안주 ₩12,000</button>
+               <button class="menu-btn" style="padding:10px;font-size:.88rem" onclick="addOrder('콜라')">콜라 ₩3,000</button>
+             </div>
+             <p id="order-summary" style="color:var(--cyan);font-size:.82rem;margin-top:8px"></p>`
+            },
+        };
+
+        let orderItems = [];
+        function addOrder(name) {
+            orderItems.push(name);
+            document.getElementById('order-summary').textContent = '선택: ' + orderItems.join(', ');
+        }
+
+        let currentModal = null;
+        function openModal(type) {
+            const m = MODALS[type];
+            if (!m) return;
+            currentModal = type;
+            orderItems = [];
+            document.getElementById('modal-title').textContent = m.title;
+            document.getElementById('modal-content').innerHTML = m.html;
+            document.getElementById('modal').classList.add('show');
+        }
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+            currentModal = null;
+        }
+        function modalConfirm() {
+            const messages = {
+                reservation: () => {
+                    const a = document.getElementById('m-artist')?.value.trim();
+                    const s = document.getElementById('m-song')?.value.trim();
+                    if (!s) { alert('곡 제목을 입력해주세요.'); return false; }
+                    const text = a ? `${a} - ${s}` : s;
+                    addSongToList(text);
+                    showToast(`🎵 "${text}" 예약 완료!`);
+                    updateStatus(`"${text}" 예약 승인 대기중입니다`);
+                    return true;
+                },
+                search: () => { showToast('곡 검색 기능은 준비 중입니다.'); return true; },
+                record: () => { showToast('📹 녹화 예약이 완료되었습니다.'); return true; },
+                match: () => {
+                    const t = document.getElementById('m-match-table')?.value.trim();
+                    if (!t) { alert('테이블 번호를 입력하세요.'); return false; }
+                    showToast(`🤝 ${t}번 테이블에 매치 신청을 보냈습니다.`); return true;
+                },
+                gift: () => {
+                    const t = document.getElementById('m-gift-table')?.value.trim();
+                    if (!t) { alert('테이블 번호를 입력하세요.'); return false; }
+                    showToast(`🎁 ${t}번 테이블로 선물을 보냈습니다.`); return true;
+                },
+                order: () => {
+                    if (!orderItems.length) { alert('항목을 선택하세요.'); return false; }
+                    showToast(`✅ 주문 완료: ${orderItems.join(', ')}`); return true;
+                },
+            };
+            const fn = messages[currentModal];
+            if (fn && fn()) closeModal();
+        }
+
+        // 예약곡 목록에 추가
+        let songCount = 10;
+        function addSongToList(name) {
+            songCount++;
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="num">${songCount}.</span>${name}`;
+            li.addEventListener('click', () => {
+                document.querySelectorAll('#song-list li').forEach(el => el.classList.remove('playing'));
+                li.classList.add('playing');
+            });
+            document.getElementById('song-list').appendChild(li);
+        }
+
+        // 상태 메시지 업데이트
+        function updateStatus(msg) {
+            document.getElementById('status-msg').textContent = msg;
+        }
+
+        // 토스트 메시지
+        let toastTimer;
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+
+</html>

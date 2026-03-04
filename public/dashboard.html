@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>주문 대시보드</title>
+	<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap"
+		rel="stylesheet" />
+	<style>
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		:root {
+			--bg: #09090b;
+			--surface: #141417;
+			--border: #27272a;
+			--text: #fafafa;
+			--muted: #71717a;
+			--purple: #a855f7;
+			--blue: #3b82f6;
+			--green: #22c55e;
+			--yellow: #f59e0b;
+			--red: #ef4444;
+			--orange: #f97316;
+		}
+
+		body {
+			font-family: 'Pretendard', sans-serif;
+			font-size: 1.2rem;
+			background: var(--bg);
+			color: var(--text);
+			min-height: 100vh;
+		}
+
+		/* Header */
+		header {
+			background: linear-gradient(135deg, #1a0533, #0a0a1a, #001a33);
+			padding: 20px 28px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			border-bottom: 1px solid var(--border);
+		}
+
+		header h1 {
+			font-size: 1.3rem;
+			font-weight: 800;
+			background: linear-gradient(90deg, #c084fc, #60a5fa);
+			-webkit-background-clip: text;
+			background-clip: text;
+			-webkit-text-fill-color: transparent;
+		}
+
+		.nav-links {
+			display: flex;
+		}
+
+		.nav-links>*+* {
+			margin-left: 12px;
+		}
+
+		.nav-links a {
+			padding: 7px 16px;
+			border-radius: 8px;
+			font-size: 0.82rem;
+			font-weight: 600;
+			text-decoration: none;
+			color: var(--muted);
+			border: 1px solid var(--border);
+			transition: all .2s;
+		}
+
+		.nav-links a:hover,
+		.nav-links a.active {
+			border-color: var(--purple);
+			color: var(--purple);
+			background: #1a0533;
+		}
+
+		/* Main */
+		main {
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 28px 20px;
+		}
+
+		/* Stats Grid */
+		.stats-grid {
+			display: flex;
+			margin-bottom: 28px;
+			flex-wrap: wrap;
+		}
+
+		.stats-grid>*+* {
+			margin-left: 16px;
+		}
+
+		.stat-card {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 14px;
+			padding: 20px;
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+		}
+
+		.stat-card>*+* {
+			margin-top: 8px;
+		}
+
+		.stat-card .label {
+			font-size: 0.75rem;
+			color: var(--muted);
+			font-weight: 500;
+		}
+
+		.stat-card .value {
+			font-size: 2rem;
+			font-weight: 800;
+		}
+
+		.stat-card .sub {
+			font-size: 0.75rem;
+			color: var(--muted);
+		}
+
+		.stat-card .icon {
+			font-size: 1.4rem;
+			margin-bottom: 4px;
+		}
+
+		.c-purple {
+			color: var(--purple);
+		}
+
+		.c-green {
+			color: var(--green);
+		}
+
+		.c-blue {
+			color: var(--blue);
+		}
+
+		.c-yellow {
+			color: var(--yellow);
+		}
+
+		.c-red {
+			color: var(--red);
+		}
+
+		/* Section */
+		.section-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 20px;
+		}
+
+		@media(max-width:768px) {
+			.section-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		.card {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 14px;
+			overflow: hidden;
+		}
+
+		.card-header {
+			padding: 16px 20px;
+			border-bottom: 1px solid var(--border);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.card-header h2 {
+			font-size: 0.92rem;
+			font-weight: 700;
+		}
+
+		.card-body {
+			padding: 16px 20px;
+		}
+
+		/* Table grid visual */
+		.table-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+			gap: 10px;
+		}
+
+		.tbl-box {
+			aspect-ratio: 1;
+			border-radius: 10px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			font-size: 0.72rem;
+			font-weight: 700;
+			border: 2px solid;
+			cursor: pointer;
+			transition: transform .15s;
+		}
+
+		.tbl-box>*+* {
+			margin-top: 4px;
+		}
+
+		.tbl-box:hover {
+			transform: scale(1.05);
+		}
+
+		.tbl-box .tbl-num {
+			font-size: 1.1rem;
+			font-weight: 800;
+		}
+
+		.tbl-available {
+			background: #052e16;
+			border-color: #166534;
+			color: var(--green);
+		}
+
+		.tbl-occupied {
+			background: #1c1028;
+			border-color: #6d28d9;
+			color: var(--purple);
+		}
+
+		.tbl-reserved {
+			background: #1c1400;
+			border-color: #b45309;
+			color: var(--yellow);
+		}
+
+		/* Order list */
+		.order-list {
+			display: flex;
+			flex-direction: column;
+			max-height: 340px;
+			overflow-y: auto;
+		}
+
+		.order-list>*+* {
+			margin-top: 8px;
+		}
+
+		.order-row {
+			display: flex;
+			align-items: center;
+			padding: 10px 12px;
+			background: var(--bg);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+		}
+
+		.order-row>*+* {
+			margin-left: 10px;
+		}
+
+		.order-row .oid {
+			font-size: 0.7rem;
+			color: var(--muted);
+			width: 40px;
+		}
+
+		.order-row .otbl {
+			font-weight: 700;
+			font-size: 0.85rem;
+			flex: 1;
+		}
+
+		.order-row .oamt {
+			font-size: 0.85rem;
+			font-weight: 600;
+			color: var(--green);
+			margin-left: auto;
+		}
+
+		.badge {
+			font-size: 0.65rem;
+			padding: 2px 8px;
+			border-radius: 99px;
+			font-weight: 700;
+		}
+
+		.badge-pending {
+			background: #1c1400;
+			color: var(--yellow);
+		}
+
+		.badge-confirmed {
+			background: #1e3a5f;
+			color: var(--blue);
+		}
+
+		.badge-served {
+			background: #052e16;
+			color: var(--green);
+		}
+
+		.badge-paid {
+			background: #27272a;
+			color: var(--muted);
+		}
+
+		/* Revenue bar */
+		.rev-bar-wrap {
+			margin-top: 12px;
+		}
+
+		.rev-item {
+			display: flex;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+
+		.rev-item>*+* {
+			margin-left: 10px;
+		}
+
+		.rev-item .rev-label {
+			font-size: 0.78rem;
+			color: var(--muted);
+			width: 60px;
+			flex-shrink: 0;
+		}
+
+		.rev-bar-bg {
+			flex: 1;
+			height: 8px;
+			background: #1f1f23;
+			border-radius: 99px;
+			overflow: hidden;
+		}
+
+		.rev-bar {
+			height: 100%;
+			border-radius: 99px;
+			background: linear-gradient(90deg, var(--purple), var(--blue));
+			transition: width .8s ease;
+		}
+
+		.rev-item .rev-amt {
+			font-size: 0.78rem;
+			font-weight: 600;
+			width: 70px;
+			text-align: right;
+		}
+
+		/* Spinner */
+		.spinner {
+			width: 20px;
+			height: 20px;
+			border: 3px solid var(--border);
+			border-top-color: var(--purple);
+			border-radius: 50%;
+			animation: spin .7s linear infinite;
+			display: inline-block;
+		}
+
+		@keyframes spin {
+			to {
+				transform: rotate(360deg);
+			}
+		}
+
+		.loading-center {
+			display: flex;
+			justify-content: center;
+			padding: 24px;
+		}
+
+		::-webkit-scrollbar {
+			width: 4px;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: var(--border);
+			border-radius: 99px;
+		}
+	</style>
+</head>
+
+<body>
+	<header>
+		<h1>🍽️ 주문 대시보드</h1>
+		<nav class="nav-links">
+			<a href="dashboard.html" class="active">대시보드</a>
+			<a href="order-management.html">주문 관리</a>
+		</nav>
+	</header>
+
+	<main>
+		<!-- 통계 카드 -->
+		<div class="stats-grid" id="stats-grid">
+			<div class="loading-center"><span class="spinner"></span></div>
+		</div>
+
+		<div class="section-grid">
+			<!-- 테이블 현황 -->
+			<div class="card">
+				<div class="card-header">
+					<h2>🪑 테이블 현황</h2>
+				</div>
+				<div class="card-body">
+					<div class="table-grid" id="table-grid">
+						<div class="loading-center"><span class="spinner"></span></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- 최근 주문 -->
+			<div class="card">
+				<div class="card-header">
+					<h2>📋 최근 주문</h2>
+					<span id="order-count" style="font-size:.75rem;color:var(--muted)"></span>
+				</div>
+				<div class="card-body">
+					<div class="order-list" id="order-list">
+						<div class="loading-center"><span class="spinner"></span></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- 상태별 매출 -->
+			<div class="card" style="grid-column: 1 / -1">
+				<div class="card-header">
+					<h2>💰 상태별 주문 현황</h2>
+				</div>
+				<div class="card-body" id="status-bars">
+					<div class="loading-center"><span class="spinner"></span></div>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<script>
+		const API = "http://localhost:8081/api/order";
+		const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name);
+		/*
+		// :root 변수 변경 (전역 테마 변경 등에 유용)
+		document.documentElement.style.setProperty('--primary-color', '#ff0000');
+		// 특정 요소의 변수만 변경
+		const el = document.querySelector('.my-element');
+		el.style.setProperty('--my-var', '20px');
+		*/
+		async function get(path) {
+			const r = await fetch(API + path);
+			return r.json();
+		}
+
+		async function load() {
+			const [tables, orders] = await Promise.all([get("/tables"), get("/orders")]);
+
+			// ── 통계 카드 ──
+			const available = tables.filter(t => t.status === "available").length;
+			const occupied = tables.filter(t => t.status === "occupied").length;
+			const totalRev = orders.filter(o => o.status === "paid").reduce((s, o) => s + o.total_amount, 0);
+			const pending = orders.filter(o => o.status === "pending").length;
+
+			document.getElementById("stats-grid").innerHTML = `
+	<div class="stat-card"><div class="icon">🪑</div><div class="label">전체 테이블</div><div class="value c-blue">${tables.length}</div><div class="sub">등록된 테이블 수</div></div>
+	<div class="stat-card"><div class="icon">🟢</div><div class="label">빈 테이블</div><div class="value c-green">${available}</div><div class="sub">이용 가능</div></div>
+	<div class="stat-card"><div class="icon">🔴</div><div class="label">사용 중</div><div class="value c-purple">${occupied}</div><div class="sub">손님 착석</div></div>
+	<div class="stat-card"><div class="icon">📋</div><div class="label">전체 주문</div><div class="value c-yellow">${orders.length}</div><div class="sub">대기 ${pending}건</div></div>
+	<div class="stat-card"><div class="icon">💰</div><div class="label">누적 매출</div><div class="value c-green">${totalRev.toLocaleString()}원</div><div class="sub">결제 완료 기준</div></div>
+	`;
+
+			// ── 테이블 그리드 ──
+			document.getElementById("table-grid").innerHTML = tables.length
+				? tables.map(t => `
+		<div class="tbl-box tbl-${t.status}" onclick="location.href='order-management.html'">
+			<span class="tbl-num">${t.tableNumber}</span>
+			<span>${t.status === "available" ? "빈 테이블" : t.status === "occupied" ? "사용 중" : "예약"}</span>
+		</div>`).join("")
+				: "<p style='color:var(--muted);font-size:.82rem'>등록된 테이블이 없습니다.</p>";
+
+			// ── 최근 주문 ──
+			const sorted = [...orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 15);
+			document.getElementById("order-count").textContent = `총 ${orders.length}건`;
+			document.getElementById("order-list").innerHTML = sorted.length
+				? sorted.map(o => `
+		<div class="order-row">
+			<span class="oid">#${o.id}</span>
+			<span class="otbl">테이블 ${o.table_id}번</span>
+			<span class="badge badge-${o.status}">${{ "pending": "대기", "confirmed": "확인", "served": "서빙", "paid": "결제" }[o.status] ?? o.status}</span>
+			<span class="oamt">${o.total_amount.toLocaleString()}원</span>
+		</div>`).join("")
+				: "<p style='color:var(--muted);font-size:.82rem;padding:8px'>주문 내역이 없습니다.</p>";
+
+			// ── 상태별 현황 ──
+			const statuses = ["pending", "confirmed", "served", "paid"];
+			const labels = { pending: "대기", confirmed: "확인", served: "서빙", paid: "결제" };
+			const colors = {
+				pending: cssVar('--yellow'), confirmed: cssVar('--blue'), served: cssVar('--green'), paid: cssVar('--muted')
+			};
+			const max = Math.max(...statuses.map(s => orders.filter(o => o.status === s).length), 1);
+			document.getElementById("status-bars").innerHTML = `<div class="rev-bar-wrap">` +
+				statuses.map(s => {
+					const cnt = orders.filter(o => o.status === s).length;
+					const pct = (cnt / max * 100).toFixed(1);
+					return `<div class="rev-item">
+		<span class="rev-label">${labels[s]}</span>
+		<div class="rev-bar-bg"><div class="rev-bar" style="width:${pct}%"></div></div>
+		<span class="rev-amt">${cnt}건</span>
+		</div>`;
+				}).join("") + `</div>`;
+		}
+
+		load();
+		// setInterval(load, 15000); // 15초마다 새로고침
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📺 영상 플레이어</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #000;
+            color: #c9d1d9;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── 영상 영역 ── */
+        #player-wrap {
+            flex: 1;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* 오버레이 */
+        #overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, .7);
+            gap: 12px;
+            transition: opacity .4s;
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #overlay .icon {
+            font-size: 3.5rem;
+        }
+
+        #overlay .msg {
+            font-size: 1.1rem;
+            color: #aaa;
+        }
+
+        /* 현재 영상 정보 (상단) */
+        #now-playing {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 10px 18px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, .7) 0%, transparent 100%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity .3s;
+        }
+
+        #player-wrap:hover #now-playing {
+            opacity: 1;
+        }
+
+        .np-live {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: blink 1.2s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .2
+            }
+        }
+
+        #np-title {
+            font-size: .9rem;
+            font-weight: 600;
+        }
+
+        #np-index {
+            font-size: .78rem;
+            color: #aaa;
+            margin-left: auto;
+        }
+
+        /* ── 하단 컨트롤 바 ── */
+        #controls {
+            background: #0d1117;
+            border-top: 1px solid #21262d;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #playlist {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+
+        .pl-item {
+            flex-shrink: 0;
+            padding: 5px 12px;
+            border-radius: 99px;
+            font-size: .78rem;
+            background: #161b22;
+            border: 1px solid #30363d;
+            cursor: pointer;
+            transition: background .2s, border-color .2s;
+            white-space: nowrap;
+        }
+
+        .pl-item.active {
+            background: #1d6feb;
+            border-color: #58a6ff;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .pl-item:hover:not(.active) {
+            border-color: #58a6ff;
+        }
+
+        .ctrl-btn {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: .82rem;
+            cursor: pointer;
+            transition: background .2s;
+            white-space: nowrap;
+        }
+
+        .ctrl-btn:hover {
+            background: #21262d;
+        }
+
+        /* ── 관리 패널 (토글) ── */
+        #admin-panel {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #admin-panel.show {
+            display: flex;
+        }
+
+        .admin-box {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 24px;
+            width: min(680px, 95vw);
+            max-height: 90dvh;
+            overflow-y: auto;
+        }
+
+        .admin-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #58a6ff;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            cursor: pointer;
+            font-size: 1.3rem;
+            line-height: 1;
+        }
+
+        .upload-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto;
+            gap: 8px;
+            margin-bottom: 16px;
+            align-items: end;
+        }
+
+        .upload-form input,
+        .upload-form select {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #c9d1d9;
+            padding: 8px 10px;
+            font-size: .82rem;
+            outline: none;
+            width: 100%;
+        }
+
+        .lbl {
+            font-size: .72rem;
+            color: #6e7681;
+            margin-bottom: 4px;
+        }
+
+        .ab {
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: .82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .ab:hover {
+            opacity: .85;
+        }
+
+        .ab-blue {
+            background: #1d6feb;
+            color: #fff;
+        }
+
+        .ab-red {
+            background: #450a0a;
+            color: #f87171;
+            border: 1px solid #7f1d1d;
+        }
+
+        .sched-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .sched-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+
+        .sched-ord {
+            font-size: .8rem;
+            color: #6e7681;
+            width: 28px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .sched-name {
+            flex: 1;
+            font-size: .88rem;
+            font-weight: 500;
+        }
+
+        .sched-file {
+            font-size: .72rem;
+            color: #6e7681;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 99px;
+        }
+
+        .prog-wrap {
+            height: 3px;
+            background: #21262d;
+            border-radius: 99px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .prog-bar {
+            height: 100%;
+            width: 0;
+            background: #1d6feb;
+            transition: width .3s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 영상 영역 -->
+    <div id="player-wrap">
+        <video id="video" preload="auto"></video>
+
+        <!-- 현재 영상 정보 -->
+        <div id="now-playing">
+            <div class="np-live"></div>
+            <div id="np-title">로딩 중...</div>
+            <div id="np-index">-/-</div>
+        </div>
+
+        <!-- 로딩/빈 오버레이 -->
+        <div id="overlay">
+            <div class="icon">📺</div>
+            <div class="msg">스케줄을 불러오는 중...</div>
+        </div>
+    </div>
+
+    <!-- 컨트롤 바 -->
+    <div id="controls">
+        <div id="playlist"></div>
+        <button class="ctrl-btn" onclick="playPrev()">⏮ 이전</button>
+        <button class="ctrl-btn" onclick="playNext()">⏭ 다음</button>
+        <button class="ctrl-btn" onclick="toggleAdmin()">⚙️ 관리</button>
+    </div>
+
+    <!-- 관리 패널 -->
+    <div id="admin-panel">
+        <div class="admin-box">
+            <div class="admin-title">
+                <span>⚙️ 스케줄 관리</span>
+                <span class="close-btn" onclick="toggleAdmin()">✕</span>
+            </div>
+
+            <!-- 업로드 폼 -->
+            <div style="margin-bottom:8px;font-size:.82rem;color:#6e7681">▸ 새 영상 등록</div>
+            <div class="upload-form">
+                <div>
+                    <div class="lbl">제목</div>
+                    <input id="a-title" placeholder="영상 제목" />
+                </div>
+                <div>
+                    <div class="lbl">재생 순서</div>
+                    <input id="a-order" type="number" value="0" min="0" style="width:80px" />
+                </div>
+                <div>
+                    <div class="lbl">영상 파일</div>
+                    <input id="a-file" type="file" accept="video/*" />
+                </div>
+                <div style="display:flex;align-items:flex-end">
+                    <button class="ab ab-blue" onclick="addSchedule()">등록</button>
+                </div>
+            </div>
+
+            <div class="prog-wrap" id="up-prog-wrap" style="display:none">
+                <div class="prog-bar" id="up-prog"></div>
+            </div>
+            <div id="up-msg" style="font-size:.72rem;color:#6e7681;margin-top:4px"></div>
+
+            <hr style="border-color:#21262d;margin:16px 0" />
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <span style="font-size:.82rem;color:#6e7681">▸ 등록된 스케줄</span>
+                <button class="ab ab-blue" onclick="loadAdmin()" style="padding:5px 12px;font-size:.78rem">새로고침</button>
+            </div>
+            <div id="sched-list" class="sched-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+        let schedule = [];    // 전체 스케줄
+        let current = 0;    // 현재 인덱스
+
+        const video = document.getElementById('video');
+
+        // ── 스케줄 로드 ───────────────────────────────────────────────────────────
+        async function loadSchedule() {
+            try {
+                const res = await fetch(`${API}/api/schedule`);
+                schedule = await res.json();
+            } catch {
+                schedule = [];
+            }
+
+            if (!schedule.length) {
+                document.getElementById('overlay').classList.remove('hidden');
+                document.getElementById('overlay').querySelector('.msg').textContent = '등록된 스케줄이 없습니다';
+                document.getElementById('playlist').innerHTML = '';
+                return;
+            }
+
+            // 현재 시각에 맞는 스케줄만 필터링
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${year}-${month}-${day}`;
+            const timeStr = now.toTimeString().slice(0, 5);
+            const dow = now.getDay();
+
+            schedule = schedule.filter(item => {
+                if (!item.startTime || !item.endTime) return true; // 시간 미지정시 기본 포함
+                const inTime = item.startTime <= timeStr && timeStr <= item.endTime;
+                if (!inTime) return false;
+                if (item.repeatType === 'once') return item.playDate === todayStr;
+                if (item.repeatType === 'daily') return true;
+                if (item.repeatType === 'weekly') return item.playDate && new Date(item.playDate).getDay() === dow;
+                return false;
+            });
+
+            if (!schedule.length) {
+                document.getElementById('overlay').classList.remove('hidden');
+                document.getElementById('overlay').querySelector('.msg').textContent = '현재 시간에 재생 가능한 영상이 없습니다';
+                document.getElementById('playlist').innerHTML = '';
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+                return;
+            }
+
+            current = 0;
+
+            renderPlaylist();
+            playCurrent();
+        }
+
+        // ── 플레이리스트 렌더 ─────────────────────────────────────────────────────
+        function renderPlaylist() {
+            document.getElementById('playlist').innerHTML = schedule.map((s, i) => `
+			<div class="pl-item ${i === current ? 'active' : ''}" onclick="playAt(${i})">
+				${s.sortOrder}. ${s.title}
+			</div>`).join('');
+        }
+
+        // ── 재생 ─────────────────────────────────────────────────────────────────
+        function playCurrent() {
+            if (!schedule.length) return;
+            const item = schedule[current];
+
+            document.getElementById('overlay').classList.add('hidden');
+            document.getElementById('np-title').textContent = item.title;
+            document.getElementById('np-index').textContent = `${current + 1} / ${schedule.length}`;
+
+            video.src = `${API}/api/videos/${item.filename}`;
+            video.play().catch(() => { });
+            renderPlaylist();
+        }
+
+        function playAt(idx) {
+            current = idx;
+            playCurrent();
+        }
+
+        function playNext() {
+            current = (current + 1) % schedule.length;
+            playCurrent();
+        }
+
+        function playPrev() {
+            current = (current - 1 + schedule.length) % schedule.length;
+            playCurrent();
+        }
+
+        // 영상 끝나면 자동으로 다음
+        video.addEventListener('ended', playNext);
+
+        // 에러 시 5초 후 다음
+        video.addEventListener('error', () => {
+            setTimeout(playNext, 5000);
+        });
+
+        // ── 관리 패널 ─────────────────────────────────────────────────────────────
+        function toggleAdmin() {
+            const panel = document.getElementById('admin-panel');
+            panel.classList.toggle('show');
+            if (panel.classList.contains('show')) loadAdmin();
+        }
+
+        async function loadAdmin() {
+            try {
+                const res = await fetch(`${API}/api/schedule`);
+                const list = await res.json();
+                const el = document.getElementById('sched-list');
+                if (!list.length) { el.innerHTML = '<div style="color:#6e7681;font-size:.84rem;padding:12px">등록된 영상 없음</div>'; return; }
+                el.innerHTML = list.map(s => `
+				<div class="sched-row">
+					<div class="sched-ord">${s.sortOrder}</div>
+					<div style="flex:1">
+						<div class="sched-name">${s.title}</div>
+						<div class="sched-file">${s.filename}</div>
+					</div>
+					<button class="ab ab-red" onclick="deleteSchedule(${s.id})">삭제</button>
+				</div>`).join('');
+            } catch (e) {
+                document.getElementById('sched-list').innerHTML = '<div style="color:#f87171;font-size:.82rem">로드 실패</div>';
+            }
+        }
+
+        async function addSchedule() {
+            const title = document.getElementById('a-title').value.trim();
+            const order = document.getElementById('a-order').value;
+            const file = document.getElementById('a-file').files[0];
+            if (!title) { alert('제목을 입력하세요'); return; }
+            if (!file) { alert('영상 파일을 선택하세요'); return; }
+
+            const form = new FormData();
+            form.append('title', title);
+            form.append('sortOrder', order);
+            form.append('video', file);
+
+            document.getElementById('up-prog-wrap').style.display = 'block';
+            document.getElementById('up-msg').textContent = '업로드 중...';
+
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = e => {
+                    if (e.lengthComputable)
+                        document.getElementById('up-prog').style.width = (e.loaded / e.total * 100) + '%';
+                };
+                xhr.onload = () => {
+                    if (xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+                    else reject(new Error(xhr.responseText));
+                };
+                xhr.onerror = () => reject(new Error('네트워크 오류'));
+                xhr.open('POST', `${API}/api/schedule`);
+                xhr.send(form);
+            }).then(() => {
+                document.getElementById('up-msg').textContent = '✅ 등록 완료!';
+                document.getElementById('a-title').value = '';
+                document.getElementById('a-file').value = '';
+                loadAdmin();
+                loadSchedule();
+            }).catch(e => {
+                document.getElementById('up-msg').textContent = '❌ 실패: ' + e.message;
+            });
+        }
+
+        async function deleteSchedule(id) {
+            if (!confirm('이 스케줄을 삭제하시겠습니까?')) return;
+            await fetch(`${API}/api/schedule/${id}`, { method: 'DELETE' });
+            loadAdmin();
+            loadSchedule();
+        }
+
+        // ── 초기 로드 ─────────────────────────────────────────────────────────────
+        loadSchedule();
+    </script>
+</body>
+
+</html>

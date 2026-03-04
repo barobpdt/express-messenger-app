@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>WebRTC 파일 전송 (DB 시그널링)</title>
+	<style>
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			font-family: 'Segoe UI', sans-serif;
+			background: #0d1117;
+			color: #c9d1d9;
+			min-height: 100vh;
+			padding: 28px 16px;
+		}
+
+		h1 {
+			text-align: center;
+			font-size: 1.5rem;
+			margin-bottom: 6px;
+			background: linear-gradient(90deg, #58a6ff, #bf91f4);
+			-webkit-background-clip: text;
+			background-clip: text;
+			-webkit-text-fill-color: transparent;
+		}
+
+		.desc {
+			text-align: center;
+			color: #6e7681;
+			font-size: .85rem;
+			margin-bottom: 24px;
+		}
+
+		/* 진행 상태 */
+		.status-bar {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			margin-bottom: 20px;
+		}
+
+		.status-bar>*+* {
+			margin-left: 10px;
+		}
+
+		.dot {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			background: #374151;
+			transition: background .4s;
+			flex-shrink: 0;
+		}
+
+		.dot.connecting {
+			background: #f59e0b;
+			animation: pulse 1s infinite;
+		}
+
+		.dot.connected {
+			background: #22c55e;
+			box-shadow: 0 0 8px #22c55e;
+		}
+
+		.dot.error {
+			background: #ef4444;
+		}
+
+		@keyframes pulse {
+
+			0%,
+			100% {
+				opacity: 1
+			}
+
+			50% {
+				opacity: .4
+			}
+		}
+
+		#status-text {
+			font-size: .85rem;
+			color: #6e7681;
+		}
+
+		/* 룸 설정 */
+		.room-section {
+			max-width: 700px;
+			margin: 0 auto 20px;
+			background: #161b22;
+			border: 1px solid #30363d;
+			border-radius: 12px;
+			padding: 18px 20px;
+		}
+
+		.room-section h2 {
+			font-size: .95rem;
+			font-weight: 700;
+			color: #58a6ff;
+			margin-bottom: 12px;
+		}
+
+		.room-row {
+			display: flex;
+			margin-bottom: 10px;
+		}
+
+		.room-row>*+* {
+			margin-left: 8px;
+		}
+
+		input,
+		select {
+			background: #0d1117;
+			border: 1px solid #30363d;
+			border-radius: 8px;
+			color: #c9d1d9;
+			padding: 8px 12px;
+			font-size: .88rem;
+			outline: none;
+			font-family: inherit;
+		}
+
+		input:focus {
+			border-color: #58a6ff;
+		}
+
+		.room-id-input {
+			flex: 1;
+		}
+
+		/* 두 패널 */
+		.panels {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 16px;
+			max-width: 700px;
+			margin: 0 auto;
+		}
+
+		@media(max-width:580px) {
+			.panels {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		.panel {
+			background: #161b22;
+			border: 1px solid #30363d;
+			border-radius: 12px;
+			padding: 18px;
+		}
+
+		.panel-title {
+			font-size: .95rem;
+			font-weight: 700;
+			margin-bottom: 14px;
+			display: flex;
+			align-items: center;
+		}
+
+		.panel-title>*+* {
+			margin-left: 8px;
+		}
+
+		.tag {
+			font-size: .68rem;
+			padding: 2px 8px;
+			border-radius: 99px;
+			font-weight: 600;
+		}
+
+		.tag-sender {
+			background: #1a3a5c;
+			color: #58a6ff;
+		}
+
+		.tag-receiver {
+			background: #2d1f4e;
+			color: #bf91f4;
+		}
+
+		/* 드롭존 */
+		.dropzone {
+			border: 2px dashed #30363d;
+			border-radius: 10px;
+			padding: 24px 12px;
+			text-align: center;
+			cursor: pointer;
+			transition: border-color .2s, background .2s;
+			position: relative;
+			margin-bottom: 12px;
+		}
+
+		.dropzone:hover,
+		.dropzone.dragover {
+			border-color: #58a6ff;
+			background: #161f2e;
+		}
+
+		.dropzone input[type=file] {
+			position: absolute;
+			inset: 0;
+			opacity: 0;
+			cursor: pointer;
+			width: 100%;
+			height: 100%;
+		}
+
+		.dropzone .dz-icon {
+			font-size: 1.8rem;
+			margin-bottom: 6px;
+		}
+
+		.dropzone p {
+			font-size: .8rem;
+			color: #6e7681;
+		}
+
+		#file-name {
+			font-size: .78rem;
+			color: #58a6ff;
+			font-weight: 600;
+			margin-top: 5px;
+		}
+
+		button {
+			width: 100%;
+			margin-top: 10px;
+			padding: 10px;
+			border: none;
+			border-radius: 8px;
+			font-size: .88rem;
+			font-weight: 600;
+			cursor: pointer;
+			font-family: inherit;
+			transition: opacity .2s, transform .1s;
+		}
+
+		button:hover:not(:disabled) {
+			opacity: .85;
+		}
+
+		button:active:not(:disabled) {
+			transform: scale(.98);
+		}
+
+		button:disabled {
+			opacity: .35;
+			cursor: not-allowed;
+		}
+
+		.btn-blue {
+			background: linear-gradient(90deg, #1d6feb, #1a56a4);
+			color: #fff;
+		}
+
+		.btn-purple {
+			background: linear-gradient(90deg, #6d28d9, #8b5cf6);
+			color: #fff;
+		}
+
+		.btn-green {
+			background: linear-gradient(90deg, #166534, #22c55e);
+			color: #fff;
+		}
+
+		.btn-gray {
+			background: #21262d;
+			color: #c9d1d9;
+			border: 1px solid #30363d;
+		}
+
+		.btn-sm {
+			width: auto;
+			padding: 7px 14px;
+			font-size: .82rem;
+			margin-top: 0;
+		}
+
+		/* 진행바 */
+		.progress-wrap {
+			margin-top: 12px;
+			height: 6px;
+			background: #21262d;
+			border-radius: 99px;
+			overflow: hidden;
+		}
+
+		.progress-bar {
+			height: 100%;
+			width: 0%;
+			background: linear-gradient(90deg, #58a6ff, #bf91f4);
+			border-radius: 99px;
+			transition: width .2s;
+		}
+
+		.progress-label {
+			font-size: .72rem;
+			color: #6e7681;
+			margin-top: 4px;
+			text-align: right;
+		}
+
+		/* 수신 영역 */
+		.receive-area {
+			margin-top: 12px;
+			min-height: 80px;
+			background: #0d1117;
+			border: 1px solid #21262d;
+			border-radius: 10px;
+			padding: 12px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.receive-area>*+* {
+			margin-top: 8px;
+		}
+
+		.receive-area p {
+			font-size: .8rem;
+			color: #6e7681;
+		}
+
+		/* 로그 */
+		.log {
+			max-width: 700px;
+			margin: 20px auto 0;
+			background: #161b22;
+			border: 1px solid #30363d;
+			border-radius: 12px;
+			padding: 14px 16px;
+		}
+
+		.log-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 8px;
+		}
+
+		.log h3 {
+			font-size: .82rem;
+			color: #6e7681;
+		}
+
+		#log-body {
+			max-height: 140px;
+			overflow-y: auto;
+			font-family: monospace;
+			font-size: .75rem;
+		}
+
+		.ll {
+			padding: 2px 0;
+			border-bottom: 1px solid #21262d;
+		}
+
+		.ll span {
+			color: #6e7681;
+			margin-right: 6px;
+		}
+
+		.ll.info b {
+			color: #58a6ff;
+		}
+
+		.ll.ok b {
+			color: #22c55e;
+		}
+
+		.ll.warn b {
+			color: #f59e0b;
+		}
+
+		.ll.err b {
+			color: #f87171;
+		}
+
+		/* DB 레코드 뷰어 */
+		.db-view {
+			margin-top: 12px;
+		}
+
+		.db-view pre {
+			background: #0d1117;
+			border: 1px solid #21262d;
+			border-radius: 8px;
+			padding: 10px;
+			font-size: .72rem;
+			color: #86efac;
+			max-height: 120px;
+			overflow-y: auto;
+			white-space: pre-wrap;
+			word-break: break-all;
+		}
+
+		::-webkit-scrollbar {
+			width: 4px;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: #30363d;
+			border-radius: 99px;
+		}
+	</style>
+</head>
+
+<body>
+
+	<h1>📁 WebRTC 파일 전송 <small style="font-size:.6em;background:none;-webkit-text-fill-color:#58a6ff">(DB 시그널링)</small>
+	</h1>
+	<p class="desc">peer_connections 테이블을 폴링 시그널링 서버로 활용합니다</p>
+
+	<!-- 상태 -->
+	<div class="status-bar">
+		<div class="dot" id="conn-dot"></div>
+		<span id="status-text">대기 중</span>
+	</div>
+
+	<!-- 룸 설정 -->
+	<div class="room-section">
+		<h2>🔑 룸 설정</h2>
+		<div class="room-row">
+			<input class="room-id-input" id="room-id" value="room-ft-001" placeholder="Room ID" />
+			<select id="role-select">
+				<option value="sender">📤 송신자 (Sender)</option>
+				<option value="receiver">📥 수신자 (Receiver)</option>
+			</select>
+			<button class="btn-blue btn-sm" onclick="joinRoom()">입장</button>
+		</div>
+		<div style="font-size:.76rem;color:#6e7681">
+			⚠️ 송신자가 먼저 입장한 뒤 수신자가 같은 Room ID로 입장하면 자동으로 연결됩니다.
+		</div>
+	</div>
+
+	<!-- 두 패널 -->
+	<div class="panels">
+		<!-- 송신 패널 -->
+		<div class="panel" id="panel-sender">
+			<div class="panel-title">
+				<span class="tag tag-sender">SENDER</span> 파일 전송
+			</div>
+			<div class="dropzone" id="dropzone">
+				<input type="file" id="file-input" />
+				<div class="dz-icon">📂</div>
+				<p>클릭하거나 드래그하세요</p>
+				<div id="file-name"></div>
+			</div>
+			<button class="btn-green" id="btn-send" onclick="sendFile()" disabled>📤 파일 전송</button>
+			<div class="progress-wrap">
+				<div class="progress-bar" id="send-progress"></div>
+			</div>
+			<div class="progress-label" id="send-label"></div>
+		</div>
+
+		<!-- 수신 패널 -->
+		<div class="panel" id="panel-receiver">
+			<div class="panel-title">
+				<span class="tag tag-receiver">RECEIVER</span> 파일 수신
+			</div>
+			<div class="receive-area" id="receive-area">
+				<p>연결 후 파일을 수신합니다</p>
+			</div>
+			<div class="progress-wrap">
+				<div class="progress-bar" id="recv-progress"></div>
+			</div>
+			<div class="progress-label" id="recv-label"></div>
+		</div>
+	</div>
+
+	<!-- 이벤트 로그 -->
+	<div class="log">
+		<div class="log-head">
+			<h3>📋 이벤트 로그</h3>
+			<div style="display:flex;align-items:center;">
+				<span style="font-size:.72rem;color:#6e7681;margin-right:8px" id="db-poll-status"></span>
+				<button class="btn-gray btn-sm" onclick="clearLog()">지우기</button>
+			</div>
+		</div>
+		<div id="log-body"></div>
+
+		<!-- DB 레코드 뷰어 -->
+		<div class="db-view">
+			<div style="font-size:.72rem;color:#6e7681;margin-bottom:4px">🗄️ DB peer_connections (현재 룸)</div>
+			<pre id="db-pre">—</pre>
+		</div>
+	</div>
+
+	<script>
+		// ── 상수 ──────────────────────────────────────────────────────────────────────
+		const API = ''; //'http://localhost:8081';
+		const CHUNK = 16 * 1024; // 16 KB
+		const ICE_CFG = {
+			iceServers: [
+				{ urls: 'stun:stun.l.google.com:19302' },
+				{ urls: 'stun:stun1.l.google.com:19302' },
+				// freestun.net 공개 TURN (테스트용)
+				{
+					urls: [
+						'turn:freestun.net:3478',
+						'turns:freestun.net:5349',
+					],
+					username: 'free',
+					credential: 'free',
+				},
+			],
+			iceTransportPolicy: 'relay',   // TURN 강제 (relay 후보 수집 확인용)
+		};
+
+		// ── 상태 변수 ────────────────────────────────────────────────────────────────
+		let myRole = 'sender';
+		let roomId = '';
+		let myPeerId = '';
+		let pc = null;   // RTCPeerConnection
+		let dc = null;   // DataChannel (송신측)
+		let pollTimer = null;
+		// let iceQueue = [];     // 상대방 ICE 후보를 대기시킬 큐
+		let connected = false;
+
+		// 수신 버퍼
+		let recvBuffers = [], recvBytes = 0, recvMeta = null;
+		// 선택한 파일
+		let selectedFile = null;
+
+		// ── 유틸 ─────────────────────────────────────────────────────────────────────
+		const $ = id => document.getElementById(id);
+		function uid() { return Math.random().toString(36).slice(2, 10); }
+
+		function log(msg, type = 'info') {
+			const el = document.createElement('div');
+			el.className = `ll ${type}`;
+			el.innerHTML = `<span>${new Date().toLocaleTimeString()}</span><b>${msg}</b>`;
+			$('log-body').prepend(el);
+		}
+		function clearLog() { $('log-body').innerHTML = ''; }
+
+		function setStatus(text, state = '') {
+			$('status-text').textContent = text;
+			$('conn-dot').className = 'dot' + (state ? ' ' + state : '');
+		}
+
+		function setProgress(barId, labelId, pct, extra = '') {
+			$(barId).style.width = pct + '%';
+			$(labelId).textContent = extra || `${pct.toFixed(1)}%`;
+		}
+
+		// ── API 헬퍼 ─────────────────────────────────────────────────────────────────
+		async function apiPost(path, body) {
+			const r = await fetch(API + path, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			return r.json();
+		}
+		async function apiPatch(path, body) {
+			const r = await fetch(API + path, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			return r.json();
+		}
+		async function apiGet(path) {
+			const r = await fetch(API + path);
+			return r.json();
+		}
+		async function apiDelete(path) {
+			const r = await fetch(API + path, { method: 'DELETE' });
+			return r.json();
+		}
+
+		// ── DB 뷰어 갱신 ─────────────────────────────────────────────────────────────
+		async function refreshDbView() {
+			try {
+				const peers = await apiGet(`/api/peers/room/${roomId}`);
+				$('db-pre').textContent = JSON.stringify(peers.map(p => ({
+					id: p.id, peerId: p.peerId, type: p.type,
+					status: p.status,
+					sdp: p.sdp ? p.sdp.slice(0, 40) + '…' : null,
+				})), null, 2);
+			} catch { }
+		}
+
+		// ── 룸 입장 ──────────────────────────────────────────────────────────────────
+		async function joinRoom() {
+			roomId = $('room-id').value.trim();
+			myRole = $('role-select').value;
+			myPeerId = myRole + '-' + uid();
+
+			if (!roomId) { alert('Room ID를 입력하세요.'); return; }
+
+			// 이전 세션 정리
+			stopPoll();
+			if (pc) { pc.close(); pc = null; }
+
+			log(`입장: roomId=${roomId}  role=${myRole}  peerId=${myPeerId}`, 'info');
+			setStatus('룸 입장 중…', 'connecting');
+
+			if (myRole === 'sender') {
+				await startAsSender();
+			} else {
+				await startAsReceiver();
+			}
+		}
+
+		// ── 송신자 플로우 ─────────────────────────────────────────────────────────────
+		async function startAsSender() {
+			// 기존 룸 클리어 (이전 세션 잔여물 제거)
+			await apiDelete(`/api/peers/room/${roomId}`);
+			log('기존 룸 데이터 초기화', 'warn');
+
+			pc = new RTCPeerConnection(ICE_CFG);
+			dc = pc.createDataChannel('fileTransfer');
+			dc.binaryType = 'arraybuffer';
+
+			dc.onopen = () => {
+				connected = true;
+				$('btn-send').disabled = false;
+				log('DataChannel 오픈 ✅', 'ok');
+				setStatus('연결됨 — 파일을 전송하세요', 'connected');
+			};
+			dc.onclose = () => log('DataChannel 닫힘', 'warn');
+			dc.onerror = e => log('채널 오류: ' + e.error, 'err');
+
+			// ICE / 연결 상태 디버그 로그
+			pc.oniceconnectionstatechange = () =>
+				log(`ICE 연결 상태: ${pc.iceConnectionState}`, pc.iceConnectionState === 'failed' ? 'err' : 'info');
+			pc.onconnectionstatechange = () =>
+				log(`연결 상태: ${pc.connectionState}`, pc.connectionState === 'failed' ? 'err' : 'info');
+			pc.onsignalingstatechange = () =>
+				log(`시그널링 상태: ${pc.signalingState}`, 'info');
+
+			pc.onicecandidate = e => { if (!e.candidate) log('ICE 수집 완료', 'info'); };
+
+			// ICE 수집 완료 후 Offer SDP를 DB에 저장 (trickle-ICE 없이 gathercomplete 대기)
+			pc.onicegatheringstatechange = async () => {
+				log(`ICE 수집 상태: ${pc.iceGatheringState}`, 'info');
+				if (pc.iceGatheringState !== 'complete') return;
+				const sdp = pc.localDescription.sdp;
+				log('Offer SDP 생성 완료 → DB 저장', 'info');
+
+				await apiPost('/api/peers', {
+					roomId, peerId: myPeerId, type: 'offer', sdp, status: 'active'
+				});
+				log('DB에 offer 등록 완료', 'ok');
+				await refreshDbView();
+
+				// 수신자가 answer를 올릴 때까지 폴링
+				startPoll(async () => {
+					const answers = await apiGet(`/api/peers/room/${roomId}/type/answer`);
+					await refreshDbView();
+					if (answers.length && answers[0].sdp) {
+						stopPoll();
+						log('수신자 Answer SDP 감지', 'ok');
+						await pc.setRemoteDescription({ type: 'answer', sdp: answers[0].sdp });
+						log(`setRemoteDescription(answer) 완료 — signalingState: ${pc.signalingState}`, 'ok');
+						setStatus('협상 완료 — DataChannel 대기 중', 'connecting');
+					}
+				});
+			};
+
+			const offer = await pc.createOffer();
+			await pc.setLocalDescription(offer);
+			log('Offer 생성 → ICE 수집 중…', 'info');
+			setStatus('ICE 수집 중…', 'connecting');
+		}
+
+		// ── 수신자 플로우 ─────────────────────────────────────────────────────────────
+		async function startAsReceiver() {
+			setStatus('송신자 Offer 대기 중…', 'connecting');
+
+			// 송신자 offer가 올라올 때까지 폴링
+			startPoll(async () => {
+				const offers = await apiGet(`/api/peers/room/${roomId}/type/offer`);
+				await refreshDbView();
+				if (!offers.length || !offers[0].sdp) return;
+				stopPoll();
+
+				log('송신자 Offer SDP 감지', 'ok');
+
+				pc = new RTCPeerConnection(ICE_CFG);
+
+				// ★ ondatachannel은 반드시 setRemoteDescription 이전에 등록
+				pc.ondatachannel = e => {
+					const ch = e.channel;
+					ch.binaryType = 'arraybuffer';
+					log('DataChannel 수신됨', 'ok');
+					ch.onmessage = onReceiveMessage;
+					ch.onopen = () => { connected = true; log('채널 오픈 ✅', 'ok'); setStatus('연결됨 — 파일 수신 대기', 'connected'); };
+					ch.onclose = () => log('채널 닫힘', 'warn');
+					ch.onerror = e => log('채널 오류: ' + e.error, 'err');
+				};
+
+				// ICE / 연결 상태 디버그 로그
+				pc.oniceconnectionstatechange = () =>
+					log(`ICE 연결 상태: ${pc.iceConnectionState}`, pc.iceConnectionState === 'failed' ? 'err' : 'info');
+				pc.onconnectionstatechange = () =>
+					log(`연결 상태: ${pc.connectionState}`, pc.connectionState === 'failed' ? 'err' : 'info');
+				pc.onsignalingstatechange = () =>
+					log(`시그널링 상태: ${pc.signalingState}`, 'info');
+
+				pc.onicegatheringstatechange = async () => {
+					log(`ICE 수집 상태: ${pc.iceGatheringState}`, 'info');
+					if (pc.iceGatheringState !== 'complete') return;
+					const sdp = pc.localDescription.sdp;
+					log('Answer SDP 생성 완료 → DB 저장', 'info');
+
+					await apiPost('/api/peers', {
+						roomId, peerId: myPeerId, type: 'answer', sdp, status: 'active'
+					});
+					log('DB에 answer 등록 완료', 'ok');
+					await refreshDbView();
+					setStatus('협상 완료 — DataChannel 대기 중', 'connecting');
+				};
+
+				await pc.setRemoteDescription({ type: 'offer', sdp: offers[0].sdp });
+				const answer = await pc.createAnswer();
+				await pc.setLocalDescription(answer);
+				log('Answer 생성 → ICE 수집 중…', 'info');
+			});
+		}
+
+		// ── 폴링 헬퍼 ────────────────────────────────────────────────────────────────
+		function startPoll(fn, interval = 5000) {
+			stopPoll();
+			$('db-poll-status').textContent = '🔄 폴링 중';
+			pollTimer = setInterval(fn, interval);
+		}
+		function stopPoll() {
+			if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+			$('db-poll-status').textContent = '';
+		}
+
+		// ── 파일 선택 ────────────────────────────────────────────────────────────────
+		const dz = $('dropzone');
+		$('file-input').addEventListener('change', e => setFile(e.target.files[0]));
+		dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+		dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+		dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); setFile(e.dataTransfer.files[0]); });
+
+		function setFile(file) {
+			if (!file) return;
+			selectedFile = file;
+			$('file-name').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+			log(`파일 선택: ${file.name}  (${file.size} bytes)`, 'ok');
+			if (connected) $('btn-send').disabled = false;
+		}
+
+		// ── 파일 전송 ────────────────────────────────────────────────────────────────
+		async function sendFile() {
+			if (!selectedFile) { alert('파일을 선택하세요.'); return; }
+			if (!dc || dc.readyState !== 'open') { alert('채널이 열려있지 않습니다.'); return; }
+
+			$('btn-send').disabled = true;
+			log(`전송 시작: ${selectedFile.name}`, 'info');
+
+			// 메타데이터 전송
+			dc.send(JSON.stringify({ name: selectedFile.name, size: selectedFile.size, type: selectedFile.type }));
+
+			const buf = await selectedFile.arrayBuffer();
+			const total = buf.byteLength;
+			let offset = 0;
+
+			function sendChunk() {
+				if (offset >= total) {
+					log(`전송 완료: ${selectedFile.name}`, 'ok');
+					setProgress('send-progress', 'send-label', 100, '전송 완료!');
+					$('btn-send').disabled = false;
+					return;
+				}
+				if (dc.bufferedAmount > CHUNK * 8) {
+					dc.bufferedAmountLowThreshold = CHUNK;
+					dc.onbufferedamountlow = () => { dc.onbufferedamountlow = null; sendChunk(); };
+					return;
+				}
+				const chunk = buf.slice(offset, offset + CHUNK);
+				dc.send(chunk);
+				offset += chunk.byteLength;
+				setProgress('send-progress', 'send-label', offset / total * 100,
+					`${(offset / 1024).toFixed(1)} / ${(total / 1024).toFixed(1)} KB`);
+				setTimeout(sendChunk, 0);
+			}
+			sendChunk();
+		}
+
+		// ── 파일 수신 ────────────────────────────────────────────────────────────────
+		function onReceiveMessage(e) {
+			if (typeof e.data === 'string') {
+				recvMeta = JSON.parse(e.data);
+				recvBuffers = []; recvBytes = 0;
+				log(`수신 시작: ${recvMeta.name}  (${recvMeta.size} bytes)`, 'info');
+				$('receive-area').innerHTML = `<p>📥 받는 중: <b>${recvMeta.name}</b></p>`;
+				return;
+			}
+			recvBuffers.push(e.data);
+			recvBytes += e.data.byteLength;
+			setProgress('recv-progress', 'recv-label', recvBytes / recvMeta.size * 100,
+				`${(recvBytes / 1024).toFixed(1)} / ${(recvMeta.size / 1024).toFixed(1)} KB`);
+
+			if (recvBytes >= recvMeta.size) {
+				log(`수신 완료: ${recvMeta.name}`, 'ok');
+				const blob = new Blob(recvBuffers, { type: recvMeta.type });
+				const url = URL.createObjectURL(blob);
+				$('receive-area').innerHTML = `
+	<p>✅ 수신 완료: <b>${recvMeta.name}</b></p>
+	<a href="${url}" download="${recvMeta.name}"
+		style="padding:8px 20px;background:#22c55e;color:#000;border-radius:8px;
+				font-size:.85rem;font-weight:700;text-decoration:none">
+		💾 다운로드
+	</a>`;
+				setProgress('recv-progress', 'recv-label', 100, '완료!');
+			}
+		}
+
+		// ── 페이지 떠날 때 정리 ──────────────────────────────────────────────────────
+		window.addEventListener('beforeunload', () => {
+			if (roomId && myPeerId) {
+				navigator.sendBeacon(`${API}/api/peers/${roomId}/${myPeerId}`);
+			}
+		});
+	</script>
+</body>
+
+</html>

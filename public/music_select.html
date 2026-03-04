@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>노래방 선곡 시스템</title>
+
+	<!-- Google Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap"
+		rel="stylesheet">
+
+	<!-- Styles -->
+	<link rel="stylesheet" href="./css/styles.css">
+</head>
+
+<body>
+	<div class="app-container">
+		<!-- Header -->
+		<header class="app-header">
+			<div class="header-content">
+				<h1 class="app-title">🎤 노래방 선곡</h1>
+				<nav class="nav-tabs">
+					<button class="nav-tab active" data-view="selection">노래 선곡</button>
+					<button class="nav-tab" data-view="status">예약 현황</button>
+					<button class="nav-tab" data-view="settings">설정</button>
+					<button class="nav-tab" id="category-selector-btn">🎵 카테고리</button>
+					<button class="nav-tab" onclick="location.href='color-table.html'">색상 테이블</button>
+					<button class="nav-tab" onclick="location.href='theme-selector.html'">테마 선택</button>
+				</nav>
+			</div>
+		</header>
+
+		<!-- Main Content -->
+		<main class="app-main">
+			<!-- Song Selection View -->
+			<div id="selection-view" class="view active">
+				<div class="search-section">
+					<div class="search-bar">
+						<input type="text" id="search-input" class="search-input" placeholder="노래 제목, 가수, 곡번호로 검색...">
+					</div>
+
+					<div class="filter-chips">
+						<button class="filter-chip active" data-category="all">전체</button>
+						<button class="filter-chip" data-category="발라드">발라드</button>
+						<button class="filter-chip" data-category="댄스">댄스</button>
+						<button class="filter-chip" data-category="트로트">트로트</button>
+						<button class="filter-chip" data-category="pop">POP</button>
+					</div>
+				</div>
+
+				<div id="songs-grid" class="songs-grid">
+					<!-- Songs will be rendered here dynamically -->
+				</div>
+			</div>
+
+			<!-- Reservation Status View -->
+			<div id="status-view" class="view">
+				<div class="status-header">
+					<h2 class="status-title">예약 현황</h2>
+					<p class="status-subtitle">현재 대기 중인 곡 목록입니다</p>
+				</div>
+
+				<div id="queue-list" class="queue-list">
+					<!-- Queue items will be rendered here dynamically -->
+				</div>
+			</div>
+
+			<!-- Settings View -->
+			<div id="settings-view" class="view">
+				<div class="settings-sections">
+					<!-- Display Settings -->
+					<section class="settings-section">
+						<h3 class="settings-section-title">화면 설정</h3>
+
+						<div class="setting-item">
+							<div>
+								<div class="setting-label">다크 모드</div>
+								<div class="setting-description">어두운 테마로 전환합니다</div>
+							</div>
+							<div class="toggle-switch" id="theme-toggle">
+								<div class="toggle-slider"></div>
+							</div>
+						</div>
+					</section>
+
+					<!-- Language Settings -->
+					<section class="settings-section">
+						<h3 class="settings-section-title">언어 설정</h3>
+
+						<div class="setting-item">
+							<div>
+								<div class="setting-label">언어 선택</div>
+								<div class="setting-description">시스템 언어를 선택합니다</div>
+							</div>
+							<select id="language-select" class="select-dropdown">
+								<option value="ko">한국어</option>
+								<option value="en">English</option>
+							</select>
+						</div>
+					</section>
+
+					<!-- Audio Settings -->
+					<section class="settings-section">
+						<h3 class="settings-section-title">오디오 설정</h3>
+
+						<div class="setting-item">
+							<div>
+								<div class="setting-label">볼륨</div>
+								<div class="setting-description">시스템 볼륨을 조절합니다</div>
+							</div>
+							<div style="display: flex; align-items: center; gap: 1rem;">
+								<input type="range" id="volume-slider" class="volume-slider" min="0" max="100"
+									value="70">
+								<span id="volume-value"
+									style="min-width: 45px; font-weight: 600; color: var(--color-primary);">70%</span>
+							</div>
+						</div>
+					</section>
+				</div>
+			</div>
+		</main>
+
+		<!-- Floating Cart Button -->
+		<button id="cart-float-btn" class="cart-float-btn">
+			🛒
+			<span class="cart-badge">0</span>
+		</button>
+
+		<!-- Cart Modal -->
+		<div id="cart-modal" class="cart-modal">
+			<div class="cart-content">
+				<div class="cart-header">
+					<h3 class="cart-title">예약 목록</h3>
+					<button id="close-cart-btn" class="close-cart-btn">×</button>
+				</div>
+
+				<div class="cart-body">
+					<div id="cart-empty" class="cart-empty">
+						<p>예약된 곡이 없습니다</p>
+					</div>
+
+					<div id="cart-items" class="cart-items hidden">
+						<!-- Cart items will be rendered here dynamically -->
+					</div>
+				</div>
+
+				<div class="cart-footer">
+					<button id="clear-cart-btn" class="clear-cart-btn">전체 삭제</button>
+					<button id="confirm-cart-btn" class="confirm-cart-btn">예약 확정</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Category Selector Modal -->
+		<div id="category-selector-modal" class="category-selector-modal">
+			<div class="category-selector-content">
+				<div class="category-selector-header">
+					<h2 class="category-selector-title">🎵 곡 카테고리 선택</h2>
+					<p class="category-selector-subtitle">원하시는 카테고리를 선택해주세요</p>
+				</div>
+
+				<div class="category-options">
+					<div class="category-option new-songs" data-category="new">
+						<div class="category-icon">✨</div>
+						<div class="category-name">신곡</div>
+						<div class="category-description">최신 인기곡</div>
+					</div>
+
+					<div class="category-option recommended-songs" data-category="recommended">
+						<div class="category-icon">💝</div>
+						<div class="category-name">추천곡</div>
+						<div class="category-description">당신을 위한 추천</div>
+					</div>
+
+					<div class="category-option best-songs" data-category="best">
+						<div class="category-icon">🏆</div>
+						<div class="category-name">BEST곡</div>
+						<div class="category-description">인기 베스트 곡</div>
+					</div>
+				</div>
+
+				<button class="category-selector-close">닫기</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Scripts -->
+	<script src="./js/songs.js"></script>
+	<script src="./js/cart.js"></script>
+	<script src="./js/settings.js"></script>
+	<script src="./js/category-selector.js"></script>
+	<script src="./js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Studio - Premium Web Client</title>
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- jstree Dark Theme -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default-dark/style.min.css" />
+
+    <!-- Tabulator Midnight Theme -->
+    <link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator_midnight.min.css" rel="stylesheet">
+
+    <style>
+        /* Premium Dark Mode Design System */
+        :root {
+            --bg-base: #0b0f19;
+            --bg-panel: #111827;
+            --bg-header: rgba(15, 23, 42, 0.85);
+            --bg-titlebar: #1e293b;
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --accent: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-glow: 0 0 15px rgba(139, 92, 246, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body,
+        html {
+            height: 100%;
+            width: 100%;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        /* App Layout */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header / Navbar */
+        .header {
+            height: 60px;
+            background: var(--bg-header);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 50;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-icon {
+            color: var(--primary);
+            font-size: 1.4rem;
+            filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+        }
+
+        .brand-text {
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-badge {
+            font-size: 0.7rem;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 99px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-weight: 600;
+        }
+
+        /* Toolbar / Buttons */
+        .toolbar {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-run {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.2);
+        }
+
+        .btn-run:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn-run:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Main Workspace Split Layout */
+        .main-stage {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            background: #1e1e1e;
+            /* Match monaco native bg */
+            overflow: hidden;
+        }
+
+        /* Panel Title Bars */
+        .panel-header {
+            background: var(--bg-titlebar);
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+
+        .sidebar-content {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Editor & Grid Containers */
+        #editor-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        #monaco-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            /* Fix cursor alignment by forcing consistent monospace rendering */
+            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+        }
+
+        /* Force monaco to respect the font */
+        .monaco-editor .view-lines {
+            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+        }
+
+        #grid-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            position: relative;
+        }
+
+        #result-grid {
+            flex: 1;
+            border: none;
+            background-color: transparent;
+        }
+
+        /* Split.js Gutter Styling */
+        .gutter {
+            background-color: var(--bg-base);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transition: background-color 0.2s;
+            position: relative;
+            z-index: 10;
+        }
+
+        .gutter:hover {
+            background-color: var(--primary);
+        }
+
+        .gutter.gutter-horizontal {
+            cursor: col-resize;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="20" fill="%23475569"><path d="M1 0h2v20H1z"/></svg>');
+        }
+
+        .gutter.gutter-vertical {
+            cursor: row-resize;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="4" fill="%23475569"><path d="M0 1h20v2H0z"/></svg>');
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 5px;
+            border: 2px solid var(--bg-panel);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.4);
+        }
+
+        /* Customizes jsTree styling to fit premium theme */
+        .jstree-default-dark .jstree-anchor {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            color: var(--text-main);
+            transition: all 0.15s;
+        }
+
+        .jstree-default-dark .jstree-clicked,
+        .jstree-default-dark .jstree-hovered {
+            background: rgba(139, 92, 246, 0.2) !important;
+            border-radius: 4px;
+            box-shadow: none !important;
+        }
+
+        /* Tabulator Custom Overrides for Midnight theme */
+        .tabulator-row {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .tabulator .tabulator-header {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color) !important;
+        }
+
+        /* Query metrics */
+        .query-metrics {
+            font-size: 0.75rem;
+            color: var(--accent);
+            font-weight: 500;
+            display: none;
+            margin-left: auto;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .query-metrics.visible {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(2px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            width: 600px;
+            max-width: 90vw;
+            box-shadow: var(--shadow-md);
+            transform: translateY(20px);
+            transition: transform 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.15s;
+        }
+
+        .modal-close:hover {
+            color: var(--text-main);
+        }
+
+        .modal-body {
+            padding: 16px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .col-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .col-table th,
+        .col-table td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .col-table th {
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.02);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        .col-nullable {
+            color: #ef4444;
+            /* red for NO */
+        }
+
+        .col-nullable.yes {
+            color: #10b981;
+            /* green for YES */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Application Header -->
+        <header class="header">
+            <div class="brand">
+                <i class="fa-solid fa-layer-group brand-icon"></i>
+                <span class="brand-text">PostgreSQL Studio</span>
+                <span class="brand-badge"><i class="fa-solid fa-circle-check" style="margin-right:2px;"></i>
+                    Connected</span>
+            </div>
+
+            <div class="toolbar">
+                <button class="btn btn-secondary" onclick="openHelpModal()" title="View Help & Shortcuts">
+                    <i class="fa-solid fa-circle-question"></i> Help
+                </button>
+                <button class="btn btn-secondary" onclick="resetEditor()" title="Clear editor content">
+                    <i class="fa-solid fa-eraser"></i> Clear
+                </button>
+                <button class="btn btn-run" id="btn-run"
+                    title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
+                    <i class="fa-solid fa-play"></i> Run Query <span
+                        style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace Component -->
+        <main class="main-stage">
+
+            <!-- Left Sidebar: Schema Tree -->
+            <aside id="sidebar" class="sidebar">
+                <div class="panel-header">
+                    <i class="fa-solid fa-sitemap"></i> Database Explorer
+                </div>
+                <div class="sidebar-content">
+                    <div id="schema-tree"></div>
+                </div>
+            </aside>
+
+            <!-- Right Area: Editor & Grid -->
+            <section id="workspace" class="workspace">
+
+                <!-- Query Editor Panel -->
+                <div id="editor-wrapper">
+                    <div class="panel-header" style="background: #1e1e1e; border-bottom: 1px solid #333;">
+                        <i class="fa-solid fa-terminal"></i> Query Editor
+                    </div>
+                    <div id="monaco-container"></div>
+                </div>
+
+                <!-- Result Grid Panel -->
+                <div id="grid-wrapper">
+                    <div class="panel-header"
+                        style="display: flex; justify-content: space-between; align-items: center; padding-right: 12px;">
+                        <div>
+                            <i class="fa-solid fa-table"></i> Query Results
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;"
+                                onclick="exportExcel()" title="Export results to Excel file">
+                                <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export
+                            </button>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;"
+                                onclick="openChartModal()" title="Visualize results with Chart.js">
+                                <i class="fa-solid fa-chart-pie" style="color: #8b5cf6;"></i> Chart
+                            </button>
+                            <div class="query-metrics" id="query-metrics" style="margin-left: 8px;">
+                                <i class="fa-solid fa-bolt"></i> <span>Success (4 rows affected) in 42ms</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="result-grid"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Column Info -->
+    <div class="modal-overlay" id="column-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fa-solid fa-table text-primary"></i> <span id="modal-table-name">Table Name</span>
+                </div>
+                <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <table class="col-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-all-cols"
+                                    onchange="toggleAllCols(this)" checked></th>
+                            <th>Column Name</th>
+                            <th>Data Type</th>
+                            <th>Nullable</th>
+                            <th>Default</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-col-body">
+                        <!-- Rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div
+                style="padding: 16px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-run" onclick="generateSelectedQuery()"><i class="fa-solid fa-code"></i> Query
+                    Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="help-modal">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fa-solid fa-circle-question text-primary"></i> <span>Help & Shortcuts</span>
+                </div>
+                <button class="modal-close" onclick="closeHelpModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="line-height: 1.6;">
+                <h4 style="color: var(--primary); margin-bottom: 8px;">⌨️ Keyboard Shortcuts</h4>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
+                    <li><kbd style="background: #334155; padding: 2px 6px; border-radius: 4px;">Ctrl+Enter</kbd> / <kbd
+                            style="background: #334155; padding: 2px 6px; border-radius: 4px;">F5</kbd> : Execute query
+                        at cursor</li>
+                </ul>
+                <h4 style="color: var(--primary); margin-bottom: 8px;">💡 Tips</h4>
+                <ul style="padding-left: 20px;">
+                    <li>Click a table in the database explorer to view columns.</li>
+                    <li>Select columns in the popup to auto-generate a SELECT query.</li>
+                    <li>Use the <b>Export</b> button to download results as an Excel file.</li>
+                    <li>Use the <b>Chart</b> button to visualize data (requires numeric Y-axis).</li>
+                </ul>
+            </div>
+            <div style="padding: 16px 20px; border-top: 1px solid var(--border-color); text-align: right;">
+                <button class="btn btn-secondary" onclick="closeHelpModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Modal -->
+    <div class="modal-overlay" id="chart-modal">
+        <div class="modal-content" style="width: 700px; max-width: 95vw;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fa-solid fa-chart-line text-primary"></i> <span>Data Visualization</span>
+                </div>
+                <button class="modal-close" onclick="closeChartModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px; min-height: 400px;">
+                <div style="display: flex; gap: 12px; align-items: flex-end;">
+                    <div style="flex: 1;">
+                        <label
+                            style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Chart
+                            Type</label>
+                        <select id="chart-type"
+                            style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-main);">
+                            <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
+                            <option value="pie">Pie Chart</option>
+                            <option value="doughnut">Doughnut Chart</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label
+                            style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">X-Axis
+                            (Labels)</label>
+                        <select id="chart-x"
+                            style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-main);"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label
+                            style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Y-Axis
+                            (Values)</label>
+                        <select id="chart-y"
+                            style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-main);"></select>
+                    </div>
+                    <button class="btn btn-run" onclick="generateChart()">Draw</button>
+                </div>
+                <div
+                    style="flex: 1; min-height: 350px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; position: relative;">
+                    <canvas id="result-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- jQuery (Required for jstree) -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+    <!-- jsTree -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+
+    <!-- Split.js for resizable panels -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.5/split.min.js"></script>
+
+    <!-- Tabulator -->
+    <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+
+    <!-- Monaco Editor Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+
+    <script>
+        // 1. Initialize Layout Splitter
+        Split(['#sidebar', '#workspace'], {
+            sizes: [20, 80],
+            minSize: 220,
+            gutterSize: 6,
+            snapOffset: 0
+        });
+
+        Split(['#editor-wrapper', '#grid-wrapper'], {
+            direction: 'vertical',
+            sizes: [50, 50],
+            minSize: 150,
+            gutterSize: 6,
+            snapOffset: 0
+        });
+
+        // Store table names globally for Monaco autocompletion
+        window.dbTables = [];
+
+        // 2. Initialize jsTree (Fetch from REAL PostgreSQL DB)
+        $(document).ready(function () {
+            $('#schema-tree').jstree({
+                'core': {
+                    'themes': {
+                        'name': 'default-dark',
+                        'dots': true,
+                        'icons': true
+                    },
+                    'data': function (node, cb) {
+                        fetch('/api/pg/schema')
+                            .then(res => res.json())
+                            .then(data => {
+                                // Extract table names for Monaco
+                                window.dbTables = [];
+                                if (data[0] && data[0].children) {
+                                    data[0].children.forEach(schemaNode => {
+                                        if (schemaNode.children) {
+                                            schemaNode.children.forEach(tableNode => {
+                                                window.dbTables.push(tableNode.text);
+                                            });
+                                        }
+                                    });
+                                }
+                                cb(data);
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                cb([{ text: "Error loading schema", icon: "fa-solid fa-triangle-exclamation text-danger" }]);
+                            });
+                    }
+                }
+            })
+                .on('select_node.jstree', function (e, data) {
+                    // table_ schema_name _ table_name
+                    const id = data.node.id;
+                    if (id && id.startsWith('table_')) {
+                        const parts = id.split('_');
+                        if (parts.length >= 3) {
+                            const schemaName = parts[1];
+                            const tableName = parts.slice(2).join('_'); // support table names with '_'
+                            showColumnInfo(schemaName, tableName);
+                        }
+                    }
+                });
+        });
+
+        function showColumnInfo(schema, table) {
+            document.getElementById('modal-table-name').innerText = schema + '.' + table;
+            document.getElementById('modal-col-body').innerHTML = '<tr><td colspan="4" style="text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</td></tr>';
+            document.getElementById('column-modal').classList.add('active');
+
+            fetch(`/api/pg/columns/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`)
+                .then(res => res.json())
+                .then(cols => {
+                    if (!cols || cols.length === 0) {
+                        document.getElementById('modal-col-body').innerHTML = '<tr><td colspan="4" style="text-align:center;">No columns found.</td></tr>';
+                        return;
+                    }
+                    let rowsHtml = '';
+                    cols.forEach(col => {
+                        const isNullHtml = col.is_nullable === 'YES'
+                            ? '<span class="col-nullable yes">YES</span>'
+                            : '<span class="col-nullable">NO</span>';
+
+                        rowsHtml += `
+                            <tr>
+                                <td style="text-align: center;"><input type="checkbox" class="col-checkbox" value="${col.column_name}" checked></td>
+                                <td style="color: var(--text-main); font-weight: 500;">${col.column_name}</td>
+                                <td style="color: var(--primary);">${col.data_type}</td>
+                                <td>${isNullHtml}</td>
+                                <td style="color: var(--text-muted);">${col.column_default || '<i style="opacity:0.5">-</i>'}</td>
+                            </tr>
+                        `;
+                    });
+                    document.getElementById('modal-col-body').innerHTML = rowsHtml;
+                })
+                .catch(err => {
+                    document.getElementById('modal-col-body').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#ef4444;">Error loading columns.</td></tr>';
+                    console.error(err);
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('column-modal').classList.remove('active');
+        }
+
+        // Excel Export Logic
+        function exportExcel() {
+            if (window.resultTable && window.resultTable.getData().length > 0) {
+                window.resultTable.download("xlsx", "query_results.xlsx", { sheetName: "Data" });
+            } else {
+                alert("No data to export. Please run a query first.");
+            }
+        }
+
+        // Help Modal Logic
+        function openHelpModal() { document.getElementById('help-modal').classList.add('active'); }
+        function closeHelpModal() { document.getElementById('help-modal').classList.remove('active'); }
+
+        // Charting Logic
+        window.currentChart = null;
+
+        function openChartModal() {
+            if (!window.resultTable || window.resultTable.getData().length === 0) {
+                alert("No data available to chart. Please run a query first.");
+                return;
+            }
+
+            const cols = window.resultTable.getColumnDefinitions();
+            const xSelect = document.getElementById('chart-x');
+            const ySelect = document.getElementById('chart-y');
+
+            xSelect.innerHTML = '';
+            ySelect.innerHTML = '';
+
+            cols.forEach(col => {
+                if (col.field) {
+                    xSelect.innerHTML += `<option value="${col.field}">${col.title}</option>`;
+                    ySelect.innerHTML += `<option value="${col.field}">${col.title}</option>`;
+                }
+            });
+
+            if (cols.length > 1) {
+                ySelect.selectedIndex = 1;
+            }
+
+            document.getElementById('chart-modal').classList.add('active');
+        }
+
+        function closeChartModal() {
+            document.getElementById('chart-modal').classList.remove('active');
+        }
+
+        function generateChart() {
+            const type = document.getElementById('chart-type').value;
+            const xField = document.getElementById('chart-x').value;
+            const yField = document.getElementById('chart-y').value;
+
+            if (!xField || !yField) return alert("Please select X and Y axes.");
+
+            const data = window.resultTable.getData();
+
+            const labels = data.map(row => row[xField] !== null && row[xField] !== undefined ? String(row[xField]) : 'NULL');
+
+            const values = data.map(row => {
+                const val = parseFloat(row[yField]);
+                return isNaN(val) ? 0 : val;
+            });
+
+            const ctx = document.getElementById('result-chart').getContext('2d');
+
+            if (window.currentChart) {
+                window.currentChart.destroy();
+            }
+
+            window.currentChart = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: yField,
+                        data: values,
+                        backgroundColor: [
+                            'rgba(139, 92, 246, 0.7)',
+                            'rgba(16, 185, 129, 0.7)',
+                            'rgba(59, 130, 246, 0.7)',
+                            'rgba(245, 158, 11, 0.7)',
+                            'rgba(236, 72, 153, 0.7)',
+                        ],
+                        borderColor: [
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(236, 72, 153, 1)',
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#f8fafc' } }
+                    },
+                    scales: (type === 'pie' || type === 'doughnut') ? {} : {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                    }
+                }
+            });
+        }
+
+        function toggleAllCols(headerCheckbox) {
+            const checkboxes = document.querySelectorAll('.col-checkbox');
+            checkboxes.forEach(cb => cb.checked = headerCheckbox.checked);
+        }
+
+        function generateSelectedQuery() {
+            const checkboxes = document.querySelectorAll('.col-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert("Please select at least one column to query.");
+                return;
+            }
+
+            const selectedCols = Array.from(checkboxes).map(cb => cb.value).join(',\n    ');
+            const tableName = document.getElementById('modal-table-name').innerText;
+
+            const query = `SELECT \n    ${selectedCols}\nFROM \n    ${tableName}\nLIMIT 100;`;
+
+            if (window.sqlEditor) {
+                window.sqlEditor.setValue(query);
+                // Optional: Automatically focus and format, or run
+                window.sqlEditor.focus();
+
+                // Let's run it automatically as a premium feature
+                setTimeout(executeQuery, 100);
+            }
+            closeModal();
+        }
+
+        // 3. Initialize Tabulator Grid
+        window.resultTable = new Tabulator("#result-grid", {
+            height: "100%",
+            layout: "fitColumns",
+            theme: "midnight",
+            placeholder: "<div style='color: #64748b; font-size: 1rem;'><i class='fa-solid fa-inbox fa-2x mb-2'></i><br/>Execute a query to see results</div>",
+            columns: [], // Dynamically generated on query run
+            data: []
+        });
+
+        // 4. Initialize Monaco Editor
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+
+            // Define custom premium theme (based on vs-dark but better background)
+            monaco.editor.defineTheme('premium-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [],
+                colors: {
+                    'editor.background': '#1e1e1e',
+                    'editorLineNumber.foreground': '#475569',
+                    'editorIndentGuide.background': '#334155',
+                }
+            });
+
+            // Register SQL Autocompletion Provider
+            monaco.languages.registerCompletionItemProvider('sql', {
+                triggerCharacters: [' ', '.'],
+                provideCompletionItems: function (model, position) {
+                    var word = model.getWordUntilPosition(position);
+                    var range = {
+                        startLineNumber: position.lineNumber,
+                        endLineNumber: position.lineNumber,
+                        startColumn: word.startColumn,
+                        endColumn: word.endColumn
+                    };
+
+                    // Suggest tables dynamically from schema
+                    var suggestions = window.dbTables.map(tableName => {
+                        return {
+                            label: tableName,
+                            kind: monaco.languages.CompletionItemKind.Struct,
+                            insertText: tableName,
+                            range: range,
+                            detail: 'Table'
+                        };
+                    });
+
+                    return { suggestions: suggestions };
+                }
+            });
+
+            window.sqlEditor = monaco.editor.create(document.getElementById('monaco-container'), {
+                value: `-- PostgreSQL Web Studio
+-- Press F5 or click Run Query to execute
+
+SELECT 
+    *
+FROM 
+    todos 
+ORDER BY 
+    created_at DESC
+LIMIT 100;`,
+                language: 'sql',
+                theme: 'premium-dark',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                fontFamily: "'JetBrains Mono', 'Consolas', 'Courier New', monospace",
+                fontLigatures: false, // Ligatures can sometimes mess up cursor alignment
+                lineHeight: 24,
+                padding: { top: 16, bottom: 16 },
+                scrollBeyondLastLine: false,
+                smoothScrolling: true,
+                cursorBlinking: "smooth",
+                cursorSmoothCaretAnimation: true,
+                renderWhitespace: "selection"
+            });
+
+            // Bind F5 and Ctrl+Enter to run query
+            window.sqlEditor.addCommand(monaco.KeyCode.F5, function () {
+                executeQuery();
+            });
+            window.sqlEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
+                executeQuery();
+            });
+        });
+
+        // Clear button logic
+        function resetEditor() {
+            if (window.sqlEditor) {
+                window.sqlEditor.setValue('');
+                window.sqlEditor.focus();
+            }
+        }
+
+        // Run Query Logic
+        document.getElementById('btn-run').addEventListener('click', executeQuery);
+
+        async function executeQuery() {
+            if (!window.sqlEditor) return;
+
+            // 1. Check if user selected explicitly
+            let query = window.sqlEditor.getModel().getValueInRange(window.sqlEditor.getSelection());
+
+            // 2. If no selection, find the query separated by semicolon under the cursor
+            if (!query.trim()) {
+                const position = window.sqlEditor.getPosition();
+                const text = window.sqlEditor.getValue();
+                const offset = window.sqlEditor.getModel().getOffsetAt(position);
+
+                // Find previous semicolon or start of string
+                let startSearchOffset = text.lastIndexOf(';', offset - 1);
+                let startOffset = startSearchOffset === -1 ? 0 : startSearchOffset + 1;
+
+                // Find next semicolon or end of string
+                let endOffset = text.indexOf(';', offset);
+                if (endOffset === -1) endOffset = text.length;
+
+                query = text.substring(startOffset, endOffset).trim();
+            }
+
+            if (!query.trim()) {
+                // Flash editor to indicate no query found
+                return;
+            }
+
+            const runBtn = document.getElementById('btn-run');
+            const metrics = document.getElementById('query-metrics');
+
+            runBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Running...';
+            runBtn.style.pointerEvents = 'none';
+            metrics.classList.remove('visible');
+
+            try {
+                const res = await fetch('/api/pg/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query.trim() })
+                });
+                const result = await res.json();
+
+                runBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Query <span style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>';
+                runBtn.style.pointerEvents = 'auto';
+
+                if (!result.success) {
+                    window.resultTable.setColumns([{ title: "Error", field: "error_message" }]);
+                    window.resultTable.setData([{ error_message: result.error }]);
+                    metrics.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <span style="color:#ef4444;">Execution Error (${result.duration}ms)</span>`;
+                    metrics.classList.add('visible');
+                    return;
+                }
+
+                // Extract data depending on DB driver (postgres JS usually returns an array, Neon returns object with rows)
+                let dataArr = Array.isArray(result.data) ? result.data : (result.data.rows || []);
+
+                // Remove formatting if tabulator already generated columns
+                if (dataArr.length > 0) {
+                    const keys = Object.keys(dataArr[0]);
+                    const cols = keys.map(k => {
+                        let colDef = { title: k, field: k };
+                        // Add some default custom widths based on length
+                        if (k === 'id') colDef.width = 80;
+                        if (k === 'status') colDef.formatter = statusFormatter;
+                        return colDef;
+                    });
+
+                    window.resultTable.setColumns(cols);
+                    window.resultTable.setData(dataArr);
+                    metrics.innerHTML = `<i class="fa-solid fa-bolt"></i> <span>Success (${dataArr.length} rows) in ${result.duration}ms</span>`;
+                } else {
+                    // Empty but successful (e.g. UPDATE/DELETE)
+                    const count = result.data.count ?? result.data.rowCount ?? 0;
+                    window.resultTable.setColumns([{ title: "Message", field: "msg" }]);
+                    window.resultTable.setData([{ msg: "Query OK, no rows to return" }]);
+                    metrics.innerHTML = `<i class="fa-solid fa-bolt"></i> <span>Success (${count} rows affected) in ${result.duration}ms</span>`;
+                }
+                metrics.classList.add('visible');
+
+            } catch (e) {
+                runBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Query <span style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>';
+                runBtn.style.pointerEvents = 'auto';
+                console.error(e);
+                window.resultTable.setColumns([{ title: "Error", field: "error_message" }]);
+                window.resultTable.setData([{ error_message: "Network/System Error" }]);
+                metrics.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <span style="color:#ef4444;">System Error</span>`;
+                metrics.classList.add('visible');
+            }
+        }
+
+        // Custom Formatter for tabulator "status" column purely for aesthetics
+        function statusFormatter(cell, formatterParams, onRendered) {
+            var value = cell.getValue();
+            if (value === "active") {
+                return `<span style="color: #10b981; font-weight: 600;"><i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
+            } else {
+                return `<span style="color: #94a3b8;"><i class="fa-regular fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
+            }
+        }
+    </script>
+</body>
+
+</html>

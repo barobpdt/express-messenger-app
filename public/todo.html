@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Todo Tracker Pro WBS</title>
+    <!-- Frappe Gantt -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
+    
+    <!-- Flatpickr (달력 UI) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+    
+    <style>
+        :root {
+            /* 프리미엄 다크/블루 테마 */
+            --bg-body: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-card: #2dd4bf11;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --accent: #10b981;
+
+            /* 상태별 색상 */
+            --color-plan: #cbd5e1;
+            --color-prog: #3b82f6;
+            --color-wait: #f59e0b;
+            --color-reject: #ef4444;
+            --color-done: #10b981;
+            --color-del: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            background: var(--bg-panel);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            border-color: var(--primary);
+            background: #1e293b88;
+        }
+
+        .btn.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Report Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        /* Kanban Board */
+        .board {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .column {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            min-height: 500px;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .col-count {
+            background: var(--border);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        /* Todo Card */
+        .todo-card {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .todo-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            border-color: #475569;
+        }
+
+        .todo-card:active {
+            cursor: grabbing;
+        }
+
+        /* 알림 뱃지 처리를 위한 로딩 바닥 애니메이션 (예: 오늘 마감) */
+        .todo-card.overdue {
+            border-left: 3px solid #ef4444;
+        }
+
+        .todo-card.due-today {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .todo-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 1rem;
+            color: #fff;
+        }
+
+        .todo-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .todo-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .issue-badge {
+            background: #334155;
+            color: #cbd5e1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .issue-badge:hover {
+            background: #475569;
+        }
+
+        .due-date {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .due-date.urgent {
+            color: #f87171;
+        }
+
+        /* Card actions overlay */
+        .card-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+            gap: 6px;
+        }
+
+        .todo-card:hover .card-actions {
+            display: flex;
+        }
+
+        .icon-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border: none;
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .icon-btn:hover {
+            background: var(--primary);
+        }
+
+        /* Filter Row */
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        select,
+        input {
+            background: var(--bg-panel);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        select:focus,
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: var(--bg-panel);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            max-height: 70vh;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background: #0f172a55;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Timeline (History) */
+        .timeline {
+            border-left: 2px solid var(--border);
+            margin-left: 10px;
+            padding-left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .timeline-item {
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        .ti-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .ti-content {
+            font-size: 0.9rem;
+            background: var(--bg-body);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .ti-badge {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #334155;
+            color: #fff;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Todo Tracker Pro</h1>
+            <div class="header-actions">
+                <!-- 엑셀 다운로드 버튼 (초록색 포인트) -->
+                <button class="btn" onclick="exportExcel()"
+                    style="color:#10b981; border-color:#064e3b; background:#022c22;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+                        <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8" />
+                    </svg>
+                    Excel Export
+                </button>
+                <button class="btn primary" onclick="openTodoModal()">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    New Issue
+                </button>
+            </div>
+        </div>
+
+        <!-- 대시보드 리포트 -->
+        <div class="dashboard" id="dashboard">
+            <div class="stat-card">
+                <div class="label">총 업무</div>
+                <div class="value" id="stat-total" style="color:var(--text-main)">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">계획</div>
+                <div class="value" id="stat-plan" style="color:var(--color-plan)">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">진행 중</div>
+                <div class="value" id="stat-prog" style="color:var(--color-prog)">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">대기</div>
+                <div class="value" id="stat-wait" style="color:var(--color-wait)">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">완료</div>
+                <div class="value" id="stat-done" style="color:var(--color-done)">0</div>
+            </div>
+        </div>
+
+        <div class="filter-row">
+            <select id="filter-status" onchange="loadTodos()">
+                <option value="전체">상태 필터: 전체 보기</option>
+                <option value="계획">계획</option>
+                <option value="진행">진행</option>
+                <option value="대기">대기</option>
+                <option value="반려">반려</option>
+                <option value="완료">완료</option>
+            </select>
+            <input type="text" id="filter-keyword" placeholder="제목/내용 검색..." onkeyup="if(event.key==='Enter') loadTodos()" style="width:200px;">
+            <button class="btn" onclick="loadTodos()">새로고침</button>
+            <div style="flex:1;"></div>
+            <button class="btn primary" onclick="toggleViewMode()" id="btn-toggle-view">📊 WBS 간트 뷰 보기</button>
+        </div>
+
+        <!-- 칸반 보드 뷰 (대표적인 3개 상태만 컬럼으로 구성, 전체 상태 열람 가능) -->
+        <div class="board">
+            <!-- 계획/대기 컬럼 -->
+            <div class="column" id="col-todo" data-status="계획">
+                <div class="column-header">
+                    <span style="color:var(--text-main)">📋 접수 (계획/대기/반려)</span>
+                    <span class="col-count" id="count-todo">0</span>
+                </div>
+                <div class="col-body" id="list-todo" style="min-height: 400px; display:flex; flex-direction:column;">
+                </div>
+            </div>
+
+            <!-- 진행 컬럼 -->
+            <div class="column" id="col-prog" data-status="진행" style="border-top: 3px solid var(--primary);">
+                <div class="column-header">
+                    <span style="color:var(--primary)">🔥 진행 중</span>
+                    <span class="col-count" id="count-prog">0</span>
+                </div>
+                <div class="col-body" id="list-prog" style="min-height: 400px; display:flex; flex-direction:column;">
+                </div>
+            </div>
+
+            <!-- 완료 컬럼 -->
+            <div class="column" id="col-done" data-status="완료"
+                style="border-top: 3px solid var(--accent); opacity:0.8;">
+                <div class="column-header">
+                    <span style="color:var(--accent)">✅ 완료</span>
+                    <span class="col-count" id="count-done">0</span>
+                </div>
+                <div class="col-body" id="list-done" style="min-height: 400px; display:flex; flex-direction:column;">
+                </div>
+            </div>
+        </div>
+
+        <!-- WBS Gantt 차트 뷰 (기본 숨김) -->
+        <div id="gantt-board" style="display:none; background:var(--bg-panel); padding:20px; border-radius:12px; border:1px solid var(--border); overflow-x:auto;">
+            <svg id="gantt"></svg>
+        </div>
+
+    </div>
+
+    <!-- Todo 생성/수정 모달 -->
+    <div class="modal-overlay" id="todo-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="modal-title">New Issue</span>
+                <button class="btn" style="padding:4px; border:none;" onclick="closeTodoModal()"><svg width="20"
+                        height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="form-id">
+                <div class="form-group">
+                    <label>제목 (필수)</label>
+                    <input type="text" id="form-title" placeholder="작업 내용을 간단히 적어주세요">
+                </div>
+                <div class="form-group">
+                    <label>상세 설명</label>
+                    <textarea id="form-desc" placeholder="상세 스펙, 메모 등을 기록하세요"></textarea>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <div class="form-group">
+                        <label>상태</label>
+                        <select id="form-status">
+                            <option value="계획">계획</option>
+                            <option value="진행">진행</option>
+                            <option value="대기">대기</option>
+                            <option value="반려">반려</option>
+                            <option value="완료">완료</option>
+                            <option value="삭제">삭제</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>이슈 트래커 연동 (선택)</label>
+                        <input type="text" id="form-issue" placeholder="예: PROJ-102">
+                    </div>
+                </div>
+
+                <!-- WBS 입력 필드 -->
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:8px; padding-top:12px; border-top:1px solid var(--border);">
+                    <div class="form-group">
+                        <label>시작일 (WBS)</label>
+                        <input type="text" id="form-start" placeholder="날짜 선택">
+                    </div>
+                    <div class="form-group">
+                        <label>종료일 (WBS)</label>
+                        <input type="text" id="form-end" placeholder="날짜 선택">
+                    </div>
+                    <div class="form-group">
+                        <label>진척률 (0~100%)</label>
+                        <input type="number" id="form-progress" min="0" max="100" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>선행 작업 ID (Dependencies)</label>
+                        <input type="text" id="form-deps" placeholder="예: 2, 5">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:8px;">
+                    <label>리마인드 마감일 (선택)</label>
+                    <input type="text" id="form-remind" placeholder="날짜 및 시간 선택">
+                </div>
+                <div class="form-group" id="note-group"
+                    style="display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+                    <label style="color:#f59e0b">상태 변경 사유 (History Note)</label>
+                    <input type="text" id="form-note" placeholder="사유를 입력하면 이력에 기록됩니다">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeTodoModal()">취소</button>
+                <button class="btn primary" onclick="saveTodo()">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History(타임라인) 모달 -->
+    <div class="modal-overlay" id="history-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>🕘 변경 이력 (History)</span>
+                <button class="btn" style="padding:4px; border:none;" onclick="closeHistoryModal()"><svg width="20"
+                        height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg></button>
+            </div>
+            <div class="modal-body" id="history-timeline">
+                <!-- Timeline items will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 상태별 DOM 컬럼 매핑 (칸반 보드 3칸)
+        function getColumnId(status) {
+            if (status === '진행') return 'list-prog';
+            if (status === '완료') return 'list-done';
+            // 계획, 대기, 반려, 삭제 등은 첫 번째 칸
+            return 'list-todo';
+        }
+
+        // 상태뱃지 색상
+        function getStatusColor(status) {
+            if (status === '진행') return 'var(--color-prog)';
+            if (status === '대기') return 'var(--color-wait)';
+            if (status === '반려') return 'var(--color-reject)';
+            if (status === '완료') return 'var(--color-done)';
+            if (status === '삭제') return 'var(--color-del)';
+            return 'var(--color-plan)';
+        }
+
+        let isGanttView = false;
+        let ganttInstance = null;
+        let allTodos = [];
+
+        function toggleViewMode() {
+            isGanttView = !isGanttView;
+            document.querySelector('.board').style.display = isGanttView ? 'none' : 'grid';
+            document.getElementById('gantt-board').style.display = isGanttView ? 'block' : 'none';
+            document.getElementById('btn-toggle-view').innerText = isGanttView ? '📋 칸반 뷰 보기' : '📊 WBS 간트 뷰 보기';
+            if (isGanttView) renderGantt();
+        }
+
+        function renderGantt() {
+            if (!isGanttView) return;
+            const tasks = allTodos.filter(t => t.status !== '삭제').map(t => {
+                // Frappe Gantt 는 필수적으로 start, end 형식이 YYYY-MM-DD 여야 함
+                const start = t.startDate || new Date().toISOString().split('T')[0];
+                const end = t.endDate || new Date(Date.now() + 86400000).toISOString().split('T')[0]; // 기본 1일
+                return {
+                    id: String(t.id),
+                    name: t.title,
+                    start: start,
+                    end: end,
+                    progress: t.progress || 0,
+                    dependencies: t.dependencies || '',
+                    custom_class: t.status === '완료' ? 'bar-done' : (t.status === '진행' ? 'bar-prog' : 'bar-plan')
+                };
+            });
+
+            if (tasks.length === 0) {
+                document.getElementById('gantt').innerHTML = '<text x="20" y="30" fill="gray">표시할 WBS 일정이 없습니다.</text>';
+                return;
+            }
+
+            document.getElementById('gantt').innerHTML = ''; // 기존 svg 클리어
+
+            ganttInstance = new Gantt("#gantt", tasks, {
+                header_height: 50,
+                column_width: 30,
+                step: 24,
+                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
+                bar_height: 25,
+                bar_corner_radius: 4,
+                arrow_curve: 5,
+                padding: 18,
+                view_mode: 'Day',
+                date_format: 'YYYY-MM-DD',
+                custom_popup_html: function (task) {
+                    return `<div style="padding:10px; border-radius:8px; background:#1e293b; color:#fff; font-size:12px;">
+                        <strong>${task.name}</strong><br>
+                        진척률: ${task.progress}%<br>
+                        ${task.start.split(' ')[0]} ~ ${task.end.split(' ')[0]}
+                    </div>`;
+                },
+                on_date_change: async function(task, start, end) {
+                    // 드래그로 날짜를 변경했을 때 자동 동기화
+                    const sd = start.toISOString().split('T')[0];
+                    const ed = end.toISOString().split('T')[0];
+                    await fetch(`/api/todos/${task.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ startDate: sd, endDate: ed, note: '간트차트에서 일정 드래그 이동' })
+                    });
+                    loadTodos();
+                },
+                on_progress_change: async function(task, progress) {
+                    // 진척률 드래그로 변경했을 때 자동 동기화
+                    await fetch(`/api/todos/${task.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ progress: progress, note: '간트차트에서 진척률 직접 변경' })
+                    });
+                    loadTodos();
+                }
+            });
+        }
+
+        // 날짜 픽커 객체들
+        let fpStart, fpEnd, fpRemind;
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            // Flatpickr 초기화
+            fpStart = flatpickr("#form-start", { locale: "ko", dateFormat: "Y-m-d" });
+            fpEnd = flatpickr("#form-end", { locale: "ko", dateFormat: "Y-m-d" });
+            fpRemind = flatpickr("#form-remind", { locale: "ko", enableTime: true, dateFormat: "Y-m-d H:i" });
+
+            loadTodos();
+            loadReport();
+        });
+
+        function getRelativeTimeStr(dateStr) {
+            if (!dateStr) return '';
+            const due = new Date(dateStr);
+            const diffDays = Math.round((due - new Date()) / (1000 * 60 * 60 * 24));
+            if (diffDays < 0) return `⚠️ 지연 (${Math.abs(diffDays)}일 전)`;
+            if (diffDays === 0) return `🔥 오늘 마감`;
+            return `⏳ ${diffDays}일 남음`;
+        }
+
+        // Todo 목록 데이터 로드
+        async function loadTodos() {
+            try {
+                const filterStatus = document.getElementById('filter-status').value;
+                const filterKeyword = document.getElementById('filter-keyword')?.value || '';
+                const res = await fetch(`/api/todos?status=${encodeURIComponent(filterStatus)}&keyword=${encodeURIComponent(filterKeyword)}`);
+                allTodos = await res.json();
+
+                let pLists = { 'list-todo': '', 'list-prog': '', 'list-done': '' };
+                let counts = { 'list-todo': 0, 'list-prog': 0, 'list-done': 0 };
+
+                allTodos.forEach(todo => {
+                    // 삭제된 항목은 리스트에서 보이지 않도록 필터링 (히스토리에서 조회 가능함)
+                    if (todo.status === '삭제' && filterStatus !== '삭제') return;
+
+                    const targetCol = getColumnId(todo.status);
+
+                    // 마감 강조
+                    let dueClass = '';
+                    let dueText = '';
+                    if (todo.remindAt && todo.status !== '완료' && todo.status !== '삭제') {
+                        const diffTime = new Date(todo.remindAt).getTime() - Date.now();
+                        if (diffTime < 0) dueClass = 'overdue';
+                        else if (diffTime < 86400000) dueClass = 'due-today';
+                        dueText = `<div class="due-date ${dueClass ? 'urgent' : ''}"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${getRelativeTimeStr(todo.remindAt)}</div>`;
+                    }
+
+                    const issueHtml = todo.issueTrackerText
+                        ? `<div class="issue-badge" onclick="copyIssue(event, '${todo.issueTrackerText}')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>${todo.issueTrackerText}</div>`
+                        : '';
+
+                    const sColor = getStatusColor(todo.status);
+                    const statusBadge = `<span style="font-size:0.75rem; padding:2px 8px; border-radius:10px; background:${sColor}22; border:1px solid ${sColor}55; color:${sColor}; font-weight:600;">${todo.status}</span>`;
+                    const createdAtStr = new Date(todo.createdAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                    pLists[targetCol] += `
+                    <div class="todo-card ${dueClass}" data-id="${todo.id}">
+                        <div class="todo-title">${todo.title}</div>
+                        <div class="todo-desc">${todo.description || ''}</div>
+                        
+                        <div class="todo-meta" style="margin-bottom: 8px;">
+                            <div style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>등록: ${createdAtStr}
+                            </div>
+                        </div>
+
+                        <div class="todo-meta">
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                ${statusBadge}
+                                ${issueHtml}
+                            </div>
+                            ${dueText}
+                        </div>
+                        
+                        <div class="card-actions">
+                            <button class="icon-btn" title="변경 이력조회" onclick="event.stopPropagation(); openHistoryModal(${todo.id})">🕒</button>
+                            <button class="icon-btn" title="수정 및 진행변경" onclick="event.stopPropagation(); editTodo(${todo.id})">✏️</button>
+                            <button class="icon-btn" style="background:#ef444455;" title="임시 삭제" onclick="event.stopPropagation(); deleteTodo(${todo.id})">🗑</button>
+                        </div>
+                    </div>
+                `;
+                    counts[targetCol]++;
+                });
+
+                document.getElementById('list-todo').innerHTML = pLists['list-todo'];
+                document.getElementById('list-prog').innerHTML = pLists['list-prog'];
+                document.getElementById('list-done').innerHTML = pLists['list-done'];
+
+                document.getElementById('count-todo').innerText = counts['list-todo'];
+                document.getElementById('count-prog').innerText = counts['list-prog'];
+                document.getElementById('count-done').innerText = counts['list-done'];
+
+                if (isGanttView) renderGantt();
+                loadReport();
+            } catch (e) { console.error('Error loadTodos:', e); }
+        }
+
+        // 대시보드
+        async function loadReport() {
+            try {
+                const res = await fetch('/api/todos-report');
+                const stats = await res.json();
+
+                document.getElementById('stat-total').innerText = stats.total;
+                document.getElementById('stat-plan').innerText = stats['계획'] || 0;
+                document.getElementById('stat-prog').innerText = stats['진행'] || 0;
+                document.getElementById('stat-wait').innerText = stats['대기'] || 0;
+                document.getElementById('stat-done').innerText = stats['완료'] || 0;
+            } catch (e) { }
+        }
+
+        const todoModal = document.getElementById('todo-modal');
+        function openTodoModal(isEdit = false) {
+            document.getElementById('modal-title').innerText = isEdit ? '수정 및 상태 변경' : '새 할 일 등록';
+            document.getElementById('note-group').style.display = isEdit ? 'block' : 'none';
+            todoModal.style.display = 'flex';
+        }
+        function closeTodoModal() {
+            todoModal.style.display = 'none';
+            document.getElementById('form-id').value = '';
+            document.getElementById('form-title').value = '';
+            document.getElementById('form-desc').value = '';
+            document.getElementById('form-status').value = '계획';
+            document.getElementById('form-issue').value = '';
+            fpStart.clear();
+            fpEnd.clear();
+            document.getElementById('form-progress').value = '0';
+            document.getElementById('form-deps').value = '';
+            fpRemind.clear();
+            document.getElementById('form-note').value = '';
+        }
+
+        async function editTodo(id) {
+            const res = await fetch(`/api/todos/${id}`);
+            const todo = await res.json();
+
+            document.getElementById('form-id').value = todo.id;
+            document.getElementById('form-title').value = todo.title;
+            document.getElementById('form-desc').value = todo.description || '';
+            document.getElementById('form-status').value = todo.status;
+            document.getElementById('form-issue').value = todo.issueTrackerText || '';
+            
+            if (todo.startDate) fpStart.setDate(todo.startDate);
+            else fpStart.clear();
+
+            if (todo.endDate) fpEnd.setDate(todo.endDate);
+            else fpEnd.clear();
+            
+            document.getElementById('form-progress').value = todo.progress || 0;
+            document.getElementById('form-deps').value = todo.dependencies || '';
+
+            if (todo.remindAt) {
+                const dateObj = new Date(todo.remindAt);
+                fpRemind.setDate(dateObj);
+            } else {
+                fpRemind.clear();
+            }
+
+            openTodoModal(true);
+        }
+
+        async function saveTodo() {
+            const id = document.getElementById('form-id').value;
+            const payload = {
+                title: document.getElementById('form-title').value,
+                description: document.getElementById('form-desc').value,
+                status: document.getElementById('form-status').value,
+                issueTrackerText: document.getElementById('form-issue').value,
+                startDate: document.getElementById('form-start').value || null,
+                endDate: document.getElementById('form-end').value || null,
+                progress: document.getElementById('form-progress').value || 0,
+                dependencies: document.getElementById('form-deps').value || null,
+                remindAt: document.getElementById('form-remind').value || null,
+            };
+
+            if (id) {
+                // 수정
+                payload.note = document.getElementById('form-note').value;
+                await fetch(`/api/todos/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                // 새로 생성
+                await fetch('/api/todos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            closeTodoModal();
+            loadTodos();
+        }
+
+        async function deleteTodo(id) {
+            if (!confirm('정말 삭제하시겠습니까? (삭제 상태로 변경되며 이력이 기록됩니다)')) return;
+            await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+            loadTodos();
+        }
+
+
+        const historyModal = document.getElementById('history-modal');
+        async function openHistoryModal(id) {
+            const res = await fetch(`/api/todos/${id}/history`);
+            const historyData = await res.json();
+
+            let html = '';
+            if (historyData.length === 0) {
+                html = '<div style="color:var(--text-muted); text-align:center;">이력 데이터가 없습니다.</div>';
+            } else {
+                html = '<div class="timeline">';
+                historyData.forEach(h => {
+                    const timeStr = new Date(h.changedAt).toLocaleString('ko-KR');
+
+                    const oldColor = getStatusColor(h.oldStatus || '계획');
+                    const newColor = getStatusColor(h.newStatus);
+
+                    let statusMove = `<span class="ti-badge" style="background:${newColor}">${h.newStatus}</span> 신규 반영`;
+                    if (h.oldStatus && h.oldStatus !== h.newStatus) {
+                        statusMove = `<span class="ti-badge" style="background:transparent; border:1px solid ${oldColor}; color:${oldColor}">${h.oldStatus}</span> ➔ <span class="ti-badge" style="background:${newColor}">${h.newStatus}</span>`;
+                    }
+
+                    html += `
+                    <div class="timeline-item">
+                        <div class="ti-time">${timeStr}</div>
+                        <div class="ti-content">
+                            <div style="margin-bottom:6px;">${statusMove}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted)">📝 ${h.note || '사유 없음'}</div>
+                        </div>
+                    </div>
+                `;
+                });
+                html += '</div>';
+            }
+
+            document.getElementById('history-timeline').innerHTML = html;
+            historyModal.style.display = 'flex';
+        }
+        function closeHistoryModal() {
+            historyModal.style.display = 'none';
+        }
+
+        function copyIssue(e, text) {
+            e.stopPropagation();
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`클립보드에 '${text}' 복사 성공!`);
+            });
+        }
+
+        // 파일 다이렉트 다운로드 (서버에서 xlsx 전송)
+        function exportExcel() {
+            if (confirm('[진행 중], [완료] 상태의 최신 데이터를 엑셀 파일로 다운로드 하시겠습니까?')) {
+                window.location.href = '/api/todos-export';
+            }
+        }
+    </script>
+
+</body>
+
+</html>
