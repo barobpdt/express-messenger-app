@@ -322,13 +322,19 @@
     </div>
 
     <script>
+        const backendOrigin = localStorage.getItem('backendOrigin') || '';
         // 고유 ID 생성 (본인 메시지 구분을 위해)
         const myId = Math.random().toString(36).substring(2, 10);
         let ws;
 
         function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}`;
+            let wsUrl;
+            if (backendOrigin) {
+                wsUrl = backendOrigin.replace(/^http/, 'ws');
+            } else {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                wsUrl = `${protocol}//${window.location.host}`;
+            }
             ws = new WebSocket(wsUrl);
 
             const statusDot = document.getElementById('status-dot');
@@ -382,7 +388,7 @@
                     <pre style="margin:0; white-space:pre-wrap;">${data.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
                 </div>`;
             } else if (data.type === 'file') {
-                const url = `/api/files/${data.file.id}`;
+                const url = `${backendOrigin}/api/files/${data.file.id}`;
                 const ext = data.file.name.split('.').pop().toLowerCase();
                 const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
 
@@ -455,7 +461,7 @@
                 if (cmd === '/login') {
                     const [username, password] = args.split(' ');
                     appendMessageBubble({ senderId: myId, timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '로그인 확인 중...' });
-                    fetch('/api/cmd/login', {
+                    fetch(backendOrigin + '/api/cmd/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
@@ -497,7 +503,7 @@
                     }
 
                     appendMessageBubble({ senderId: myId, timestamp: Date.now(), type: 'cmd-result', cmd: text, output: '로그 저장 중...' });
-                    fetch('/api/log', {
+                    fetch(backendOrigin + '/api/log', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ text: args })
@@ -531,7 +537,7 @@
                     const action = cmd === '/monitor' ? 'start' : 'stop';
                     appendMessageBubble({ senderId: myId, timestamp: Date.now(), type: 'cmd-result', cmd: args || '(오늘 날짜 로그)', output: `${cmd === '/monitor' ? '모니터링 시작 중...' : '모니터링 종료 중...'}` });
 
-                    fetch('/api/monitor', {
+                    fetch(backendOrigin + '/api/monitor', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -567,7 +573,7 @@
 
                     // /cmd 는 로컬(백엔드)로 직접 API 호출하고 화면에 결과만 출력, 웹소켓 브로드캐스트 안 함
                     appendMessageBubble({ senderId: myId, timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '실행 중...' });
-                    fetch('/api/cmd', {
+                    fetch(backendOrigin + '/api/cmd', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -875,7 +881,7 @@
                         else reject(new Error(xhr.responseText));
                     };
                     xhr.onerror = () => reject(new Error('네트워크 오류'));
-                    xhr.open('POST', '/api/files');
+                    xhr.open('POST', backendOrigin + '/api/files');
                     xhr.send(formData);
                 });
 
