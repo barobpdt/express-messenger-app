@@ -112,7 +112,7 @@
                 };
 
                 // Fallback (WebRTC를 브라우저가 막았을 경우)
-                setTimeout(() => resolve("192.168.0.x"), 1000); // 흔한 기본 대역 사용
+                setTimeout(() => resolve("172.30.1.x"), 1000); // 흔한 기본 대역 사용
             });
         }
 
@@ -154,13 +154,13 @@
             const localIP = await getLocalIP();
 
             let baseIp = '';
-            if (localIP !== "192.168.0.x") {
+            if (localIP !== "172.30.1.x") {
                 const parts = localIP.split('.');
                 parts.pop();
                 baseIp = parts.join('.') + '.';
                 logEl.textContent = `확인된 네트워크 대역: ${baseIp}x`;
             } else {
-                baseIp = '192.168.0.'; // fallback
+                baseIp = '172.30.1.'; // fallback
                 logEl.textContent = `기본 대역 스캔: ${baseIp}x 및 192.168.1.x`;
             }
 

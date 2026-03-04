@@ -916,6 +916,24 @@
             }
         });
 
+        // ─── 모바일 가상 키보드 대응 (스크롤 및 레이아웃 조정) ───
+        if (window.visualViewport) {
+            const adjustHeight = () => {
+                // 키보드 등장 시 안전하게 viewport 높이만큼 메인 레이아웃 제한
+                document.body.style.height = window.visualViewport.height + 'px';
+                scrollToBottom();
+            };
+            window.visualViewport.addEventListener('resize', adjustHeight);
+
+            // 입력창 포커스 시 약간의 딜레이 후 강제 스크롤
+            inputEl.addEventListener('focus', () => {
+                setTimeout(scrollToBottom, 300);
+            });
+
+            // 초기 사이즈 설정
+            adjustHeight();
+        }
+
     </script>
 </body>
 
