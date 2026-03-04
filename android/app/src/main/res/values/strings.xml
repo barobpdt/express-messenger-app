@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ExpressMessenger</string>
+    <string name="title_activity_main">ExpressMessenger</string>
+    <string name="package_name">com.express.messenger</string>
+    <string name="custom_url_scheme">com.express.messenger</string>
+</resources>
