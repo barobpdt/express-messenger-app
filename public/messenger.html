@@ -371,13 +371,18 @@
         <div id="header">
             <h1 style="display:flex; align-items:center; gap:8px;">
                 <span id="status-dot" class="status-dot"></span>채팅방
-                <span id="user-count"
-                    style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none;">1명</span>
+                <span id="user-count" onclick="toggleUserList()"
+                    style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none; cursor:pointer;">1명
+                    접속 중 ▾</span>
             </h1>
             <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; line-height:1.6">
                 /open URL &nbsp;·&nbsp; /alert 메시지 &nbsp;·&nbsp; /screenshot &nbsp;·&nbsp; /sharescreen<br>
                 <span style="font-size:0.72rem; opacity:0.7">/login &nbsp;|&nbsp; /cmd &nbsp;|&nbsp; /log &nbsp;|&nbsp;
                     /monitor [경로] &nbsp;|&nbsp; /unmonitor &nbsp;|&nbsp; 붙여넣기</span>
+            </div>
+
+            <div id="user-list-dropdown" class="user-list-dropdown">
+                <!-- User List Items will be injected here -->
             </div>
         </div>
 
@@ -390,6 +395,9 @@
         </div>
 
         <div id="input-area">
+            <div id="target-indicator" class="target-indicator">
+                귓속말 모드: <strong id="target-name"></strong> <span onclick="clearTarget()">✖</span>
+            </div>
             <button class="btn secondary" onclick="document.getElementById('file-input').click()" title="파일 첨부">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -428,6 +436,50 @@
         const loginUser = document.getElementById('login-username');
         const loginPass = document.getElementById('login-password');
         const loginError = document.getElementById('login-error');
+
+        // ─── 귓속말 대상 관리 ───
+        let currentTargetUser = null;
+        let onlineUsers = [];
+
+        function toggleUserList() {
+            document.getElementById('user-list-dropdown').classList.toggle('active');
+        }
+
+        function setTarget(username) {
+            if (username === myId) return; // 본인 클릭 무시
+            currentTargetUser = username;
+            document.getElementById('target-name').innerText = username;
+            document.getElementById('target-indicator').style.display = 'block';
+            document.getElementById('msg-input').placeholder = `(귓속말) ${username}에게 전송...`;
+            document.getElementById('user-list-dropdown').classList.remove('active');
+            renderUserList();
+        }
+
+        function clearTarget() {
+            currentTargetUser = null;
+            document.getElementById('target-indicator').style.display = 'none';
+            document.getElementById('msg-input').placeholder = "메시지 입력... (Enter로 전송)";
+            renderUserList();
+        }
+
+        function renderUserList() {
+            const listEl = document.getElementById('user-list-dropdown');
+            listEl.innerHTML = onlineUsers.map(user => `
+                <div class="user-item ${user === currentTargetUser ? 'selected' : ''}" onclick="setTarget('${user}')">
+                    <div style="width:24px; height:24px; border-radius:12px; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">
+                        ${user.charAt(0).toUpperCase()}
+                    </div>
+                    ${user} ${user === myId ? '(나)' : ''}
+                </div>
+            `).join('');
+        }
+
+        // 창 밖 클릭 시 드롭다운 닫기
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.user-list-dropdown') && !e.target.closest('#user-count')) {
+                document.getElementById('user-list-dropdown').classList.remove('active');
+            }
+        });
 
         // 이미 로그인 되어있다면 패스
         if (myId) {
@@ -528,6 +580,10 @@
 
             ws.onopen = () => {
                 statusDot.classList.add('connected');
+                // 서버에 내 계정 ID 전송 (접속자 명단 등록을 위함)
+                if (myId) {
+                    ws.send(JSON.stringify({ type: 'init', username: myId }));
+                }
             };
 
             ws.onmessage = (event) => {
@@ -549,6 +605,22 @@
         const msgContainer = document.getElementById('messages');
         const inputEl = document.getElementById('msg-input');
 
+        // CSS 추가 (자바스크립트로 동적 주입 방지 위해 직접 문자열로 반영)
+        const bubbleStyle = document.createElement('style');
+        bubbleStyle.innerHTML = `
+            .bubble.whisper {
+                background: #fdf4ff !important;
+                color: #86198f !important;
+                border: 1px solid #e879f9;
+            }
+            .message.mine .bubble.whisper {
+                background: #f3e8ff !important;
+                color: #6b21a8 !important;
+                border: 1px solid #d8b4fe;
+            }
+        `;
+        document.head.appendChild(bubbleStyle);
+
         function appendMessageBubble(data) {
             const isMine = data.senderId === myId;
             const el = document.createElement('div');
@@ -557,10 +629,17 @@
             const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             let contentHtml = '';
+
+            // 귓속말 뱃지 렌더링
+            let whisperHtml = '';
+            if (data.targetUser) {
+                whisperHtml = `<span class="whisper-badge">[귓속말]</span> `;
+            }
+
             if (data.type === 'text' || data.type === 'command') {
                 // 텍스트는 이스케이프 (기본적인 XSS 방지)
                 const safeText = data.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                contentHtml = `<div class="bubble">${safeText.replace(/\n/g, '<br>')}</div>`;
+                contentHtml = `<div class="bubble ${data.targetUser ? 'whisper' : ''}">${whisperHtml}${safeText.replace(/\n/g, '<br>')}</div>`;
             } else if (data.type === 'cmd-result') {
                 contentHtml = `<div class="bubble" style="background:#000; color:#0f0; border-radius:8px; font-family:monospace; padding:12px; font-size:0.85rem; width:100%; overflow-x:auto;">
                     <div style="color:#888; margin-bottom:8px;">> ${data.cmd}</div>
@@ -578,8 +657,8 @@
 
                 if (isImage) {
                     contentHtml = `
-                        <div class="bubble" style="display:flex; flex-direction:column; gap:6px;">
-                            <span style="font-size:0.8rem; color:${isMine ? '#bae6fd' : '#8b949e'}">🖼 이미지가 공유되었습니다</span>
+                        <div class="bubble ${data.targetUser ? 'whisper' : ''}" style="display:flex; flex-direction:column; gap:6px;">
+                            <span style="font-size:0.8rem; color:${isMine ? (data.targetUser ? '#6b21a8' : '#bae6fd') : (data.targetUser ? '#86198f' : '#8b949e')}">${whisperHtml}🖼 이미지가 공유되었습니다</span>
                             <a href="${url}" target="_blank">
                                 <img src="${url}" alt="${data.file.name}" style="max-width: 100%; max-height: 250px; border-radius: 8px; object-fit: contain; background: #000;">
                             </a>
@@ -588,8 +667,8 @@
                     `;
                 } else {
                     contentHtml = `
-                        <div class="bubble" style="display:flex; flex-direction:column; gap:6px;">
-                            <span style="font-size:0.8rem; color:${isMine ? '#bae6fd' : '#8b949e'}">📁 파일이 공유되었습니다</span>
+                        <div class="bubble ${data.targetUser ? 'whisper' : ''}" style="display:flex; flex-direction:column; gap:6px;">
+                            <span style="font-size:0.8rem; color:${isMine ? (data.targetUser ? '#6b21a8' : '#bae6fd') : (data.targetUser ? '#86198f' : '#8b949e')}">${whisperHtml}📁 파일이 공유되었습니다</span>
                             <a href="${url}" class="file-link" target="_blank" download="${data.file.name}">
                                 💾 ${data.file.name}
                             </a>
@@ -598,11 +677,24 @@
                 }
             }
 
+            // 아바타 UI 표시
+            const senderInitial = (data.senderId && data.senderId !== 'system') ? String(data.senderId).charAt(0).toUpperCase() : 'S';
+            const avatarHtml = `
+                <div style="width:28px; height:28px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; flex-shrink:0;">
+                    ${senderInitial}
+                </div>
+            `;
+
             el.innerHTML = `
-                ${contentHtml}
-                <div class="meta">
-                    ${!isMine ? (data.senderId && data.senderId !== 'system' ? `<span>User-${String(data.senderId).substring(0, 4)}</span>` : `<span>System</span>`) : ''}
-                    <span>${time}</span>
+                ${!isMine ? avatarHtml : ''}
+                <div style="display:flex; flex-direction:column; max-width:85%;">
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; margin-left:4px; ${isMine ? 'text-align:right; margin-right:4px;' : ''}">
+                        ${data.senderId && data.senderId !== 'system' ? `User-${String(data.senderId).substring(0, 4)}` : `System`}
+                    </div>
+                    ${contentHtml}
+                    <div class="meta" style="justify-content:${isMine ? 'flex-end' : 'flex-start'}; gap:4px; margin-top:2px;">
+                        <span>${time}</span>
+                    </div>
                 </div>
             `;
 
@@ -633,7 +725,8 @@
                 senderId: myId,
                 timestamp: Date.now(),
                 type: 'text',
-                text: text
+                text: text,
+                targetUser: currentTargetUser
             };
 
             // 명령어 파싱 (/open URL, /alert MSG, /cmd CMD)
@@ -832,10 +925,17 @@
 
         // ─── 메시지 수신 및 명령어 실행 ───
         function receiveMessage(data) {
-            if (data.type === 'userCount') {
+            if (data.type === 'onlineUsers') {
                 const countBadge = document.getElementById('user-count');
-                countBadge.innerText = `${data.count}명 접속 중`;
+                countBadge.innerText = `${data.count}명 접속 중 ▾`;
                 countBadge.style.display = 'inline-block';
+                onlineUsers = data.users || [];
+                renderUserList();
+
+                // 만약 현재 타겟유저가 나갔다면 타겟 초기화 (선택적)
+                if (currentTargetUser && !onlineUsers.includes(currentTargetUser)) {
+                    clearTarget();
+                }
                 return;
             }
 
@@ -1074,7 +1174,8 @@
                         senderId: myId,
                         timestamp: Date.now(),
                         type: 'file',
-                        file: { id: result.fileId, name: result.name, size: result.size }
+                        file: { id: result.fileId, name: result.name, size: result.size },
+                        targetUser: currentTargetUser
                     }));
                 }
             } catch (err) {

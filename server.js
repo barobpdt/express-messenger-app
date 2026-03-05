@@ -54,31 +54,68 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 let activeSqliteDb = null;
 
+// { username: WebSocket }
+const onlineUsers = new Map();
+
 wss.on('connection', (ws) => {
-	// 새로운 클라이언트 연결 시 접속자 수 브로드캐스트
-	broadcastUserCount();
+	// 임시 ID (로그인 전)
+	ws.id = uuidv4();
 
 	ws.on('message', (message) => {
 		try {
 			const parsed = JSON.parse(message);
-			// Broadcast to all clients (WebSocket)
-			wss.clients.forEach(client => {
-				if (client.readyState === 1 /* WebSocket.OPEN */) {
-					client.send(JSON.stringify(parsed));
+
+			if (parsed.type === 'init') {
+				const username = parsed.username;
+				if (username) {
+					ws.username = username;
+					onlineUsers.set(username, ws);
+					broadcastOnlineUsers();
 				}
-			});
+				return;
+			}
+
+			// Broadcast to all clients (WebSocket) or Direct Message
+			const targetUser = parsed.targetUser;
+
+			if (targetUser) {
+				// 귓속말 (Direct Message)
+				const targetWs = onlineUsers.get(targetUser);
+				if (targetWs && targetWs.readyState === 1) {
+					targetWs.send(JSON.stringify(parsed));
+				}
+				// 본인에게도 에코
+				if (ws.readyState === 1 && targetWs !== ws) {
+					ws.send(JSON.stringify(parsed));
+				}
+			} else {
+				// 전체 채팅
+				wss.clients.forEach(client => {
+					if (client.readyState === 1 /* WebSocket.OPEN */) {
+						client.send(JSON.stringify(parsed));
+					}
+				});
+			}
 
 			// FCM 푸시 알림 발송 (일반 텍스트 메시지나 파일인 경우에만)
 			if (admin.apps.length > 0 && (parsed.type === 'text' || parsed.type === 'file')) {
 				const senderId = parsed.senderId || 'Unknown';
 				// 알림 제목/내용 구성
-				const title = `메시지 도착 (${senderId})`;
-				const body = parsed.type === 'text' ? parsed.text : '📁 파일 전송됨';
+				let title = `메시지 도착 (${senderId})`;
+				let body = parsed.type === 'text' ? parsed.text : '📁 파일 전송됨';
 
-				// DB에서 발신자를 제외한 모든 유저의 fcmToken을 가져와서 푸시 발송
-				// 비동기로 백그라운드에서 처리
+				if (targetUser) {
+					title = `귓속말 도착 (${senderId})`;
+				}
+
+				// DB에서 fcmToken을 가져와서 푸시 발송
+				// 타겟이 있으면 타겟의 토큰만, 없으면 본인 제외 전체 토큰
+				const queryFilter = targetUser
+					? sql`${usersTable.fcmToken} IS NOT NULL AND ${usersTable.username} = ${targetUser}`
+					: sql`${usersTable.fcmToken} IS NOT NULL AND ${usersTable.username} != ${senderId}`;
+
 				db.select({ fcmToken: usersTable.fcmToken }).from(usersTable)
-					.where(sql`${usersTable.fcmToken} IS NOT NULL AND ${usersTable.username} != ${senderId}`)
+					.where(queryFilter)
 					.then(users => {
 						const tokens = users.map(u => u.fcmToken).filter(t => !!t);
 						if (tokens.length > 0) {
@@ -102,19 +139,16 @@ wss.on('connection', (ws) => {
 	});
 
 	ws.on('close', () => {
-		// 클라이언트 연결 해제 시 접속자 수 갱신 브로드캐스트
-		broadcastUserCount();
+		if (ws.username) {
+			onlineUsers.delete(ws.username);
+			broadcastOnlineUsers();
+		}
 	});
 });
 
-function broadcastUserCount() {
-	let count = 0;
-	wss.clients.forEach(client => {
-		if (client.readyState === 1 /* WebSocket.OPEN */) {
-			count++;
-		}
-	});
-	const msg = JSON.stringify({ type: 'userCount', count });
+function broadcastOnlineUsers() {
+	const users = Array.from(onlineUsers.keys());
+	const msg = JSON.stringify({ type: 'onlineUsers', users, count: users.length });
 	wss.clients.forEach(client => {
 		if (client.readyState === 1) {
 			client.send(msg);

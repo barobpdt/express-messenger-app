@@ -5,6 +5,7 @@ export const usersTable = pgTable("users", {
 	username: text("username").notNull().unique(),
 	password: text("password").notNull(),
 	fcmToken: text("fcm_token"),
+	avatar: text("avatar"),
 	createdAt: timestamp("created_at").defaultNow(),
 });
 
