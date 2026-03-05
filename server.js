@@ -26,7 +26,12 @@ import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+const FILE_TTL_MS = 60 * 60 * 1000; // 1시간
+
+const fileStore = new Map();
+
 
 // Firebase Admin 초기화
 const firebaseKeyPath = path.join(__dirname, 'firebase-adminsdk.json');
@@ -862,13 +867,8 @@ app.get('/api/videos/:filename', (req, res) => {
 });
 
 // ─── 파일 공유 API (업로드 → 다운로드 링크) ──────────────────────────────────
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, "uploads");
-const FILE_TTL_MS = 60 * 60 * 1000; // 1시간
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const fileStore = new Map();
 
 const upload = multer({
 	storage: multer.diskStorage({
