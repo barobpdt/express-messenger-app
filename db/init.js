@@ -3,6 +3,15 @@ import { sql } from "../config/db.js";
 export const initializeDatabase = async () => {
 	try {
 		await sql`
+		CREATE TABLE IF NOT EXISTS users (
+			id SERIAL PRIMARY KEY,
+			username TEXT NOT NULL UNIQUE,
+			password TEXT NOT NULL,
+			fcm_token TEXT,
+			created_at TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
 		CREATE TABLE IF NOT EXISTS favorites (
 			id        SERIAL PRIMARY KEY,
 			user_id   TEXT    NOT NULL,

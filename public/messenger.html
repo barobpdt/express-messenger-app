@@ -138,8 +138,92 @@
             color: var(--text-muted);
             margin-top: 4px;
             display: flex;
-            gap: 8px;
+            align-items: center;
+            gap: 6px;
         }
+
+        /* ─── Login Modal ─── */
+        #login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 340px;
+            text-align: center;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .login-box h2 {
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            color: white;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .login-box input:focus {
+            border-color: var(--primary);
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: background 0.2s;
+        }
+
+        .login-box button:hover {
+            background: var(--primary-hover);
+        }
+
+        .login-box button.secondary {
+            background: #30363d;
+        }
+
+        .login-box button.secondary:hover {
+            background: #4b5563;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            font-size: 0.85rem;
+            padding-top: 4px;
+            min-height: 1.2rem;
+        }
+
+
 
         .message.mine .meta {
             justify-content: flex-end;
@@ -270,6 +354,19 @@
 
 <body>
 
+    <!-- 로그인 모달 -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>💬 메신저 로그인</h2>
+            <input type="text" id="login-username" placeholder="아이디" autocomplete="off" autocorrect="off"
+                autocapitalize="off">
+            <input type="password" id="login-password" placeholder="비밀번호">
+            <button id="btn-login">로그인</button>
+            <button id="btn-register" class="secondary">가입하기</button>
+            <div class="error-msg" id="login-error"></div>
+        </div>
+    </div>
+
     <div id="chat-container">
         <div id="header">
             <h1 style="display:flex; align-items:center; gap:8px;">
@@ -323,9 +420,99 @@
 
     <script>
         const backendOrigin = localStorage.getItem('backendOrigin') || '';
-        // 고유 ID 생성 (본인 메시지 구분을 위해)
-        const myId = Math.random().toString(36).substring(2, 10);
+        let myId = localStorage.getItem('messengerUser') || null;
         let ws;
+
+        // ─── 로그인 로직 ───
+        const loginOverlay = document.getElementById('login-overlay');
+        const loginUser = document.getElementById('login-username');
+        const loginPass = document.getElementById('login-password');
+        const loginError = document.getElementById('login-error');
+
+        // 이미 로그인 되어있다면 패스
+        if (myId) {
+            loginOverlay.style.display = 'none';
+            connectWebSocket();
+        }
+
+        document.getElementById('btn-login').addEventListener('click', () => handleAuth('login'));
+        document.getElementById('btn-register').addEventListener('click', () => handleAuth('register'));
+
+        // 엔터키 지원
+        loginPass.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleAuth('login');
+        });
+
+        // ─── Capacitor 푸시 알림 세팅 ───
+        let currentFcmToken = null;
+        if (window.Capacitor && window.Capacitor.Plugins.PushNotifications) {
+            const { PushNotifications } = window.Capacitor.Plugins;
+
+            PushNotifications.requestPermissions().then(result => {
+                if (result.receive === 'granted') {
+                    PushNotifications.register();
+                }
+            });
+
+            PushNotifications.addListener('registration', (token) => {
+                currentFcmToken = token.value;
+            });
+
+            PushNotifications.addListener('registrationError', (error) => {
+                console.error("FCM Registration Error:", error);
+            });
+
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('Push received:', notification);
+            });
+        }
+
+        async function handleAuth(action) {
+            const username = loginUser.value.trim();
+            const password = loginPass.value.trim();
+            if (!username || !password) {
+                loginError.innerText = "아이디와 비밀번호를 모두 입력하세요.";
+                return;
+            }
+
+            loginError.style.color = 'var(--text-muted)';
+            loginError.innerText = "처리 중...";
+            const endpoint = action === 'login' ? '/api/user/login' : '/api/register';
+
+            try {
+                // 로그인/회원가입 시 푸시 토큰 전송
+                const payload = { username, password, fcmToken: currentFcmToken };
+
+                const res = await fetch(backendOrigin + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    if (action === 'register') {
+                        loginError.style.color = '#22c55e';
+                        loginError.innerText = "회원가입 완료! 자동 로그인 중...";
+                        setTimeout(() => handleAuth('login'), 800);
+                    } else {
+                        // 로그인 성공
+                        myId = data.username;
+                        window.cmdToken = data.token; // CMD 명령용 겸용 테스트
+                        localStorage.setItem('messengerUser', myId);
+                        loginOverlay.style.display = 'none';
+                        connectWebSocket();
+                    }
+                } else {
+                    loginError.style.color = '#ef4444';
+                    loginError.innerText = data.error || "실패했습니다.";
+                }
+            } catch (err) {
+                loginError.style.color = '#ef4444';
+                loginError.innerText = "서버 통신 오류: " + err.message;
+            }
+        }
+
 
         function connectWebSocket() {
             let wsUrl;
@@ -357,9 +544,6 @@
                 setTimeout(connectWebSocket, 3000); // Reconnect after 3s
             };
         }
-
-        // 초기 연결
-        connectWebSocket();
 
         // ─── UI 렌더링 ───
         const msgContainer = document.getElementById('messages');

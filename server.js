@@ -1,7 +1,7 @@
 import express from "express";
 import { ENV } from "./config/env.js";
 import { db } from "./config/db.js";
-import { favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable } from "./db/schema.js";
+import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable } from "./db/schema.js";
 import { and, eq, or, like, sql, desc } from "drizzle-orm";
 import job from "./config/cron.js";
 import cors from "cors";
@@ -22,6 +22,27 @@ import ExcelJS from "exceljs";
 import Database from "better-sqlite3";
 import { exec } from "child_process";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import admin from "firebase-admin";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Firebase Admin 초기화
+const firebaseKeyPath = path.join(__dirname, 'firebase-adminsdk.json');
+if (fs.existsSync(firebaseKeyPath)) {
+	try {
+		const serviceAccount = JSON.parse(fs.readFileSync(firebaseKeyPath, 'utf8'));
+		admin.initializeApp({
+			credential: admin.credential.cert(serviceAccount)
+		});
+		logger.info("Firebase Admin Initialized successfully.");
+	} catch (e) {
+		logger.error("Failed to initialize Firebase Admin", e);
+	}
+} else {
+	logger.warn("firebase-adminsdk.json not found. Push notifications will be disabled.");
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -35,12 +56,41 @@ wss.on('connection', (ws) => {
 	ws.on('message', (message) => {
 		try {
 			const parsed = JSON.parse(message);
-			// Broadcast to all clients
+			// Broadcast to all clients (WebSocket)
 			wss.clients.forEach(client => {
 				if (client.readyState === 1 /* WebSocket.OPEN */) {
 					client.send(JSON.stringify(parsed));
 				}
 			});
+
+			// FCM 푸시 알림 발송 (일반 텍스트 메시지나 파일인 경우에만)
+			if (admin.apps.length > 0 && (parsed.type === 'text' || parsed.type === 'file')) {
+				const senderId = parsed.senderId || 'Unknown';
+				// 알림 제목/내용 구성
+				const title = `메시지 도착 (${senderId})`;
+				const body = parsed.type === 'text' ? parsed.text : '📁 파일 전송됨';
+
+				// DB에서 발신자를 제외한 모든 유저의 fcmToken을 가져와서 푸시 발송
+				// 비동기로 백그라운드에서 처리
+				db.select({ fcmToken: usersTable.fcmToken }).from(usersTable)
+					.where(sql`${usersTable.fcmToken} IS NOT NULL AND ${usersTable.username} != ${senderId}`)
+					.then(users => {
+						const tokens = users.map(u => u.fcmToken).filter(t => !!t);
+						if (tokens.length > 0) {
+							const payload = {
+								notification: { title, body },
+								data: { type: parsed.type, senderId },
+								tokens: tokens
+							};
+							admin.messaging().sendMulticast(payload)
+								.then(response => {
+									logger.info(`FCM Push: ${response.successCount} messages sent successfully.`);
+								})
+								.catch(err => logger.error("FCM Push Error", err));
+						}
+					}).catch(err => logger.error("DB Error retrieving tokens", err));
+			}
+
 		} catch (e) {
 			logger.error("Failed to parse websocket message", { stack: e.stack });
 		}
@@ -84,6 +134,52 @@ app.get("/api/health", (req, res) => {
 });
 
 const CMD_JWT_SECRET = ENV.JWT_SECRET || "fallback_super_secret_cmd_key_for_local_only";
+
+// ─── 사용자 가입 및 로그인 (메신저 앱용) ───
+app.post("/api/register", async (req, res) => {
+	const { username, password, fcmToken } = req.body;
+	if (!username || !password) return res.status(400).json({ success: false, error: "Username and password required" });
+
+	try {
+		const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+		if (existing.length > 0) return res.status(409).json({ success: false, error: "Username already exists" });
+
+		const hashedPassword = await bcrypt.hash(password, 10);
+		await db.insert(usersTable).values({
+			username,
+			password: hashedPassword,
+			fcmToken: fcmToken || null
+		});
+		res.json({ success: true, message: "User registered successfully" });
+	} catch (error) {
+		logger.error("Register Error", error);
+		res.status(500).json({ success: false, error: "Server error" });
+	}
+});
+
+app.post("/api/user/login", async (req, res) => {
+	const { username, password, fcmToken } = req.body;
+	if (!username || !password) return res.status(400).json({ success: false, error: "Username and password required" });
+
+	try {
+		const users = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+		if (users.length === 0) return res.status(401).json({ success: false, error: "Invalid credentials" });
+
+		const user = users[0];
+		const isMatch = await bcrypt.compare(password, user.password);
+		if (!isMatch) return res.status(401).json({ success: false, error: "Invalid credentials" });
+
+		if (fcmToken && fcmToken !== user.fcmToken) {
+			await db.update(usersTable).set({ fcmToken }).where(eq(usersTable.id, user.id));
+		}
+
+		const token = jwt.sign({ userId: user.id, username: user.username }, CMD_JWT_SECRET, { expiresIn: '30d' });
+		res.json({ success: true, token, username: user.username });
+	} catch (error) {
+		logger.error("Login Error", error);
+		res.status(500).json({ success: false, error: "Server error" });
+	}
+});
 
 // CMD 인증용 로그인 엔드포인트
 app.post("/api/cmd/login", (req, res) => {

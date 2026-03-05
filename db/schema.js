@@ -1,5 +1,12 @@
 import { pgTable, serial, text, timestamp, integer, boolean, unique } from "drizzle-orm/pg-core";
 
+export const usersTable = pgTable("users", {
+	id: serial("id").primaryKey(),
+	username: text("username").notNull().unique(),
+	password: text("password").notNull(),
+	fcmToken: text("fcm_token"),
+	createdAt: timestamp("created_at").defaultNow(),
+});
 
 export const favoritesTable = pgTable("favorites", {
 	id: serial("id").primaryKey(),

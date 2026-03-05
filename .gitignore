@@ -29,3 +29,5 @@ tmp/
 
 *.mp4
 BARO/
+firebase-adminsdk.json
+google-services.json
