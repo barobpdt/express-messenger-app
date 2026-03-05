@@ -44,6 +44,28 @@
             border-left: 1px solid var(--border);
             border-right: 1px solid var(--border);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            /* For positioning whisper-active-badge */
+        }
+
+        /* Custom Scrollbar for Dark Theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         /* Header */
@@ -140,6 +162,136 @@
             display: flex;
             align-items: center;
             gap: 6px;
+        }
+
+        /* ─── 접속자 목록 팝업 UI ─── */
+        .user-list-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .user-list-overlay.active {
+            display: flex;
+        }
+
+        .user-list-modal {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            width: 320px;
+            max-width: 90%;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            animation: popIn 0.2s ease-out;
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .user-list-header {
+            padding: 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .user-list-close {
+            cursor: pointer;
+            color: #ef4444;
+            font-size: 1.2rem;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .user-list-close:hover {
+            opacity: 1;
+        }
+
+        .user-list-content {
+            padding: 8px 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .user-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: #d4d4d4;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s;
+        }
+
+        .user-item:hover {
+            background: #2d2d2d;
+        }
+
+        .user-item.selected {
+            background: rgba(168, 85, 247, 0.1);
+            color: #d8b4fe;
+            font-weight: bold;
+        }
+
+        /* 우측 상단 귓속말 아이콘 (헤더/채팅영역) */
+        .whisper-active-badge {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            background: rgba(168, 85, 247, 0.15);
+            color: #d8b4fe;
+            border: 1px solid #a855f7;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 90;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+            animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .whisper-active-badge:hover {
+            background: rgba(168, 85, 247, 0.25);
+            transform: translateY(-1px);
         }
 
         /* ─── Login Modal ─── */
@@ -354,6 +506,20 @@
 
 <body>
 
+    <!-- ─── 접속자 목록 팝업 ─── -->
+    <div id="user-list-overlay" class="user-list-overlay" onclick="handleOverlayClick(event)">
+        <div class="user-list-modal" onclick="event.stopPropagation()">
+            <div class="user-list-header">
+                <div>🟢 접속자 목록 <span id="popup-user-count"
+                        style="color:var(--primary); font-size:0.85rem; margin-left:6px;"></span></div>
+                <div class="user-list-close" onclick="toggleUserList()">✖</div>
+            </div>
+            <div id="user-list-dropdown" class="user-list-content">
+                <!-- User List Items will be injected here -->
+            </div>
+        </div>
+    </div>
+
     <!-- 로그인 모달 -->
     <div id="login-overlay">
         <div class="login-box">
@@ -368,21 +534,30 @@
     </div>
 
     <div id="chat-container">
+        <!-- 귓속말 우측 상단 아이콘 -->
+        <div id="target-indicator" class="whisper-active-badge" onclick="clearTarget()" title="클릭하여 귓속말 종료">
+            <span style="font-size:1rem;">🤫</span>
+            <span><strong id="target-name"></strong>에게</span>
+            <span style="color:#ef4444; margin-left:4px; font-weight:bold;">✖</span>
+        </div>
+
         <div id="header">
             <h1 style="display:flex; align-items:center; gap:8px;">
                 <span id="status-dot" class="status-dot"></span>채팅방
                 <span id="user-count" onclick="toggleUserList()"
-                    style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none; cursor:pointer;">1명
+                    style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none; cursor:pointer;"
+                    title="접속자 목록 보기">1명
                     접속 중 ▾</span>
+                <span onclick="promptAvatar()"
+                    style="font-size:0.75rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
+                    title="내 프로필 사진 변경">✨ 프로필 설정</span>
             </h1>
-            <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; line-height:1.6">
-                /open URL &nbsp;·&nbsp; /alert 메시지 &nbsp;·&nbsp; /screenshot &nbsp;·&nbsp; /sharescreen<br>
+            <div
+                style="font-size:0.8rem; color:var(--text-muted); text-align:right; line-height:1.6; margin-right: 20px;">
+                /avatar [URL] &nbsp;·&nbsp; /open URL &nbsp;·&nbsp; /alert 메시지 &nbsp;·&nbsp; /screenshot &nbsp;·&nbsp;
+                /sharescreen<br>
                 <span style="font-size:0.72rem; opacity:0.7">/login &nbsp;|&nbsp; /cmd &nbsp;|&nbsp; /log &nbsp;|&nbsp;
                     /monitor [경로] &nbsp;|&nbsp; /unmonitor &nbsp;|&nbsp; 붙여넣기</span>
-            </div>
-
-            <div id="user-list-dropdown" class="user-list-dropdown">
-                <!-- User List Items will be injected here -->
             </div>
         </div>
 
@@ -395,9 +570,6 @@
         </div>
 
         <div id="input-area">
-            <div id="target-indicator" class="target-indicator">
-                귓속말 모드: <strong id="target-name"></strong> <span onclick="clearTarget()">✖</span>
-            </div>
             <button class="btn secondary" onclick="document.getElementById('file-input').click()" title="파일 첨부">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -442,16 +614,22 @@
         let onlineUsers = [];
 
         function toggleUserList() {
-            document.getElementById('user-list-dropdown').classList.toggle('active');
+            document.getElementById('user-list-overlay').classList.toggle('active');
+        }
+
+        function handleOverlayClick(e) {
+            if (e.target.id === 'user-list-overlay') {
+                toggleUserList();
+            }
         }
 
         function setTarget(username) {
             if (username === myId) return; // 본인 클릭 무시
             currentTargetUser = username;
             document.getElementById('target-name').innerText = username;
-            document.getElementById('target-indicator').style.display = 'block';
+            document.getElementById('target-indicator').style.display = 'flex';
             document.getElementById('msg-input').placeholder = `(귓속말) ${username}에게 전송...`;
-            document.getElementById('user-list-dropdown').classList.remove('active');
+            document.getElementById('user-list-overlay').classList.remove('active');
             renderUserList();
         }
 
@@ -464,22 +642,48 @@
 
         function renderUserList() {
             const listEl = document.getElementById('user-list-dropdown');
-            listEl.innerHTML = onlineUsers.map(user => `
-                <div class="user-item ${user === currentTargetUser ? 'selected' : ''}" onclick="setTarget('${user}')">
-                    <div style="width:24px; height:24px; border-radius:12px; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">
-                        ${user.charAt(0).toUpperCase()}
-                    </div>
-                    ${user} ${user === myId ? '(나)' : ''}
+            listEl.innerHTML = onlineUsers.map(user => {
+                const isSelected = user.username === currentTargetUser;
+                const isMe = user.username === myId;
+
+                let avatarHtml;
+                if (user.avatar) {
+                    avatarHtml = `<img src="${user.avatar}" alt="avatar" style="width:32px; height:32px; border-radius:16px; object-fit:cover; flex-shrink:0;">`;
+                } else {
+                    avatarHtml = `<div style="width:32px; height:32px; border-radius:16px; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:bold; flex-shrink:0;">
+                        ${user.username.charAt(0).toUpperCase()}
+                    </div>`;
+                }
+
+                return `
+                <div class="user-item ${isSelected ? 'selected' : ''}" onclick="setTarget('${user.username}')">
+                    ${avatarHtml}
+                    <div style="flex:1;">${user.username} ${isMe ? '<span style="color:#22c55e; font-size:0.8em">(나)</span>' : ''}</div>
+                    ${isSelected ? '<div><span style="font-size:0.8em; color:#d8b4fe">대화 중</span></div>' : ''}
                 </div>
-            `).join('');
+            `}).join('');
+            document.getElementById('popup-user-count').innerText = `(${onlineUsers.length}명)`;
         }
 
-        // 창 밖 클릭 시 드롭다운 닫기
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.user-list-dropdown') && !e.target.closest('#user-count')) {
-                document.getElementById('user-list-dropdown').classList.remove('active');
+        function promptAvatar() {
+            const url = prompt("프로필 사진 이미지 URL을 입력하세요.\n(비워두어 시스템 기본값 사용 가능)");
+            if (url !== null) {
+                // API 전송 코드로 업데이트
+                fetch(backendOrigin + '/api/user/avatar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: myId, avatar: url || null })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: '✅ 프로필 사진이 업데이트 되었습니다.' });
+                        } else {
+                            alert("프로필 업데이트 실패: " + data.error);
+                        }
+                    }).catch(err => alert("에러: " + err));
             }
-        });
+        }
 
         // 이미 로그인 되어있다면 패스
         if (myId) {
@@ -677,17 +881,28 @@
                 }
             }
 
-            // 아바타 UI 표시
-            const senderInitial = (data.senderId && data.senderId !== 'system') ? String(data.senderId).charAt(0).toUpperCase() : 'S';
-            const avatarHtml = `
-                <div style="width:28px; height:28px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; flex-shrink:0;">
-                    ${senderInitial}
-                </div>
-            `;
+            // 아바타 UI 표시 - 본인이면 내 아바타, 아니면 온라인배열에서 서치, 없으면 이니셜
+            let senderAvatarUrl = data.senderAvatar;
+            if (!senderAvatarUrl && onlineUsers) {
+                const u = onlineUsers.find(x => x.username === data.senderId);
+                if (u && u.avatar) senderAvatarUrl = u.avatar;
+            }
+
+            let avatarHtml;
+            if (senderAvatarUrl) {
+                avatarHtml = `<img src="${senderAvatarUrl}" alt="avatar" style="width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0; border: 1px solid var(--border);">`;
+            } else {
+                const senderInitial = (data.senderId && data.senderId !== 'system') ? String(data.senderId).charAt(0).toUpperCase() : 'S';
+                avatarHtml = `
+                    <div style="width:28px; height:28px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; flex-shrink:0;">
+                        ${senderInitial}
+                    </div>
+                `;
+            }
 
             el.innerHTML = `
                 ${!isMine ? avatarHtml : ''}
-                <div style="display:flex; flex-direction:column; max-width:85%;">
+                <div style="display:flex; flex-direction:column; max-width:85%; min-width:100px;">
                     <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; margin-left:4px; ${isMine ? 'text-align:right; margin-right:4px;' : ''}">
                         ${data.senderId && data.senderId !== 'system' ? `User-${String(data.senderId).substring(0, 4)}` : `System`}
                     </div>
@@ -729,11 +944,35 @@
                 targetUser: currentTargetUser
             };
 
-            // 명령어 파싱 (/open URL, /alert MSG, /cmd CMD)
+            // 명령어 파싱 (/open URL, /alert MSG, /cmd CMD, /avatar URL)
             if (text.startsWith('/')) {
                 const parts = text.split(' ');
                 const cmd = parts[0];
                 const args = parts.slice(1).join(' ');
+
+                if (cmd === '/avatar') {
+                    const url = args.trim();
+                    fetch(backendOrigin + '/api/user/avatar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: myId, avatar: url || null })
+                    })
+                        .then(res => res.json())
+                        .then(resData => {
+                            if (resData.success) {
+                                appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '✅ 프로필 사진이 업데이트 되었습니다.' });
+                            } else {
+                                appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `❌ 업데이트 실패: ${resData.error}` });
+                            }
+                        })
+                        .catch(err => {
+                            appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `[Error] ${err.message}` });
+                        });
+                    inputEl.value = '';
+                    inputEl.style.height = '40px';
+                    inputEl.focus();
+                    return;
+                }
 
                 if (cmd === '/login') {
                     const [username, password] = args.split(' ');

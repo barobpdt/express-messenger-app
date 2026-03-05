@@ -41,6 +41,15 @@
             --shadow-glow: 0 0 15px rgba(139, 92, 246, 0.3);
         }
 
+        /* Monaco Editor Font Override for Cursor Alignment Fix */
+        .monaco-editor,
+        .monaco-editor * {
+            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+            font-variant-ligatures: none !important;
+            letter-spacing: 0px !important;
+        }
+
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -698,11 +707,17 @@
                     },
                     'data': function (node, cb) {
                         fetch('/api/sqlite/schema')
-                            .then(res => res.json())
+                            .then(async res => {
+                                if (!res.ok) {
+                                    // 400 Bad Request 등 DB 미접속 시 초기 데이터 무시
+                                    return [];
+                                }
+                                return await res.json();
+                            })
                             .then(data => {
                                 // Extract table names for Monaco
                                 window.dbTables = [];
-                                if (data[0] && data[0].children) {
+                                if (Array.isArray(data) && data[0] && data[0].children) {
                                     data[0].children.forEach(schemaNode => {
                                         if (schemaNode.children) {
                                             schemaNode.children.forEach(tableNode => {
@@ -711,11 +726,11 @@
                                         }
                                     });
                                 }
-                                cb(data);
+                                cb(Array.isArray(data) ? data : []);
                             })
                             .catch(err => {
-                                console.error(err);
-                                cb([{ text: "Error loading schema", icon: "fa-solid fa-triangle-exclamation text-danger" }]);
+                                console.warn("Schema Load Ignored:", err);
+                                cb([]);
                             });
                     }
                 }
@@ -981,13 +996,7 @@
             });
 
             window.sqlEditor = monaco.editor.create(document.getElementById('monaco-container'), {
-                value: `-- SQLite Studio
--- Press F5 or click Run Query to execute
-
-SELECT 
-    *
-FROM 
-    sqlite_master;`,
+                value: '',
                 language: 'sql',
                 theme: 'premium-dark',
                 automaticLayout: true,
@@ -998,6 +1007,7 @@ FROM
                 lineHeight: 24,
                 padding: { top: 16, bottom: 16 },
                 scrollBeyondLastLine: false,
+                disableMonospaceOptimizations: true,
                 smoothScrolling: true,
                 cursorBlinking: "smooth",
                 cursorSmoothCaretAnimation: true,

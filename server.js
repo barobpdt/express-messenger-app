@@ -68,9 +68,22 @@ wss.on('connection', (ws) => {
 			if (parsed.type === 'init') {
 				const username = parsed.username;
 				if (username) {
-					ws.username = username;
-					onlineUsers.set(username, ws);
-					broadcastOnlineUsers();
+					// DB에서 아바타 가져오기
+					db.select({ avatar: usersTable.avatar }).from(usersTable).where(eq(usersTable.username, username)).limit(1)
+						.then(users => {
+							ws.username = username;
+							ws.avatar = users[0]?.avatar || null;
+
+							onlineUsers.set(username, ws);
+							broadcastOnlineUsers();
+						})
+						.catch(err => {
+							logger.error("Failed to fetch avatar for init", err);
+							ws.username = username;
+							ws.avatar = null;
+							onlineUsers.set(username, ws);
+							broadcastOnlineUsers();
+						});
 				}
 				return;
 			}
@@ -147,7 +160,11 @@ wss.on('connection', (ws) => {
 });
 
 function broadcastOnlineUsers() {
-	const users = Array.from(onlineUsers.keys());
+	// username과 avatar를 포함한 객체 배열로 변환
+	const users = Array.from(onlineUsers.values()).map(ws => ({
+		username: ws.username,
+		avatar: ws.avatar
+	}));
 	const msg = JSON.stringify({ type: 'onlineUsers', users, count: users.length });
 	wss.clients.forEach(client => {
 		if (client.readyState === 1) {
@@ -216,6 +233,27 @@ app.post("/api/user/login", async (req, res) => {
 		res.json({ success: true, token, username: user.username });
 	} catch (error) {
 		logger.error("Login Error", error);
+		res.status(500).json({ success: false, error: "Server error" });
+	}
+});
+
+// ─── 사용자 아바타 변경 API ───
+app.post("/api/user/avatar", async (req, res) => {
+	const { username, avatar } = req.body;
+	if (!username) return res.status(400).json({ success: false, error: "Username processing error" });
+
+	try {
+		await db.update(usersTable).set({ avatar }).where(eq(usersTable.username, username));
+
+		// 해당 유저가 온라인이라면 웹소켓 객체에도 아바타 업데이트 후 브로드캐스트
+		if (onlineUsers.has(username)) {
+			onlineUsers.get(username).avatar = avatar;
+			broadcastOnlineUsers();
+		}
+
+		res.json({ success: true, message: "Avatar updated successfully" });
+	} catch (error) {
+		logger.error("Avatar Update Error", error);
 		res.status(500).json({ success: false, error: "Server error" });
 	}
 });
