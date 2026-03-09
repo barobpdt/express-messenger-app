@@ -28,6 +28,7 @@ tmp/
 *.tmp
 
 *.mp4
+data/
 BARO/
 firebase-adminsdk.json
 google-services.json
