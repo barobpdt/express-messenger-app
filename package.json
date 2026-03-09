@@ -15,7 +15,6 @@
         "@capacitor/core": "^8.1.0",
         "@capacitor/ios": "^8.1.0",
         "@capacitor/keyboard": "^8.0.1",
-        "@capacitor/push-notifications": "^8.0.1",
         "@neondatabase/serverless": "^0.10.4",
         "bcryptjs": "^3.0.3",
         "better-sqlite3": "^12.6.2",

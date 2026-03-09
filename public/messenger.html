@@ -792,30 +792,7 @@
             if (e.key === 'Enter') handleAuth('login');
         });
 
-        // ─── Capacitor 푸시 알림 세팅 ───
-        let currentFcmToken = null;
-        if (window.Capacitor && window.Capacitor.Plugins.PushNotifications) {
-            const { PushNotifications } = window.Capacitor.Plugins;
-
-            PushNotifications.requestPermissions().then(result => {
-                if (result.receive === 'granted') {
-                    PushNotifications.register();
-                }
-            });
-
-            PushNotifications.addListener('registration', (token) => {
-                currentFcmToken = token.value;
-            });
-
-            PushNotifications.addListener('registrationError', (error) => {
-                console.error("FCM Registration Error:", error);
-            });
-
-            PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                console.log('Push received:', notification);
-            });
-        }
-
+        // ─── Capacitor 푸시 알림 세팅 (제거됨) ───
         async function handleAuth(action) {
             const username = loginUser.value.trim();
             const password = loginPass.value.trim();
@@ -829,8 +806,8 @@
             const endpoint = action === 'login' ? '/api/user/login' : '/api/register';
 
             try {
-                // 로그인/회원가입 시 푸시 토큰 전송
-                const payload = { username, password, fcmToken: currentFcmToken };
+                // 로그인/회원가입 요청
+                const payload = { username, password };
 
                 const res = await fetch(backendOrigin + endpoint, {
                     method: 'POST',
