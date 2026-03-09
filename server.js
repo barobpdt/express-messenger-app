@@ -1287,7 +1287,9 @@ app.post("/api/sqlite/connect", catchAsyncErrors(async (req, res) => {
 }));
 
 app.get("/api/sqlite/schema", catchAsyncErrors(async (req, res) => {
-	if (!activeSqliteDb) return res.status(400).json({ error: "No SQLite DB connected" });
+	if (!activeSqliteDb) {
+		return res.json([]); // DB가 연결되지 않았을 때는 빈 배열 반환하여 400 에러 로그 방지
+	}
 
 	const query = `
 		SELECT name, type 

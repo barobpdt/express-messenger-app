@@ -375,7 +375,66 @@
             min-height: 1.2rem;
         }
 
+        /* ─── Help Modal ─── */
+        #help-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(2px);
+        }
 
+        .help-box {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            animation: popIn 0.2s ease-out;
+            color: var(--text-main);
+            position: relative;
+        }
+
+        .help-box h3 {
+            margin-bottom: 16px;
+            color: var(--text-main);
+            font-size: 1.2rem;
+        }
+
+        .help-box ul {
+            margin-left: 20px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .help-box li {
+            margin-bottom: 6px;
+        }
+
+        .help-close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            cursor: pointer;
+            color: #ef4444;
+            font-size: 1.2rem;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .help-close-btn:hover {
+            opacity: 1;
+        }
 
         .message.mine .meta {
             justify-content: flex-end;
@@ -533,6 +592,30 @@
         </div>
     </div>
 
+    <!-- 도움말 모달 -->
+    <div id="help-overlay" onclick="closeHelp(event)">
+        <div class="help-box" onclick="event.stopPropagation()">
+            <div class="help-close-btn" onclick="closeHelp()">✖</div>
+            <h3>💡 명령어 도움말</h3>
+            <ul>
+                <li><strong>/avatar [URL]</strong>: 프로필 사진 변경</li>
+                <li><strong>/open [URL]</strong>: 상대방 브라우저에 웹페이지 열기</li>
+                <li><strong>/alert [메시지]</strong>: 상대방 화면에 알림창 띄우기</li>
+                <li><strong>/screenshot</strong>: 상대방 모니터 화면 캡처 요청</li>
+                <li><strong>/sharescreen</strong>: 화면 공유 시작</li>
+                <li><strong>/login</strong>: 로그인 / 계정 전환</li>
+                <li><strong>/cmd [명령어]</strong>: 서버 터미널에서 명령어 실행</li>
+                <li><strong>/log</strong>: 서버 로그 보기</li>
+                <li><strong>/monitor [경로]</strong>: 파일 변경사항 실시간 감시</li>
+                <li><strong>/unmonitor</strong>: 파일 감시 중지</li>
+            </ul>
+            <div
+                style="font-size:0.85rem; color:var(--text-muted); background:var(--bg-color); padding:10px; border-radius:6px; text-align:center;">
+                채팅창에 파일 붙여넣기(Ctrl+V) 기능도 지원합니다.
+            </div>
+        </div>
+    </div>
+
     <div id="chat-container">
         <!-- 귓속말 우측 상단 아이콘 -->
         <div id="target-indicator" class="whisper-active-badge" onclick="clearTarget()" title="클릭하여 귓속말 종료">
@@ -552,12 +635,12 @@
                     style="font-size:0.75rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
                     title="내 프로필 사진 변경">✨ 프로필 설정</span>
             </h1>
-            <div
-                style="font-size:0.8rem; color:var(--text-muted); text-align:right; line-height:1.6; margin-right: 20px;">
-                /avatar [URL] &nbsp;·&nbsp; /open URL &nbsp;·&nbsp; /alert 메시지 &nbsp;·&nbsp; /screenshot &nbsp;·&nbsp;
-                /sharescreen<br>
-                <span style="font-size:0.72rem; opacity:0.7">/login &nbsp;|&nbsp; /cmd &nbsp;|&nbsp; /log &nbsp;|&nbsp;
-                    /monitor [경로] &nbsp;|&nbsp; /unmonitor &nbsp;|&nbsp; 붙여넣기</span>
+            <div style="margin-right: 10px;">
+                <span onclick="openHelp()"
+                    style="font-size:0.8rem; background:#30363d; color:#c9d1d9; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
+                    onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
+                    ❓ 도움말
+                </span>
             </div>
         </div>
 
@@ -621,6 +704,16 @@
             if (e.target.id === 'user-list-overlay') {
                 toggleUserList();
             }
+        }
+
+        // ─── 도움말 로직 ───
+        function openHelp() {
+            document.getElementById('help-overlay').style.display = 'flex';
+        }
+
+        function closeHelp(e) {
+            if (e && e.target.id !== 'help-overlay' && e.target.className !== 'help-close-btn') return;
+            document.getElementById('help-overlay').style.display = 'none';
         }
 
         function setTarget(username) {
