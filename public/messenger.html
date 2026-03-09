@@ -586,6 +586,10 @@
             <input type="text" id="login-username" placeholder="아이디" autocomplete="off" autocorrect="off"
                 autocapitalize="off">
             <input type="password" id="login-password" placeholder="비밀번호">
+            <div id="server-url-container" style="display: none; width: 100%; margin-bottom: 10px;">
+                <input type="text" id="login-server" placeholder="서버 주소 (예: http://192.168.0.x:8081)">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">* 모바일 전용 서버 주소 설정</div>
+            </div>
             <button id="btn-login">로그인</button>
             <button id="btn-register" class="secondary">가입하기</button>
             <div class="error-msg" id="login-error"></div>
@@ -682,7 +686,7 @@
     </div>
 
     <script>
-        const backendOrigin = localStorage.getItem('backendOrigin') || '';
+        let backendOrigin = localStorage.getItem('backendOrigin') || '';
         let myId = localStorage.getItem('messengerUser') || null;
         let ws;
 
@@ -690,7 +694,15 @@
         const loginOverlay = document.getElementById('login-overlay');
         const loginUser = document.getElementById('login-username');
         const loginPass = document.getElementById('login-password');
+        const loginServer = document.getElementById('login-server');
+        const loginServerContainer = document.getElementById('server-url-container');
         const loginError = document.getElementById('login-error');
+
+        // Capacitor(모바일 앱) 환경일 경우 서버 주소 입력창 표시
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+            loginServerContainer.style.display = 'block';
+            if (backendOrigin) loginServer.value = backendOrigin;
+        }
 
         // ─── 귓속말 대상 관리 ───
         let currentTargetUser = null;
@@ -804,6 +816,17 @@
             loginError.style.color = 'var(--text-muted)';
             loginError.innerText = "처리 중...";
             const endpoint = action === 'login' ? '/api/user/login' : '/api/register';
+
+            // 서버 주소 반영
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                const serverUrl = loginServer.value.trim();
+                if (!serverUrl || !serverUrl.startsWith('http')) {
+                    loginError.innerText = "올바른 서버 주소를 입력하세요 (http:// 포함).";
+                    return;
+                }
+                backendOrigin = serverUrl;
+                localStorage.setItem('backendOrigin', backendOrigin);
+            }
 
             try {
                 // 로그인/회원가입 요청
