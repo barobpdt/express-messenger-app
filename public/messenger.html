@@ -560,6 +560,72 @@
             background: var(--primary);
             transition: width 0.2s;
         }
+
+        /* Mobile Header Icons Optimization */
+        @media (max-width: 600px) {
+            .hide-on-mobile {
+                display: none !important;
+            }
+
+            .header-btn {
+                padding: 6px !important;
+                border-radius: 50% !important;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+
+        /* Profile Modal */
+        #profile-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .profile-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 30px;
+            border-radius: 12px;
+            width: 320px;
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        .profile-box h2 {
+            margin-bottom: 20px;
+            font-size: 1.25rem;
+            color: var(--primary-light);
+            text-align: center;
+        }
+
+        .profile-box label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .profile-box input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: white;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 
@@ -593,6 +659,24 @@
             <button id="btn-login">로그인</button>
             <button id="btn-register" class="secondary">가입하기</button>
             <div class="error-msg" id="login-error"></div>
+        </div>
+    </div>
+
+    <!-- 프로필 설정 모달 -->
+    <div id="profile-overlay" onclick="closeProfile(event)">
+        <div class="profile-box" onclick="event.stopPropagation()">
+            <div class="help-close-btn" onclick="closeProfile()">✖</div>
+            <h2>✨ 프로필 설정</h2>
+
+            <label>내 닉네임 (아이디)</label>
+            <input type="text" id="profile-username" readonly
+                style="background: rgba(255,255,255,0.05); color: #9ca3af; cursor: not-allowed;">
+
+            <label>프로필 사진 URL</label>
+            <input type="text" id="profile-avatar" placeholder="https://... (이미지 주소)">
+
+            <button class="btn" onclick="saveProfile()"
+                style="width: 100%; border-radius: 8px; margin-top: 10px;">저장하기</button>
         </div>
     </div>
 
@@ -635,21 +719,23 @@
                     style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none; cursor:pointer;"
                     title="접속자 목록 보기">1명
                     접속 중 ▾</span>
-                <span onclick="promptAvatar()"
-                    style="font-size:0.75rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
-                    title="내 프로필 사진 변경">✨ 프로필 설정</span>
+                <span onclick="openProfile()" class="header-btn"
+                    style="font-size:0.8rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
+                    title="내 프로필 사진 변경">
+                    ✨<span class="hide-on-mobile"> 프로필 설정</span>
+                </span>
             </h1>
             <div style="margin-right: 10px; display: flex; gap: 8px;">
-                <span id="btn-disconnect-app" onclick="disconnectApp()"
+                <span id="btn-disconnect-app" class="header-btn" onclick="disconnectApp()"
                     style="display:none; font-size:0.8rem; background:rgba(239, 68, 68, 0.1); color:#ef4444; padding:6px 12px; border-radius:12px; cursor:pointer; align-items:center; gap:4px; border:1px solid rgba(239, 68, 68, 0.3); transition:0.2s;"
                     onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'"
                     onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
-                    🔌 앱 연결해제
+                    🔌<span class="hide-on-mobile"> 앱 연결해제</span>
                 </span>
-                <span onclick="openHelp()"
+                <span onclick="openHelp()" class="header-btn"
                     style="font-size:0.8rem; background:#30363d; color:#c9d1d9; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
                     onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
-                    ❓ 도움말
+                    ❓<span class="hide-on-mobile"> 도움말</span>
                 </span>
             </div>
         </div>
@@ -782,24 +868,33 @@
             // HTML상의 데이터는 data.count 를 사용하므로 렌더러에서는 건너뛴다.
         }
 
-        function promptAvatar() {
-            const url = prompt("프로필 사진 이미지 URL을 입력하세요.\n(비워두어 시스템 기본값 사용 가능)");
-            if (url !== null) {
-                // API 전송 코드로 업데이트
-                fetch(backendOrigin + '/api/user/avatar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: myId, avatar: url || null })
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: '✅ 프로필 사진이 업데이트 되었습니다.' });
-                        } else {
-                            alert("프로필 업데이트 실패: " + data.error);
-                        }
-                    }).catch(err => alert("에러: " + err));
-            }
+        function openProfile() {
+            document.getElementById('profile-username').value = myId;
+            document.getElementById('profile-overlay').style.display = 'flex';
+        }
+
+        function closeProfile(e) {
+            if (e && e.target.id !== 'profile-overlay' && e.target.className !== 'help-close-btn') return;
+            document.getElementById('profile-overlay').style.display = 'none';
+        }
+
+        function saveProfile() {
+            const url = document.getElementById('profile-avatar').value.trim();
+            // API 전송 코드로 업데이트
+            fetch(backendOrigin + '/api/user/avatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: myId, avatar: url || null })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: '✅ 프로필 사진이 업데이트 되었습니다.' });
+                        closeProfile();
+                    } else {
+                        alert("프로필 업데이트 실패: " + data.error);
+                    }
+                }).catch(err => alert("에러: " + err));
         }
 
         // 이미 로그인 되어있다면 패스
