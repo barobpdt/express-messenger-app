@@ -639,7 +639,13 @@
                     style="font-size:0.75rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
                     title="내 프로필 사진 변경">✨ 프로필 설정</span>
             </h1>
-            <div style="margin-right: 10px;">
+            <div style="margin-right: 10px; display: flex; gap: 8px;">
+                <span id="btn-disconnect-app" onclick="disconnectApp()"
+                    style="display:none; font-size:0.8rem; background:rgba(239, 68, 68, 0.1); color:#ef4444; padding:6px 12px; border-radius:12px; cursor:pointer; align-items:center; gap:4px; border:1px solid rgba(239, 68, 68, 0.3); transition:0.2s;"
+                    onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'"
+                    onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
+                    🔌 앱 연결해제
+                </span>
                 <span onclick="openHelp()"
                     style="font-size:0.8rem; background:#30363d; color:#c9d1d9; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
                     onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
@@ -805,6 +811,17 @@
         });
 
         // ─── Capacitor 푸시 알림 세팅 (제거됨) ───
+        // ─── Capacitor 앱 연결 해제 ───
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+            document.getElementById('btn-disconnect-app').style.display = 'flex';
+        }
+
+        function disconnectApp() {
+            if (confirm('서버 원격 접속을 종료하고 초기 설정 화면으로 돌아가시겠습니까?')) {
+                window.location.href = 'http://localhost/?reset=1';
+            }
+        }
+
         async function handleAuth(action) {
             const username = loginUser.value.trim();
             const password = loginPass.value.trim();

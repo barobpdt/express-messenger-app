@@ -677,6 +677,10 @@
                 <span>Dashboard Overview</span>
             </div>
             <div class="header-actions">
+                <button class="action-btn" id="btn-disconnect-app" title="앱 서버 연결 해제" onclick="disconnectApp()"
+                    style="display: none; color: #ef4444;">
+                    <i class='bx bx-power-off'></i>
+                </button>
                 <button class="action-btn" title="Home" onclick="showDashboard()">
                     <i class='bx bx-grid-alt'></i>
                 </button>
@@ -1106,6 +1110,23 @@
                 document.getElementById('sidebar').classList.add('collapsed');
             }
         };
+        // Init Check
+        document.addEventListener('DOMContentLoaded', () => {
+            // Capacitor 앱 환경일 경우 연결 해제 버튼 표시
+            setTimeout(() => {
+                if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                    document.getElementById('btn-disconnect-app').style.display = 'inline-flex';
+                }
+            }, 500);
+        });
+
+        // App Disconnect
+        function disconnectApp() {
+            if (confirm('서버 원격 접속을 종료하고 초기 설정 화면으로 돌아가시겠습니까?')) {
+                // Capacitor 로컬 서버로 리다이렉션 (앱 내부 index.html)
+                window.location.href = 'http://localhost/?reset=1';
+            }
+        }
     </script>
 </body>
 
