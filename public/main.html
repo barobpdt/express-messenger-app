@@ -6,7 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>퍼니뮤직 Dashboard</title>
 	<!-- Google Fonts -->
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	
 	<!-- Boxicons for modern icons -->
 	<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 	<style>
@@ -529,6 +529,7 @@
 			z-index: 1;
 		}
 	</style>
+	<link rel="stylesheet" href="/css/pretendard.css">
 </head>
 
 <body>
@@ -709,7 +710,7 @@
 
 		<!-- Dynamic Content Area -->
 		<div class="content-container">
-			<div class="loading-overlay" id="loading-overlay"></div>
+			<!-- <div class="loading-overlay" id="loading-overlay"></div> -->
 			<div class="loader" id="loader"></div>
 
 			<!-- Default Dashboard View -->
@@ -1006,7 +1007,7 @@
 			</div>
 
 			<!-- Iframe for embedding apps -->
-			<iframe id="app-frame" style="display: none;"></iframe>
+			<iframe id="app-frame" style="display: none;" onload="iframeLoaded()"></iframe>
 		</div>
 	</main>
 
@@ -1062,15 +1063,13 @@
 			// Toggle Views
 			document.getElementById('home-dashboard').style.display = 'none';
 
-			const overlay = document.getElementById('loading-overlay');
-			const loader = document.getElementById('loader');
-			const iframe = document.getElementById('app-frame');
-
 			// Show loader and overlay for smooth transition
-			overlay.style.display = 'block';
-			overlay.style.opacity = '1';
-			loader.style.display = 'block';
-
+			// const overlay = document.getElementById('loading-overlay');
+			// overlay.style.display = 'block';
+			// overlay.style.opacity = '1';
+			// const loader = document.getElementById('loader');
+			const iframe = document.getElementById('app-frame');
+			// loader.style.display = 'block';
 			iframe.style.display = 'block';
 
 			// Small delay trick to ensure UI updates before loading iframe
@@ -1102,18 +1101,11 @@
 		function iframeLoaded() {
 			const iframe = document.getElementById('app-frame');
 			if (iframe.src && iframe.src !== window.location.href && iframe.src !== 'about:blank') {
-				const overlay = document.getElementById('loading-overlay');
+				// const overlay = document.getElementById('loading-overlay');
+				// overlay.style.display = 'none';
+				// overlay.style.opacity = '0';
 				const loader = document.getElementById('loader');
-
 				loader.style.display = 'none';
-				overlay.style.opacity = '0';
-
-				// Hide element completely after transition
-				setTimeout(() => {
-					if (overlay.style.opacity === '0') {
-						overlay.style.display = 'none';
-					}
-				}, 300);
 			}
 		}
 
@@ -1122,11 +1114,10 @@
 		function refreshFrame() {
 			const iframe = document.getElementById('app-frame');
 			if (iframe.style.display !== 'none' && iframe.src && iframe.src !== 'about:blank') {
-				const overlay = document.getElementById('loading-overlay');
+				// const overlay = document.getElementById('loading-overlay');				
+				// overlay.style.display = 'block';
+				// overlay.style.opacity = '1';
 				const loader = document.getElementById('loader');
-
-				overlay.style.display = 'block';
-				overlay.style.opacity = '1';
 				loader.style.display = 'block';
 
 				setTimeout(() => {
