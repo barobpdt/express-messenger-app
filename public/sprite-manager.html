@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Animator & Slicer</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="/css/pretendard.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f1117;
+            --panel-bg: #1e212b;
+            --border: #333842;
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 16px 24px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .header h1 i {
+            color: var(--primary);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar Controls */
+        .sidebar {
+            width: 250px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-group.full {
+            grid-column: span 2;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .input-group input {
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            width: 85px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Workspace */
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: #08090c;
+        }
+
+        .workspace-toolbar {
+            padding: 12px 20px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+
+        .workspace-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            /* checkers background */
+            background-image: linear-gradient(45deg, #111 25%, transparent 25%),
+                linear-gradient(-45deg, #111 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #111 75%),
+                linear-gradient(-45deg, transparent 75%, #111 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* Drag Drop Zone */
+        .drop-zone {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            right: 24px;
+            bottom: 24px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.3s;
+            background-color: rgba(30, 33, 43, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            cursor: pointer;
+        }
+
+        .drop-zone.active {
+            border-color: var(--primary);
+            background-color: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+
+        .drop-zone i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .drop-zone span {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        /* Visualizer */
+        .visualizer-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            /* hidden until image loaded */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+            background: white;
+            /* to see image clearly */
+            transform-origin: 0 0;
+            will-change: transform;
+        }
+
+        #original-image {
+            display: block;
+            pointer-events: none;
+        }
+
+        #grid-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Preview Panel (Bottom Right Floating) */
+        .preview-panel {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            width: 250px;
+            overflow: hidden;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+        }
+
+        .preview-header {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-body {
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 150px;
+            background-image: linear-gradient(45deg, #111 25%, transparent 25%),
+                linear-gradient(-45deg, #111 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #111 75%),
+                linear-gradient(-45deg, transparent 75%, #111 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+        }
+
+        #preview-canvas {
+            image-rendering: pixelated;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal {
+            background: var(--panel-bg);
+            width: 450px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: white;
+        }
+
+        pre {
+            background: #08090c;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            color: #a5b4fc;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="header">
+        <h1><i class='bx bxs-carousel'></i> Sprite Animator & Manager</h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-outline" onclick="showCssModal()"><i class='bx bx-code-alt'></i> Get CSS
+                Code</button>
+            <button class="btn" onclick="generateGif()"><i class='bx bxs-file-gif'></i> Generate GIF</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="section-title">Image Info</div>
+                <div id="image-info" style="color: var(--text-muted); font-size: 0.85rem;">
+                    No image active. Drag & Drop to start.
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Slice Settings</div>
+                <div class="form-grid">
+                    <div class="input-group full">
+                        <label>Slicing Mode</label>
+                        <select id="slice-mode" class="input-group input" style="width:100%;" onchange="updateGrid()">
+                            <option value="auto">Auto calculate (Rows x Cols)</option>
+                            <option value="manual">Fixed Size (Width x Height)</option>
+                        </select>
+                    </div>
+
+                    <!-- Layout Settings -->
+                    <div class="input-group">
+                        <label>Rows (행수)</label>
+                        <input type="number" id="inp-rows" value="1" min="1" oninput="updateGrid()">
+                    </div>
+                    <div class="input-group">
+                        <label>Cols (열수)</label>
+                        <input type="number" id="inp-cols" value="10" min="1" oninput="updateGrid()">
+                    </div>
+
+                    <!-- Size Settings -->
+                    <div class="input-group">
+                        <label>Frame Width</label>
+                        <input type="number" id="inp-width" value="0" min="1" oninput="onSizeChange()">
+                    </div>
+                    <div class="input-group">
+                        <label>Frame Height</label>
+                        <input type="number" id="inp-height" value="0" min="1" oninput="onSizeChange()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Offsets & Gaps (여백)</div>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Start X (패딩 L)</label>
+                        <input type="number" id="inp-start-x" value="0" min="0" oninput="updateGrid()">
+                    </div>
+                    <div class="input-group">
+                        <label>Start Y (패딩 T)</label>
+                        <input type="number" id="inp-start-y" value="0" min="0" oninput="updateGrid()">
+                    </div>
+                    <div class="input-group">
+                        <label>End X (패딩 R)</label>
+                        <input type="number" id="inp-end-x" value="0" min="0" oninput="updateGrid()">
+                    </div>
+                    <div class="input-group">
+                        <label>End Y (패딩 B)</label>
+                        <input type="number" id="inp-end-y" value="0" min="0" oninput="updateGrid()">
+                    </div>
+                    <div class="input-group">
+                        <label>Gap X (프레임 간격)</label>
+                        <input type="number" id="inp-gap-x" value="0" min="0" oninput="updateGrid()">
+                    </div>
+                    <div class="input-group">
+                        <label>Gap Y (프레임 간격)</label>
+                        <input type="number" id="inp-gap-y" value="0" min="0" oninput="updateGrid()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Animation Settings</div>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>FPS (Speed)</label>
+                        <input type="number" id="inp-fps" value="10" min="1" max="60" oninput="updateAnimation()">
+                    </div>
+                    <div class="input-group">
+                        <label>Total Frames</label>
+                        <input type="number" id="inp-total" value="10" min="1" oninput="updateAnimation()">
+                    </div>
+                </div>
+                <div style="margin-top: 16px;">
+                    <label
+                        style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color: var(--text-muted); cursor: pointer;">
+                        <input type="checkbox" id="inp-show-grid" checked onchange="drawGrid()">
+                        Show visual grid on original image
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Workspace -->
+        <main class="workspace">
+            <div class="workspace-content" id="workspace-content">
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="drop-zone">
+                    <i class='bx bx-image-add'></i>
+                    <span>Drag & Drop Sprite Sheet here</span>
+                    <p style="font-size: 0.85rem; margin-top: 8px; opacity: 0.7;">or click to browse</p>
+                    <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp"
+                        style="display: none;">
+                </div>
+
+                <!-- Helper Text -->
+                <div id="canvas-helper"
+                    style="display: none; position: absolute; top: 16px; left: 16px; z-index: 100; color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.5); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; pointer-events: none;">
+                    <i class='bx bx-mouse'></i> 마우스 휠: 확대/축소 &nbsp;&nbsp;|&nbsp;&nbsp; <i class='bx bx-move'></i> Ctrl +
+                    드래그: 이동
+                </div>
+
+                <!-- Visualizer -->
+                <div class="visualizer-wrapper" id="visualizer-wrapper">
+                    <img id="original-image" src="" alt="Sprite">
+                    <canvas id="grid-canvas"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Preview Panel -->
+    <div class="preview-panel" id="preview-panel">
+        <div class="preview-header">
+            <span>🔴 Live Preview</span>
+        </div>
+        <div class="preview-body">
+            <canvas id="preview-canvas" style="max-width:100%;max-height:100%;object-fit:contain;"></canvas>
+        </div>
+    </div>
+
+    <!-- CSS Code Modal -->
+    <div class="modal-overlay" id="css-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>CSS Animation Code</span>
+                <button class="modal-close" onclick="closeCssModal()"><i class='bx bx-x'></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Copy this CSS to easily
+                    animate the sprite in any web page.</p>
+                <pre id="css-code-block"></pre>
+                <button class="btn" onclick="copyCss()"><i class='bx bx-copy'></i> Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const visualizerWrapper = document.getElementById('visualizer-wrapper');
+        const originalImage = document.getElementById('original-image');
+        const gridCanvas = document.getElementById('grid-canvas');
+        const previewPanel = document.getElementById('preview-panel');
+        const previewCanvas = document.getElementById('preview-canvas');
+        const imageInfo = document.getElementById('image-info');
+        const workspaceContent = document.getElementById('workspace-content');
+        const canvasHelper = document.getElementById('canvas-helper');
+
+        // State
+        let currentImage = null;
+        let imgWidth = 0;
+        let imgHeight = 0;
+        let animationId = null;
+        let currentFrame = 0;
+        let lastFrameTime = 0;
+
+        // Pan & Zoom State
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startDragX = 0;
+        let startDragY = 0;
+
+        // Settings Elements
+        const inpRows = document.getElementById('inp-rows');
+        const inpCols = document.getElementById('inp-cols');
+        const inpWidth = document.getElementById('inp-width');
+        const inpHeight = document.getElementById('inp-height');
+        const inpStartX = document.getElementById('inp-start-x');
+        const inpStartY = document.getElementById('inp-start-y');
+        const inpEndX = document.getElementById('inp-end-x');
+        const inpEndY = document.getElementById('inp-end-y');
+        const inpGapX = document.getElementById('inp-gap-x');
+        const inpGapY = document.getElementById('inp-gap-y');
+        const inpFps = document.getElementById('inp-fps');
+        const inpTotal = document.getElementById('inp-total');
+        const sliceMode = document.getElementById('slice-mode');
+        const inpShowGrid = document.getElementById('inp-show-grid');
+
+        // File Drag & Drop Events
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('active'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('active'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            if (files.length) handleFiles(files[0]);
+        });
+
+        fileInput.addEventListener('change', function () {
+            if (this.files.length) handleFiles(this.files[0]);
+        });
+
+        function handleFiles(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    currentImage = img;
+                    imgWidth = img.width;
+                    imgHeight = img.height;
+
+                    originalImage.src = e.target.result;
+
+                    visualizerWrapper.style.display = 'block';
+                    dropZone.style.display = 'none';
+                    previewPanel.style.display = 'flex';
+                    canvasHelper.style.display = 'block';
+
+                    imageInfo.innerHTML = `Loaded: <strong>${file.name}</strong><br>Size: ${imgWidth} x ${imgHeight} px`;
+
+                    // initial guess
+                    inpWidth.value = Math.floor(imgWidth / parseInt(inpCols.value));
+                    inpHeight.value = Math.floor(imgHeight / parseInt(inpRows.value));
+
+                    // Reset and calculate initial transform (fit to screen logic)
+                    const cw = workspaceContent.clientWidth - 48; // padding logic
+                    const ch = workspaceContent.clientHeight - 48;
+                    scale = Math.min(cw / imgWidth, ch / imgHeight);
+                    if (scale > 1) scale = 1; // don't upscale beyond 100% initially
+
+                    translateX = (workspaceContent.clientWidth - imgWidth * scale) / 2;
+                    translateY = (workspaceContent.clientHeight - imgHeight * scale) / 2;
+                    updateTransform();
+
+                    updateGrid();
+                }
+                img.src = e.target.result;
+            }
+        }
+
+        // Pan & Zoom Logic
+        function updateTransform() {
+            visualizerWrapper.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        workspaceContent.addEventListener('wheel', (e) => {
+            if (!currentImage) return;
+            e.preventDefault();
+
+            const zoomSensitivity = 0.001;
+            const delta = -e.deltaY * zoomSensitivity;
+            let newScale = scale * (1 + delta);
+
+            newScale = Math.max(0.1, Math.min(newScale, 10)); // Min 10%, Max 1000%
+
+            const rect = workspaceContent.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            translateX = mouseX - (mouseX - translateX) * (newScale / scale);
+            translateY = mouseY - (mouseY - translateY) * (newScale / scale);
+
+            scale = newScale;
+            updateTransform();
+        }, { passive: false });
+
+        workspaceContent.addEventListener('mousedown', (e) => {
+            if (!currentImage || !e.ctrlKey) return;
+            e.preventDefault();
+            isDragging = true;
+            startDragX = e.clientX - translateX;
+            startDragY = e.clientY - translateY;
+            workspaceContent.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startDragX;
+            translateY = e.clientY - startDragY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                workspaceContent.style.cursor = 'default';
+            }
+        });
+
+        // Logic
+        function getComputedDimensions() {
+            const startX = parseInt(inpStartX.value) || 0;
+            const startY = parseInt(inpStartY.value) || 0;
+            const endX = parseInt(inpEndX.value) || 0;
+            const endY = parseInt(inpEndY.value) || 0;
+            const gapX = parseInt(inpGapX.value) || 0;
+            const gapY = parseInt(inpGapY.value) || 0;
+
+            let frameW = 0;
+            let frameH = 0;
+            let rows = parseInt(inpRows.value) || 1;
+            let cols = parseInt(inpCols.value) || 1;
+
+            if (sliceMode.value === 'auto') {
+                // Calculate width/height based on cols/rows and image size
+                const availableW = imgWidth - startX - endX - (gapX * (cols > 0 ? cols - 1 : 0));
+                const availableH = imgHeight - startY - endY - (gapY * (rows > 0 ? rows - 1 : 0));
+                frameW = Math.max(1, Math.floor(availableW / cols));
+                frameH = Math.max(1, Math.floor(availableH / rows));
+
+                inpWidth.value = frameW;
+                inpHeight.value = frameH;
+            } else {
+                // Use explicit width/height
+                frameW = parseInt(inpWidth.value) || 1;
+                frameH = parseInt(inpHeight.value) || 1;
+
+                // Estimate rows/cols
+                cols = Math.max(1, Math.floor((imgWidth - startX - endX + gapX) / (frameW + gapX)));
+                rows = Math.max(1, Math.floor((imgHeight - startY - endY + gapY) / (frameH + gapY)));
+
+                inpCols.value = cols;
+                inpRows.value = rows;
+            }
+
+            const total = rows * cols;
+            // update total frames UI if it exceeds max
+            if (parseInt(inpTotal.value) !== total && parseInt(inpTotal.value) < 1) {
+                inpTotal.value = total;
+            }
+            if (parseInt(inpTotal.value) > total) {
+                inpTotal.value = total;
+            }
+
+            return { startX, startY, gapX, gapY, frameW, frameH, rows, cols };
+        }
+
+        function onSizeChange() {
+            if (sliceMode.value === 'auto') {
+                sliceMode.value = 'manual';
+            }
+            updateGrid();
+        }
+
+        function updateGrid() {
+            if (!currentImage) return;
+            drawGrid();
+            updateAnimation();
+        }
+
+        function drawGrid() {
+            if (!currentImage) return;
+
+            gridCanvas.width = imgWidth;
+            gridCanvas.height = imgHeight;
+            const ctx = gridCanvas.getContext('2d');
+            ctx.clearRect(0, 0, imgWidth, imgHeight);
+
+            if (!inpShowGrid.checked) return;
+
+            const dims = getComputedDimensions();
+
+            ctx.strokeStyle = '#ef4444'; // red outline
+            ctx.lineWidth = 2;
+
+            for (let r = 0; r < dims.rows; r++) {
+                for (let c = 0; c < dims.cols; c++) {
+                    const x = dims.startX + (c * (dims.frameW + dims.gapX));
+                    const y = dims.startY + (r * (dims.frameH + dims.gapY));
+
+                    ctx.strokeRect(x, y, dims.frameW, dims.frameH);
+
+                    // Optional: frame number
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(x, y, 20, 14);
+                    ctx.fillStyle = 'white';
+                    ctx.font = '10px Arial';
+                    ctx.fillText((r * dims.cols + c + 1), x + 2, y + 10);
+                }
+            }
+        }
+
+        function updateAnimation() {
+            if (!currentImage) return;
+
+            if (animationId) cancelAnimationFrame(animationId);
+
+            const dims = getComputedDimensions();
+            const totalFrames = parseInt(inpTotal.value) || (dims.rows * dims.cols);
+            const fps = parseInt(inpFps.value) || 10;
+            const frameDuration = 1000 / fps;
+
+            previewCanvas.width = dims.frameW;
+            previewCanvas.height = dims.frameH;
+            const ctx = previewCanvas.getContext('2d');
+
+            currentFrame = 0;
+
+            function draw(timestamp) {
+                if (!lastFrameTime) lastFrameTime = timestamp;
+
+                const elapsed = timestamp - lastFrameTime;
+
+                if (elapsed > frameDuration) {
+                    lastFrameTime = timestamp - (elapsed % frameDuration);
+
+                    const safeFrame = currentFrame % totalFrames;
+                    const r = Math.floor(safeFrame / dims.cols);
+                    const c = safeFrame % dims.cols;
+
+                    const x = dims.startX + (c * (dims.frameW + dims.gapX));
+                    const y = dims.startY + (r * (dims.frameH + dims.gapY));
+
+                    ctx.clearRect(0, 0, dims.frameW, dims.frameH);
+                    ctx.drawImage(
+                        currentImage,
+                        x, y, dims.frameW, dims.frameH,
+                        0, 0, dims.frameW, dims.frameH
+                    );
+
+                    currentFrame++;
+                }
+
+                animationId = requestAnimationFrame(draw);
+            }
+
+            animationId = requestAnimationFrame(draw);
+        }
+
+        // Feature: CSS Generation
+        function showCssModal() {
+            if (!currentImage) {
+                alert('Please upload an image first.');
+                return;
+            }
+
+            const dims = getComputedDimensions();
+            // Note: CSS steps() best works with horizontal single row sprite. 
+            // If multiple rows, CSS becomes complex requiring keyframing background-position Y as well.
+            // Using a simplified version for horizontal sprites
+            const animationLength = (parseInt(inpTotal.value) / parseInt(inpFps.value)).toFixed(2);
+
+            let css = `.sprite-animation {\n`;
+            css += `  width: ${dims.frameW}px;\n`;
+            css += `  height: ${dims.frameH}px;\n`;
+            css += `  background-image: url('YOUR_IMAGE_PATH.png');\n`;
+
+            if (dims.rows === 1) {
+                css += `  background-position: left center;\n`;
+                css += `  animation: play-sprite ${animationLength}s steps(${dims.cols}) infinite;\n`;
+                css += `}\n\n`;
+                css += `@keyframes play-sprite {\n`;
+                css += `  100% { background-position: -${dims.frameW * dims.cols}px center; }\n`;
+                css += `}\n`;
+            } else {
+                css += `  /* Note: Multi-row sprites are difficult to animate purely with steps() */\n`;
+                css += `  /* It is recommended to reconstruct the sprite into a single horizontal row. */\n`;
+                css += `}\n`;
+            }
+
+            document.getElementById('css-code-block').innerText = css;
+            document.getElementById('css-modal').style.display = 'flex';
+        }
+
+        function closeCssModal() {
+            document.getElementById('css-modal').style.display = 'none';
+        }
+
+        function copyCss() {
+            const css = document.getElementById('css-code-block').innerText;
+            navigator.clipboard.writeText(css).then(() => {
+                alert('CSS copied to clipboard!');
+            });
+        }
+
+        // Feature: GIF Generation
+        async function generateGif() {
+            if (!currentImage) {
+                alert('Please load an image first.');
+                return;
+            }
+
+            const dims = getComputedDimensions();
+            const payload = {
+                frameWidth: dims.frameW,
+                frameHeight: dims.frameH,
+                startX: dims.startX,
+                startY: dims.startY,
+                gapX: dims.gapX,
+                gapY: dims.gapY,
+                rows: dims.rows,
+                cols: dims.cols,
+                fps: parseInt(inpFps.value) || 10,
+                totalFrames: parseInt(inpTotal.value),
+                imageData: originalImage.src // BASE64
+            };
+
+            const btn = document.querySelector('button[onclick="generateGif()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class='bx bx-loader-alt bx-spin'></i> Generating...`;
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/sprite/gif', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Backend generation failed (Is server.js / router mapped?)');
+                }
+
+                // Download Blob
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `animated_sprite_${Date.now()}.gif`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                alert('GIF generated and downloaded!');
+            } catch (err) {
+                console.error(err);
+                alert(`Error: ${err.message}\n(Make sure your backend API route is implemented)`);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

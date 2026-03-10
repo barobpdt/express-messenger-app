@@ -11,6 +11,7 @@ import { errorMiddleware } from "./config/error.js";
 import { getChoseong } from "es-hangul";
 import logger from "./config/logger.js";
 import orderRouter from "./routes/order.js";
+import spriteRouter from "./routes/sprite.js";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
@@ -238,8 +239,10 @@ app.use(cors({
 	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 	allowedHeaders: ["Content-Type", "Authorization"],
 }));
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(express.static("public"));
+app.use("/api/sprite", spriteRouter);
 
 // 헬스 체크
 app.get("/api/health", (req, res) => {
