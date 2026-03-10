@@ -1,7 +1,7 @@
 import express from "express";
 import { ENV } from "./config/env.js";
 import { db } from "./config/db.js";
-import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable } from "./db/schema.js";
+import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable, offlineMessagesTable } from "./db/schema.js";
 import { and, eq, or, like, sql, desc } from "drizzle-orm";
 import job from "./config/cron.js";
 import cors from "cors";
@@ -76,6 +76,32 @@ wss.on('connection', (ws) => {
 
 							onlineUsers.set(username, ws);
 							broadcastOnlineUsers();
+
+							// 오프라인 메시지 확인 및 전송
+							db.select().from(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username)).orderBy(offlineMessagesTable.createdAt)
+								.then(async (messages) => {
+									if (messages.length > 0) {
+										ws.send(JSON.stringify({
+											type: 'text',
+											senderId: 'system',
+											timestamp: Date.now(),
+											targetUser: username,
+											text: `🔔 오프라인 동안 ${messages.length}개의 귓속말이 도착했습니다.`
+										}));
+
+										for (const msg of messages) {
+											ws.send(JSON.stringify({
+												type: 'text',
+												senderId: msg.sender,
+												timestamp: msg.createdAt,
+												targetUser: username,
+												text: msg.message
+											}));
+										}
+										// 읽은 메시지 삭제
+										await db.delete(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username));
+									}
+								}).catch(err => logger.error("오프라인 메시지 로드 실패", err));
 						})
 						.catch(err => {
 							logger.error("Failed to fetch avatar for init", err);
@@ -96,7 +122,26 @@ wss.on('connection', (ws) => {
 				const targetWs = onlineUsers.get(targetUser);
 				if (targetWs && targetWs.readyState === 1) {
 					targetWs.send(JSON.stringify(parsed));
+				} else if (parsed.type === 'text') {
+					// 상대방이 오프라인일 때 전송한 텍스트 메시지를 DB에 보관
+					db.insert(offlineMessagesTable).values({
+						sender: parsed.senderId || 'Unknown',
+						receiver: targetUser,
+						message: parsed.text
+					}).then(() => {
+						// 보낸 사람에게 안내 메시지
+						if (ws.readyState === 1) {
+							ws.send(JSON.stringify({
+								type: 'text',
+								senderId: 'system',
+								timestamp: Date.now(),
+								targetUser: parsed.senderId,
+								text: `(안내) ${targetUser}님이 오프라인 상태입니다. 메시지가 보관되어 접속 시 전달됩니다.`
+							}));
+						}
+					}).catch(err => logger.error("오프라인 메시지 저장 실패", err));
 				}
+
 				// 본인에게도 에코
 				if (ws.readyState === 1 && targetWs !== ws) {
 					ws.send(JSON.stringify(parsed));
@@ -159,18 +204,30 @@ wss.on('connection', (ws) => {
 	});
 });
 
-function broadcastOnlineUsers() {
-	// username과 avatar를 포함한 객체 배열로 변환
-	const users = Array.from(onlineUsers.values()).map(ws => ({
-		username: ws.username,
-		avatar: ws.avatar
-	}));
-	const msg = JSON.stringify({ type: 'onlineUsers', users, count: users.length });
-	wss.clients.forEach(client => {
-		if (client.readyState === 1) {
-			client.send(msg);
-		}
-	});
+async function broadcastOnlineUsers() {
+	try {
+		// DB에서 전체 사용자 목록 조회
+		const allUsers = await db.select({ username: usersTable.username, avatar: usersTable.avatar }).from(usersTable);
+
+		const onlineCount = onlineUsers.size;
+		const users = allUsers.map(u => ({
+			username: u.username,
+			avatar: u.avatar || null,
+			isOnline: onlineUsers.has(u.username)
+		}));
+
+		// 온라인 사용자가 위로 오게 정렬
+		users.sort((a, b) => b.isOnline - a.isOnline);
+
+		const msg = JSON.stringify({ type: 'onlineUsers', users, count: onlineCount });
+		wss.clients.forEach(client => {
+			if (client.readyState === 1) {
+				client.send(msg);
+			}
+		});
+	} catch (err) {
+		logger.error("Failed to broadcast complete user list", err);
+	}
 }
 
 if (ENV.NODE_ENV === "production") job.start();

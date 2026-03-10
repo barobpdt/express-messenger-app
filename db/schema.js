@@ -135,3 +135,12 @@ export const todoHistoryTable = pgTable("todo_history", {
 	note: text("note"), // 변경 사유/메모
 	changedAt: timestamp("changed_at").defaultNow(),
 });
+
+// ─── 오프라인 메시지 보관 ───────────────────────────────────────────────────
+export const offlineMessagesTable = pgTable("offline_messages", {
+	id: serial("id").primaryKey(),
+	sender: text("sender").notNull(),
+	receiver: text("receiver").notNull(),
+	message: text("message").notNull(),
+	createdAt: timestamp("created_at").defaultNow(),
+});

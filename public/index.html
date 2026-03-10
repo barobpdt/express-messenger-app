@@ -179,17 +179,17 @@
                 // URL에서 파라미터 숨기기
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
+            const isMobileApp = window.Capacitor && window.Capacitor.isNativePlatform();
+            const input = document.getElementById('server-url')
+            input.value = 'http://158.247.225.75:8081'
 
             // Capacitor 환경 검증을 위해 약간의 지연 처리
             setTimeout(() => {
-                const isMobileApp = window.Capacitor && window.Capacitor.isNativePlatform();
-
                 if (isMobileApp) {
                     const savedUrl = localStorage.getItem('hubServerUrl');
-
                     if (savedUrl) {
                         // 저장된 서버로 WebView 즉시 연결
-                        window.location.href = savedUrl + '/main.html';
+                        window.location.href = savedUrl + '/messenger.html';
                     } else {
                         // 저장된 내용이 없으면 설정화면 표시
                         document.getElementById('loading').style.display = 'none';
@@ -197,7 +197,7 @@
                     }
                 } else {
                     // 모바일(Capacitor)이 아닌 일반 PC 웹 브라우저일 경우 메신저로 즉시 넘김
-                    window.location.href = 'messenger.html';
+                    window.location.href = 'main.html';
                 }
             }, 300);
         });
@@ -226,7 +226,7 @@
 
             setTimeout(() => {
                 // 해당 시스템/디바이스의 웹뷰를 원격 URL로 리다이렉션
-                window.location.href = cleanUrl + '/main.html';
+                window.location.href = cleanUrl + (isMobileApp ? '/messenger.html' : '/main.html');
             }, 500);
         }
     </script>

@@ -163,6 +163,16 @@ export const initializeDatabase = async () => {
 			changed_at TIMESTAMP DEFAULT NOW()
 		)`;
 
+		// ─── 오프라인 메시지 보관 테이블 ───────────────────────────────────────────────
+		await sql`
+		CREATE TABLE IF NOT EXISTS offline_messages (
+			id         SERIAL PRIMARY KEY,
+			sender     TEXT NOT NULL,
+			receiver   TEXT NOT NULL,
+			message    TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT NOW()
+		)`;
+
 		console.log("✅ Database tables initialized successfully.");
 	} catch (error) {
 		console.error("❌ Failed to initialize database tables:", error);

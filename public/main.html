@@ -991,7 +991,7 @@
             </div>
 
             <!-- Iframe for embedding apps -->
-            <iframe id="app-frame" style="display: none;" onload="iframeLoaded()"></iframe>
+            <iframe id="app-frame" style="display: none;"></iframe>
         </div>
     </main>
 
@@ -1103,6 +1103,9 @@
 
         // Initialize display
         window.onload = () => {
+            // Attach iframe load event
+            document.getElementById('app-frame').onload = iframeLoaded;
+
             showDashboard();
 
             // Responsive checking

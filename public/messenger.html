@@ -756,24 +756,30 @@
             listEl.innerHTML = onlineUsers.map(user => {
                 const isSelected = user.username === currentTargetUser;
                 const isMe = user.username === myId;
+                const isOnline = user.isOnline; // 서버에서 추가된 필드 적용
 
                 let avatarHtml;
                 if (user.avatar) {
-                    avatarHtml = `<img src="${user.avatar}" alt="avatar" style="width:32px; height:32px; border-radius:16px; object-fit:cover; flex-shrink:0;">`;
+                    avatarHtml = `<img src="${user.avatar}" alt="avatar" style="width:32px; height:32px; border-radius:16px; object-fit:cover; flex-shrink:0; ${!isOnline ? 'filter: grayscale(100%) opacity(60%);' : ''}">`;
                 } else {
-                    avatarHtml = `<div style="width:32px; height:32px; border-radius:16px; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:bold; flex-shrink:0;">
+                    avatarHtml = `<div style="width:32px; height:32px; border-radius:16px; background:${isOnline ? 'var(--primary)' : '#4b5563'}; color:white; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:bold; flex-shrink:0; ${!isOnline ? 'opacity: 0.6;' : ''}">
                         ${user.username.charAt(0).toUpperCase()}
                     </div>`;
                 }
 
                 return `
-                <div class="user-item ${isSelected ? 'selected' : ''}" onclick="setTarget('${user.username}')">
+                <div class="user-item ${isSelected ? 'selected' : ''}" onclick="setTarget('${user.username}')" style="${!isOnline ? 'opacity: 0.6;' : ''}">
                     ${avatarHtml}
-                    <div style="flex:1;">${user.username} ${isMe ? '<span style="color:#22c55e; font-size:0.8em">(나)</span>' : ''}</div>
+                    <div style="flex:1;">
+                        <span style="font-size:0.8em; margin-right:4px;">${isOnline ? '🟢' : '⚪'}</span>
+                        ${user.username} 
+                        ${isMe ? '<span style="color:#22c55e; font-size:0.8em">(나)</span>' : ''}
+                    </div>
                     ${isSelected ? '<div><span style="font-size:0.8em; color:#d8b4fe">대화 중</span></div>' : ''}
                 </div>
             `}).join('');
-            document.getElementById('popup-user-count').innerText = `(${onlineUsers.length}명)`;
+            // 카운트는 실제 온라인 접속자 수 (count)만 표시.
+            // HTML상의 데이터는 data.count 를 사용하므로 렌더러에서는 건너뛴다.
         }
 
         function promptAvatar() {
