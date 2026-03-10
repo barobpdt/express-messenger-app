@@ -4,7 +4,7 @@ async function testTodoAPI() {
     console.log("🚀 Testing Todo API...");
 
     // 1. Create Todo
-    const createRes = await fetch("http://localhost:8081/api/todos", {
+    const createRes = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -18,7 +18,7 @@ async function testTodoAPI() {
     console.log("✅ Created:", todo.title);
 
     // 2. Update Todo (Status Change -> should create history)
-    const updateRes = await fetch(`http://localhost:8081/api/todos/${todo.id}`, {
+    const updateRes = await fetch(`/api/todos/${todo.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -30,7 +30,7 @@ async function testTodoAPI() {
     console.log("✅ Updated Status:", updated.status);
 
     // 3. Create another Todo and mark as '완료'
-    const createRes2 = await fetch("http://localhost:8081/api/todos", {
+    const createRes2 = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -40,7 +40,7 @@ async function testTodoAPI() {
         })
     });
     const todo2 = await createRes2.json();
-    await fetch(`http://localhost:8081/api/todos/${todo2.id}`, {
+    await fetch(`/api/todos/${todo2.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "완료", note: "바로 완료처리" })

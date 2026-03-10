@@ -872,7 +872,7 @@
 	</div>
 
 	<script>
-		const API = "http://localhost:8081/api/order";
+		const API = "/api/order";
 		async function get(p) { return (await fetch(API + p)).json(); }
 		async function post(p, d) { return (await fetch(API + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) })).json(); }
 		async function patch(p, d) { return (await fetch(API + p, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) })).json(); }
