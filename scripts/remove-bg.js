@@ -27,8 +27,14 @@ async function runBackgroundRemoval() {
         // Read file into a Node.js Buffer
         const imageBuffer = fs.readFileSync(inputPath);
 
+        // Determine mime type based on extension
+        const ext = path.extname(inputPath).toLowerCase();
+        let mimeType = 'image/jpeg';
+        if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.webp') mimeType = 'image/webp';
+
         // Convert the Buffer to a Blob required by @imgly/background-removal-node
-        const blob = new Blob([imageBuffer]);
+        const blob = new Blob([imageBuffer], { type: mimeType });
 
         // Run AI removal
         const resultBlob = await removeBackground(blob);

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Online Go Game (바둑)</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="/css/pretendard.css">
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --panel-bg: #ffffff;
+            --text-main: #333;
+            --border: #e0e0e0;
+            --board-color: #dcbc7a;
+            --board-line: #000000;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #f0f0f0;
+            --border: #333;
+            --board-color: #c09d59;
+            --board-line: #1a1a1a;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            height: 60px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+
+        .header-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            flex-direction: row;
+        }
+
+        /* Sidebar Controls */
+        .sidebar {
+            width: 300px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .status-box {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .turn-indicator {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .turn-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+
+        .turn-circle.black {
+            background-color: #222;
+        }
+
+        .turn-circle.white {
+            background-color: #fff;
+        }
+
+        .captured-area {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 16px;
+            font-size: 0.95rem;
+        }
+
+        .captured-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .captured-count {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .btn.secondary {
+            background-color: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn.danger {
+            background-color: #dc3545;
+        }
+
+        .btn.danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Board Area */
+        .board-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            background-color: var(--bg-color);
+            overflow: auto;
+            position: relative;
+        }
+
+        canvas {
+            background-color: var(--board-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            cursor: crosshair;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .workspace {
+                flex-direction: column-reverse;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-top: 1px solid var(--border);
+                padding: 16px;
+                height: auto;
+            }
+
+            .board-container {
+                padding: 12px;
+            }
+
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="header-title">
+            <i class='bx bx-grid'></i> Online Go (바둑)
+        </div>
+        <div id="room-info" style="font-size: 0.9rem; color: #666;">
+            혼자두기 (Solo Mode)
+        </div>
+    </header>
+
+    <div class="workspace">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="status-box">
+                <div class="turn-indicator" id="turn-indicator">
+                    <div class="turn-circle black" id="turn-circle"></div>
+                    <span id="turn-text">흑 차례</span>
+                </div>
+
+                <div class="captured-area">
+                    <div class="captured-item">
+                        <span>따낸 백돌 (흑)</span>
+                        <div class="captured-count" id="captured-white">0</div>
+                    </div>
+                    <div class="captured-item">
+                        <span>따낸 흑돌 (백)</span>
+                        <div class="captured-count" id="captured-black">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" id="btn-solo" onclick="startGame('solo')"><i class='bx bx-user'></i> 혼자두기 (새
+                게임)</button>
+            <button class="btn secondary" id="btn-pass" onclick="passTurn()"><i class='bx bx-skip-next'></i> 한 수 쉼
+                (Pass)</button>
+            <button class="btn danger" id="btn-resign" onclick="resignGame()"><i class='bx bx-flag'></i> 기권
+                (Resign)</button>
+
+            <div style="margin-top: 30px; font-size: 0.85rem; color: var(--text-main); opacity: 0.7;">
+                <strong>게임 룰:</strong>
+                <ul style="padding-left: 20px; margin-top: 8px;">
+                    <li>19x19 표준 바둑판</li>
+                    <li>상대의 활로를 모두 막으면 따냅니다.</li>
+                    <li>자충수(놓았을 때 활로가 없는 곳)는 착수 금지입니다. (단, 상대를 따내는 일격은 가능)</li>
+                    <li>패(Ko) 규칙이 간이 적용됩니다.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Board -->
+        <div class="board-container">
+            <canvas id="go-board" width="600" height="600"></canvas>
+        </div>
+    </div>
+
+    <script src="/js/go-game.js"></script>
+</body>
+
+</html>

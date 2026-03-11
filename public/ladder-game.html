@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사다리 게임 (Ladder Game)</title>
+    <!-- Use existing styles -->
+    <link href="/css/pretendard.css" rel="stylesheet" />
+    <link href="/css/table-order.css" rel="stylesheet" /> <!-- Reuse some common styles if needed, or define inline -->
+    <style>
+        :root {
+            --ladder-primary: #10b981;
+            --ladder-secondary: #059669;
+            --ladder-bg: #1e293b;
+            --ladder-line: #cbd5e1;
+            --ladder-highlight: #ef4444;
+            --text-main: #f8fafc;
+            --panel-bg: rgba(15, 23, 42, 0.9);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--ladder-bg);
+            color: var(--text-main);
+            font-family: 'Pretendard', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 15px 20px;
+            background: var(--panel-bg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--ladder-primary);
+        }
+
+        #room-info {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        /* Admin Panel Overlay */
+        #admin-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            width: 300px;
+            z-index: 100;
+            display: none;
+            /* Shown only to admin */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        #admin-panel h2 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .btn {
+            background: var(--ladder-primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            background: var(--ladder-secondary);
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid var(--ladder-primary);
+            color: var(--ladder-primary);
+        }
+
+        .btn.secondary:hover {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        /* Canvas Area */
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            position: relative;
+        }
+
+        #ladder-canvas {
+            display: block;
+            background-color: transparent;
+            /* width/height set dynamically */
+        }
+
+        /* Status Overlay (Wait for admin, etc) */
+        #status-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px 40px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            z-index: 50;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--ladder-primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Result Modal */
+        #result-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .result-content {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--ladder-primary);
+            text-align: center;
+            min-width: 300px;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .result-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+            text-align: left;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-list li {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .result-list li span.name {
+            font-weight: bold;
+            color: var(--ladder-primary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>🪜 실시간 사다리 타기</h1>
+        <div id="room-info">접속 중...</div>
+    </div>
+
+    <div class="main-content">
+        <!-- Admin Configuration Panel -->
+        <div id="admin-panel">
+            <h2>⚙️ 관리자 설정</h2>
+            <div class="form-group">
+                <label>참가자 명단 (쉼표로 구분)</label>
+                <textarea id="participants-input" placeholder="홍길동, 이순신, 강감찬"></textarea>
+            </div>
+            <div class="form-group">
+                <label>획득 점수/결과 (쉼표로 구분, 개수 일치)</label>
+                <textarea id="prizes-input" placeholder="100점, 50점, 꽝"></textarea>
+            </div>
+            <div class="form-group">
+                <label>가로줄(사다리) 밀도 (1~10)</label>
+                <input type="number" id="density-input" value="5" min="1" max="10">
+            </div>
+            <button class="btn" onclick="generateLadder()">사다리 생성 및 전송</button>
+            <button class="btn secondary" onclick="startAnimation()" id="btn-start" style="display:none;">애니메이션
+                시작</button>
+        </div>
+
+        <!-- Participant Waiting Status -->
+        <div id="status-overlay">
+            <div class="spinner"></div>
+            <span id="status-text">관리자가 사다리를 준비 중입니다...</span>
+        </div>
+
+        <!-- Canvas Area -->
+        <div id="canvas-container">
+            <canvas id="ladder-canvas"></canvas>
+        </div>
+    </div>
+
+    <!-- Results Modal -->
+    <div id="result-modal">
+        <div class="result-content">
+            <h2 style="color: var(--ladder-primary); margin-top: 0;">🎉 최종 결과 🎉</h2>
+            <ul class="result-list" id="final-results-list">
+                <!-- Results injected here -->
+            </ul>
+            <button class="btn" onclick="closeResults()">닫기</button>
+        </div>
+    </div>
+
+    <!-- Include Logic Script -->
+    <script src="/js/ladder-game.js"></script>
+</body>
+
+</html>

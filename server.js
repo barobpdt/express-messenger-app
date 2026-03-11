@@ -61,6 +61,7 @@ const onlineUsers = new Map();
 wss.on('connection', (ws) => {
 	// 임시 ID (로그인 전)
 	ws.id = uuidv4();
+	ws.joinedRooms = new Set(); // 속한 게임 방 추적용
 
 	ws.on('message', (message) => {
 		try {
@@ -115,6 +116,16 @@ wss.on('connection', (ws) => {
 				return;
 			}
 
+			// 방 접속/퇴장 상태 관리 (서버 내 기록)
+			if (parsed.type && parsed.room) {
+				if (parsed.type.endsWith('-join') || parsed.type === 'sys-join') {
+					ws.joinedRooms.add(parsed.room);
+					if (parsed.type === 'sys-join') return; // sys-join은 서버 등록용이므로 브로드캐스트 안 함
+				} else if (parsed.type.endsWith('-leave')) {
+					ws.joinedRooms.delete(parsed.room);
+				}
+			}
+
 			// Broadcast to all clients (WebSocket) or Direct Message
 			const targetUser = parsed.targetUser;
 
@@ -148,10 +159,18 @@ wss.on('connection', (ws) => {
 					ws.send(JSON.stringify(parsed));
 				}
 			} else {
-				// 전체 채팅
+				// 전체 채팅 또는 방 채팅
 				wss.clients.forEach(client => {
 					if (client.readyState === 1 /* WebSocket.OPEN */) {
-						client.send(JSON.stringify(parsed));
+						if (parsed.room && !parsed.type.endsWith('-invite')) {
+							// 특정 방 게임 메시지: 본인이거나 해당 방에 속한 접속자에게만 전송
+							if (client === ws || (client.joinedRooms && client.joinedRooms.has(parsed.room))) {
+								client.send(JSON.stringify(parsed));
+							}
+						} else {
+							// 일반 채팅 메시지 또는 초대 메시지: 전체 브로드캐스트
+							client.send(JSON.stringify(parsed));
+						}
 					}
 				});
 			}
@@ -198,8 +217,35 @@ wss.on('connection', (ws) => {
 	});
 
 	ws.on('close', () => {
+		// 끊어질 때, 참여 중이던 모든 게임 방에 퇴장 이벤트 전송
+		for (const room of ws.joinedRooms) {
+			const gameType = room.split('-')[0]; // e.g., 'ladder', 'roulette'
+			const leaveMsg = JSON.stringify({
+				type: `${gameType}-leave`,
+				room: room,
+				senderId: ws.username || 'Unknown'
+			});
+			wss.clients.forEach(client => {
+				if (client.readyState === 1 && client !== ws) {
+					client.send(leaveMsg);
+				}
+			});
+		}
+
 		if (ws.username) {
-			onlineUsers.delete(ws.username);
+			// Check if the user has another active tab/socket open
+			let stillOnline = false;
+			for (const client of wss.clients) {
+				if (client.readyState === 1 && client !== ws && client.username === ws.username) {
+					stillOnline = true;
+					onlineUsers.set(ws.username, client); // Ensure onlineUsers points to an active socket
+					break;
+				}
+			}
+
+			if (!stillOnline) {
+				onlineUsers.delete(ws.username);
+			}
 			broadcastOnlineUsers();
 		}
 	});

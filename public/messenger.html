@@ -599,8 +599,58 @@
             padding: 30px;
             border-radius: 12px;
             width: 320px;
-            color: white;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        /* Game Launcher Dropdown */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            margin-top: 8px;
+            background-color: var(--bg-card);
+            min-width: 160px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            overflow: hidden;
+            animation: popIn 0.2s ease-out;
+        }
+
+        .dropdown-content button {
+            color: var(--text-main);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: left;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dropdown-content button:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-content button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .dropdown.active .dropdown-content {
+            display: block;
+            background-color: #555;
         }
 
         .profile-box h2 {
@@ -627,7 +677,7 @@
             margin-bottom: 15px;
         }
     </style>
-	<link rel="stylesheet" href="/css/pretendard.css">
+    <link rel="stylesheet" href="/css/pretendard.css">
 </head>
 
 <body>
@@ -733,6 +783,17 @@
                     onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
                     🔌<span class="hide-on-mobile"> 앱 연결해제</span>
                 </span>
+                <div class="dropdown" id="game-dropdown">
+                    <span class="header-btn" onclick="toggleGameDropdown(event)"
+                        style="font-size:0.8rem; background:#30363d; color:#10b981; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
+                        onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
+                        🎮<span class="hide-on-mobile"> 미니게임</span> ▾
+                    </span>
+                    <div class="dropdown-content" id="game-dropdown-content">
+                        <button onclick="openLadderAdmin()">🪜 사다리 타기</button>
+                        <button onclick="openRouletteAdmin()">🎯 룰렛 돌리기</button>
+                    </div>
+                </div>
                 <span onclick="openHelp()" class="header-btn"
                     style="font-size:0.8rem; background:#30363d; color:#c9d1d9; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
                     onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
@@ -750,14 +811,24 @@
         </div>
 
         <div id="input-area">
-            <button class="btn secondary" onclick="document.getElementById('file-input').click()" title="파일 첨부">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button class="btn secondary" onclick="document.getElementById('file-input').click()" title="파일 첨부"
+                style="padding: 12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20"
+                    height="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path
                         d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                 </svg>
             </button>
             <input type="file" id="file-input" onchange="handleFileUpload(event)">
+
+            <button class="btn secondary" onclick="openCamera()" title="카메라 촬영"
+                style="padding: 12px; background-color: #10b981; border-color: #059669;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20"
+                    height="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+            </button>
 
             <textarea id="msg-input" placeholder="메시지 입력... (Enter로 전송)"></textarea>
 
@@ -778,6 +849,24 @@
         </div>
     </div>
 
+    <!-- Camera Overlay -->
+    <div id="camera-overlay" class="overlay" style="display: none; z-index: 2000;">
+        <div class="modal" style="max-width: 500px; text-align: center;">
+            <h2 style="margin-top: 0;">📸 사진 촬영</h2>
+            <div
+                style="position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; aspect-ratio: 4/3;">
+                <video id="camera-video" autoplay playsinline
+                    style="width: 100%; height: 100%; object-fit: cover;"></video>
+                <canvas id="camera-canvas" style="display: none;"></canvas>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn" style="flex: 1; padding: 12px; background: #10b981;" onclick="takePhoto()">촬영 및
+                    전송</button>
+                <button class="btn secondary" style="flex: 1; padding: 12px;" onclick="closeCamera()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let backendOrigin = localStorage.getItem('backendOrigin') || '';
         let myId = localStorage.getItem('messengerUser') || null;
@@ -790,6 +879,12 @@
         const loginServer = document.getElementById('login-server');
         const loginServerContainer = document.getElementById('server-url-container');
         const loginError = document.getElementById('login-error');
+        // 게임버튼은 role=admin인 경우에만 표시
+        const urlParams = new URLSearchParams(window.location.search);
+        const roleParam = urlParams.get('role');
+        const btnGame = document.getElementById('game-dropdown')
+        btnGame.style.display = roleParam === 'admin' ? 'block' : 'none'
+
 
         // Capacitor(모바일 앱) 환경일 경우 서버 주소 입력창 표시
         if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -862,7 +957,8 @@
                         ${user.username} 
                         ${isMe ? '<span style="color:#22c55e; font-size:0.8em">(나)</span>' : ''}
                     </div>
-                    ${isSelected ? '<div><span style="font-size:0.8em; color:#d8b4fe">대화 중</span></div>' : ''}
+                    ${isSelected ? '<div><span style="font-size:0.8em; color:#d8b4fe; margin-right: 6px;">대화 중</span></div>' : ''}
+                    ${isOnline && !isMe ? `<button onclick="inviteGo('${user.username}'); event.stopPropagation();" style="font-size:0.7em; padding:2px 6px; border-radius:4px; background:var(--bg-panel); border:1px solid #c09d59; color:#c09d59; cursor:pointer;" title="바둑 대국 1:1 신청">바둑초대</button>` : ''}
                 </div>
             `}).join('');
             // 카운트는 실제 온라인 접속자 수 (count)만 표시.
@@ -1056,6 +1152,9 @@
                 // 텍스트는 이스케이프 (기본적인 XSS 방지)
                 const safeText = data.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 contentHtml = `<div class="bubble ${data.targetUser ? 'whisper' : ''}">${whisperHtml}${safeText.replace(/\n/g, '<br>')}</div>`;
+            } else if (data.type === 'html') {
+                // 시스템에서 생성한 안전한 HTML 메시지 (XSS 방지 풀기)
+                contentHtml = `<div class="bubble">${data.text}</div>`;
             } else if (data.type === 'cmd-result') {
                 contentHtml = `<div class="bubble" style="background:#000; color:#0f0; border-radius:8px; font-family:monospace; padding:12px; font-size:0.85rem; width:100%; overflow-x:auto;">
                     <div style="color:#888; margin-bottom:8px;">> ${data.cmd}</div>
@@ -1376,6 +1475,12 @@
 
         // ─── 메시지 수신 및 명령어 실행 ───
         function receiveMessage(data) {
+            // 백그라운드 게임용 소켓 데이터는 채팅창에 렌더링하지 않음
+            const ignoredGameTypes = ['ladder-init', 'ladder-start', 'ladder-join', 'roulette-init', 'roulette-spin', 'roulette-join', 'roulette-leave', 'go-init', 'go-move', 'go-ready', 'go-leave'];
+            if (ignoredGameTypes.includes(data.type)) {
+                return;
+            }
+
             if (data.type === 'onlineUsers') {
                 const countBadge = document.getElementById('user-count');
                 countBadge.innerText = `${data.count}명 접속 중 ▾`;
@@ -1392,6 +1497,85 @@
 
             if (data.type.startsWith('webrtc-')) {
                 handleWebRTCSignaling(data);
+                return;
+            }
+
+            // 사다리 게임 초대(전체)
+            if (data.type === 'ladder-invite') {
+                const joinUrl = `/ladder-game.html?room=${data.room}&role=player`;
+                const htmlMessage = `
+                     <div style="text-align:center; padding: 5px;">
+                         <h3 style="margin-top:0; color:var(--primary);">🪜 사다리 게임 방이 열렸습니다!</h3>
+                         <p style="margin-bottom:15px; font-size:0.9rem;">'${data.senderId}'님이 만든 사다리 방에 참가하세요.</p>
+                         <a href="${joinUrl}" target="_blank" style="display:inline-block; padding:10px 20px; background:var(--primary); color:white; text-decoration:none; border-radius:6px; font-weight:bold;">사다리방 입장하기</a>
+                     </div>
+                 `;
+                appendMessageBubble({
+                    senderId: 'system',
+                    timestamp: Date.now(),
+                    type: 'html',
+                    text: htmlMessage
+                });
+                return;
+            }
+
+            // 룰렛 게임 초대(전체)
+            if (data.type === 'roulette-invite') {
+                const joinUrl = `/roulette-game.html?room=${data.room}&role=player`;
+                const htmlMessage = `
+                     <div style="text-align:center; padding: 5px;">
+                         <h3 style="margin-top:0; color:#f59e0b;">🎯 룰렛 게임 방이 열렸습니다!</h3>
+                         <p style="margin-bottom:15px; font-size:0.9rem;">'${data.senderId}'님이 만든 룰렛 게임에 참가하세요.</p>
+                         <a href="${joinUrl}" target="_blank" style="display:inline-block; padding:10px 20px; background:#f59e0b; color:white; text-decoration:none; border-radius:6px; font-weight:bold;">게임방 입장하기</a>
+                     </div>
+                 `;
+                appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'html', text: htmlMessage });
+                return;
+            }
+
+            // 바둑 게임 초대 관련 로직
+            if (data.type === 'go-invite') {
+                const isAccept = confirm(`🔔 [바둑 초대]\n'${data.senderId}'님이 온라인 바둑 대국을 요청했습니다.\n수락하시겠습니까?`);
+                if (isAccept) {
+                    ws.send(JSON.stringify({
+                        type: 'go-accept',
+                        senderId: myId,
+                        targetUser: data.senderId
+                    }));
+
+                    const url = `/go-game.html?room=${data.senderId}-${myId}&opponent=${encodeURIComponent(data.senderId)}&color=2`;
+                    appendMessageBubble({
+                        senderId: 'system',
+                        timestamp: Date.now(),
+                        type: 'html',
+                        text: `✅ 대국을 수락했습니다. 브라우저 팝업이 차단될 수 있으니 아래 버튼을 눌러 입장하세요.<br><br><a href="${url}" target="_blank" style="display:inline-block; padding:8px 16px; background:var(--primary); color:white; text-decoration:none; border-radius:6px; font-weight:bold;">대국장 입장 (백돌)</a>`
+                    });
+                } else {
+                    ws.send(JSON.stringify({
+                        type: 'go-decline',
+                        senderId: myId,
+                        targetUser: data.senderId
+                    }));
+                }
+                return;
+            }
+
+            if (data.type === 'go-accept') {
+                // data.senderId is the person who accepted (invitee)
+                // myId is the person who invited (inviter)
+                // The room should match what the invitee generated: data.senderId-myId
+                const url = `/go-game.html?room=${data.senderId}-${myId}&opponent=${encodeURIComponent(data.senderId)}&color=1`;
+                appendMessageBubble({
+                    senderId: 'system',
+                    timestamp: Date.now(),
+                    type: 'html',
+                    text: `✅ '${data.senderId}'님이 바둑 대국을 수락했습니다! 대국 화면이 차단되었다면 아래 버튼을 누르세요.<br><br><a href="${url}" target="_blank" style="display:inline-block; padding:8px 16px; background:var(--primary); color:white; text-decoration:none; border-radius:6px; font-weight:bold;">대국장 입장 (흑돌)</a>`
+                });
+                return;
+            }
+
+            if (data.type === 'go-decline') {
+                appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: `❌ '${data.senderId}'님이 바둑 대국 초대를 거절했습니다.` });
                 return;
             }
 
@@ -1674,6 +1858,145 @@
 
             // 초기 사이즈 설정
             adjustHeight();
+        }
+
+        // 사용자 정의 알림
+        function playAlertSound() {
+            // (생략)
+        }
+
+        function inviteGo(targetUser) {
+            if (!ws || ws.readyState !== 1) {
+                alert("서버 연결이 필요합니다.");
+                return;
+            }
+            if (confirm(`'${targetUser}'님에게 바둑 온라인 대국을 요청하시겠습니까?`)) {
+                ws.send(JSON.stringify({
+                    type: 'go-invite',
+                    senderId: myId,
+                    targetUser: targetUser
+                }));
+                appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: `📩 '${targetUser}'님에게 바둑 대국을 요청했습니다. 수락을 기다립니다.` });
+            }
+        }
+
+        // ─── 사다리 게임 방 생성 (관리자) ───
+        function openLadderAdmin() {
+            if (!ws || ws.readyState !== 1) { alert("서버 연결이 필요합니다."); return; }
+            const roomName = `ladder-${myId}-${Date.now()}`;
+            window.open(`/ladder-game.html?room=${roomName}&role=admin`, '_blank');
+            ws.send(JSON.stringify({ type: 'ladder-invite', senderId: myId, room: roomName }));
+            appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: `🪜 '${myId}'님이 사다리 게임 방을 오픈했습니다!` });
+            const dropdown = document.getElementById('game-dropdown');
+            if (dropdown) dropdown.classList.remove('active');
+        }
+
+        // ─── 룰렛 게임 방 생성 (관리자) ───
+        function openRouletteAdmin() {
+            if (!ws || ws.readyState !== 1) { alert("서버 연결이 필요합니다."); return; }
+            const roomName = `roulette-${myId}-${Date.now()}`;
+            window.open(`/roulette-game.html?room=${roomName}&role=admin`, '_blank');
+            ws.send(JSON.stringify({ type: 'roulette-invite', senderId: myId, room: roomName }));
+            appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: `🎯 '${myId}'님이 룰렛 게임 방을 오픈했습니다!` });
+            const dropdown = document.getElementById('game-dropdown');
+            if (dropdown) dropdown.classList.remove('active');
+        }
+
+        // 게임 런처 드롭다운 토글
+        function toggleGameDropdown(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('game-dropdown');
+            if (dropdown) dropdown.classList.toggle('active');
+        }
+
+        // 화면 밖 클릭 시 드롭다운 닫기
+        document.addEventListener('click', function (event) {
+            const dropdown = document.getElementById('game-dropdown');
+            if (dropdown && !dropdown.contains(event.target)) {
+                dropdown.classList.remove('active');
+            }
+        });
+
+        // ─── 카메라 촬영 기능 (Hybrid: Capacitor or WebRTC) ───
+        let cameraStream = null;
+
+        async function openCamera() {
+            // 1. 네이티브 앱(Capacitor) 환경인지 확인
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                try {
+                    const image = await Capacitor.Plugins.Camera.getPhoto({
+                        quality: 85,
+                        allowEditing: false,
+                        resultType: 'uri', // CameraResultType.Uri 대신 문자열 사용 (설정값 호환)
+                        source: 'camera'   // CameraSource.Camera
+                    });
+
+                    // 네이티브에서 받은 URI를 Blob으로 변환하여 File 객체 생성
+                    const response = await fetch(image.webPath);
+                    const blob = await response.blob();
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    const file = new File([blob], `photo_${timestamp}.jpg`, { type: 'image/jpeg' });
+
+                    // 기존 업로드 로직 태우기
+                    uploadAndShare(file);
+                } catch (error) {
+                    console.error("Capacitor 카메라 실행 실패 취소:", error);
+                }
+                return;
+            }
+
+            // 2. 일반 웹 브라우저 환경 (WebRTC Polyfill)
+            const overlay = document.getElementById('camera-overlay');
+            const video = document.getElementById('camera-video');
+
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }, // 후면 카메라 우선
+                    audio: false
+                });
+                video.srcObject = cameraStream;
+                overlay.style.display = 'flex';
+            } catch (err) {
+                console.error("Camera access error:", err);
+                alert("카메라 접근 권한이 없거나 지원하지 않는 기기입니다.\n" + err.message);
+            }
+        }
+
+        function closeCamera() {
+            document.getElementById('camera-overlay').style.display = 'none';
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+        }
+
+        function takePhoto() {
+            const video = document.getElementById('camera-video');
+            const canvas = document.getElementById('camera-canvas');
+
+            if (!cameraStream) return;
+
+            // 비디오 원본 크기에 맞춰 캔버스 설정
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // 캔버스 이미지를 Blob으로 변환 후 File 객체 생성
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    alert("사진 캡처에 실패했습니다.");
+                    return;
+                }
+
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const file = new File([blob], `photo_${timestamp}.jpg`, { type: 'image/jpeg' });
+
+                // 기존 파일 업로드 파이프라인(uploadFile) 재사용
+                uploadFile(file);
+                closeCamera();
+            }, 'image/jpeg', 0.85); // 85% 품질로 압축
         }
 
     </script>

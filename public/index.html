@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Express Messenger Hub</title>
     <!-- Import Google Fonts -->
-    
+
     <style>
         :root {
             --color-bg-primary: #0a0a0f;
@@ -145,7 +145,7 @@
             min-height: 20px;
         }
     </style>
-	<link rel="stylesheet" href="/css/pretendard.css">
+    <link rel="stylesheet" href="/css/pretendard.css">
 </head>
 
 <body>
@@ -187,8 +187,12 @@
                 if (isMobileApp) {
                     const savedUrl = localStorage.getItem('hubServerUrl');
                     if (savedUrl) {
+                        // 모바일인지 태블릿인지 화면 너비(768px 이상)로 체크
+                        const isTablet = window.innerWidth >= 768;
+                        const targetPage = isTablet ? '/order.html' : '/messenger.html';
+
                         // 저장된 서버로 WebView 즉시 연결
-                        window.location.href = savedUrl + '/messenger.html';
+                        window.location.href = savedUrl + targetPage;
                     } else {
                         // 저장된 내용이 없으면 설정화면 표시
                         document.getElementById('loading').style.display = 'none';
@@ -225,7 +229,9 @@
 
             setTimeout(() => {
                 // 해당 시스템/디바이스의 웹뷰를 원격 URL로 리다이렉션
-                window.location.href = cleanUrl + (isMobileApp ? '/messenger.html' : '/main.html');
+                const isTablet = window.innerWidth >= 768;
+                const mobileTarget = isTablet ? '/order.html' : '/messenger.html';
+                window.location.href = cleanUrl + (isMobileApp ? mobileTarget : '/main.html');
             }, 500);
         }
     </script>

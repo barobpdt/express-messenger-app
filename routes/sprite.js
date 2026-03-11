@@ -4,7 +4,8 @@ const router = express.Router();
 
 let Jimp, GIFEncoder;
 try {
-    Jimp = (await import('jimp')).default || await import('jimp');
+    const jimpModule = await import('jimp');
+    Jimp = jimpModule.Jimp || jimpModule.default || jimpModule;
     const gifencoderModule = await import('gifencoder');
     GIFEncoder = gifencoderModule.default || gifencoderModule;
 } catch (e) {
