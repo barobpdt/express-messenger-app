@@ -1,0 +1,95 @@
+## 카메라 사용
+npm install @capacitor/camera
+npx cap sync
+
+
+const targetUser = parsed.targetUser;
+
+if (targetUser) {
+    // 귓속말 (Direct Message)
+    const targetWs = onlineUsers.get(targetUser);
+    if (targetWs && targetWs.readyState === 1) {
+        targetWs.send(JSON.stringify(parsed));
+    }
+    // ...본인에게도 에코 전송
+} else {
+    // 전체 채팅 브로드캐스트
+}
+
+
+즉, 클라이언트가 데이터를 보낼 때 targetUser: '상대방아이디' 를 넣어서 보내면, 서버는 전체 방송을 하지 않고 **정확히 그 상대방의 웹소켓을 찾아서 쏙 넣어주는 역할(라우터)**만 합니다.
+
+2. go-game.js
+에서의 방어구현 (가짜 Room)
+진짜 Room이 없기 때문에, 제3자가 우리 게임에 이상한 돌을 끼워 넣거나 메신저 대화들이 바둑판으로 흘러 들어오는 것을 막기 위해 클라이언트 단(go-game.js)에서 검열을 합니다.
+
+URL에 적힌 정보(room=A-B, opponent=상대방)를 이용해 다음과 같이 솎아냅니다
+
+// go-game.js 에서 서버로부터 메시지를 받을 때
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);    
+    // 1. 이 메시지를 보낸 사람이 진짜 내 상대방인가?
+    // 2. 이 메시지가 지금 우리가 플레이하는 방(Room 이름)에 속해 있는가?
+    if (data.senderId === opponentUser && data.room === roomId) {
+        if (data.type === 'go-move') {
+            playMove(...); 
+        }
+    }
+};
+socket.send(JSON.stringify({
+    type: 'go-move',
+    room: roomId,            // 나와 상대방만 아는 룸 암호 역할
+    senderId: myId,          // 내 이름
+    targetUser: opponentUser // 서버야, 이 메시지를 '상대방'에게만 귓속말로 전해줘
+    /* ... 바둑돌 위치 정보 ... */
+}));
+
+
+## 게임
+
+function drawLineAnim(ctx, startX, startY, endX, endY, color, duration) {
+    return new Promise(resolve => {
+        let startTime = null;
+        function step(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const progress = Math.min((timestamp - startTime) / duration, 1);
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 8; // 강조를 위해 더 두껍게
+            ctx.lineCap = 'round';
+
+            // 네온사인 발광 효과
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetY = 0;
+
+            ctx.moveTo(startX, startY);
+
+            const currentX = startX + (endX - startX) * progress;
+            const currentY = startY + (endY - startY) * progress;
+
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                ctx.shadowColor = 'transparent'; // 애니메이션 끝나면 그림자 원상복구
+                resolve();
+            }
+        }
+        requestAnimationFrame(step);
+    });
+}
+
+만약 당장 테스트나 빠른 개발이 우선이시라면, 일단 **방법 1(자바스크립트 화면 크기 분기)**로 index.html에서 화면 너비(window.innerWidth > 768)를 체크해서 
+location.href로 넘겨버리는 식으로 빠르게 구현하시고, 나중에 고도화될 때 앱을 쪼개는 것도 좋은 전략입니다!
+
+테이블주문시스템(order.html) 기능을 아래와 같이 정리했는데 더 추가하거나 수정할 내용 있는지 분석부탁해
+1. order_management.html에서 추가된 카테고리와 메뉴를 보여주는 기능(메뉴 이미지 등록 기능 추가)
+2. 선택 메뉴 장바구니 기능
+3. 장바구니 내용 취소 및 주문기능
+4. 통합결재 기능 (여러 주문건에 대해 통합 결재기능)
+5. 일정기간 이벤트가 없을경우 동영상 재생 기능(동영상 재생중 이벤트 발생하면 메인화면으로 이동)
+

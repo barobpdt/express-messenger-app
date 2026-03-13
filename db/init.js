@@ -8,8 +8,12 @@ export const initializeDatabase = async () => {
 			username TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL,
 			fcm_token TEXT,
+			nickname TEXT,
+			avatar TEXT,
 			created_at TIMESTAMP DEFAULT NOW()
 		)`;
+		await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname TEXT`;
+		await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT`;
 
 		await sql`
 		CREATE TABLE IF NOT EXISTS favorites (

@@ -1,0 +1,137 @@
+<page id="main" initPage() {
+	this.@main = createWidget('canvas','main',this,'canvas_mdc,canvas_stack_main')
+	this.@stack = widget('stack')
+	this.@stack.addPage(this.@main)
+}>
+	<div id="stack">
+</page>
+
+<script eval>
+	p=page('main')
+	p.size(800,600)
+	p.open()
+	/*
+	bc=baseConfig()
+	p.@main[
+		test() {
+			p=page()
+			sub=createWidget('canvas','sub',this,'canvas_mdc,canvas_stack_sub')
+			print('main test func call', sub, p)
+		}
+		test()
+	]
+	*/
+	print("CanvasTest eval>>")
+	
+</script>
+
+<script module="canvas_stack_main">
+	init() {
+		this.@colorBody=this.@baseColor.lightColor(120)
+	}
+	clickBtn(node) {
+		page=page()
+		switch(node.code) {
+		case add:
+			sub=createWidget('canvas','sub',null,'canvas_mdc,canvas_stack_sub')
+			print("add btn click: sub==$sub")
+			page.@stack.addPage(sub, true)
+		case prev:
+			print("prev button click")
+		case help:		
+			print("help button click")
+		default:
+		}
+	}
+	updateCanvas() {
+		vbox(this.@rectCanvas,'45,*,50').inject(rcTop,rcBody,rcBottom)
+		not( this.@editor) {
+			this.@editor=createWidget('editor','editor',this)			
+		}
+		this.@editor.move(rcBody.incr(4))
+		// form 업데이트
+		initForm(conf('form.test_main'))
+		this[@rcTop, @rcBody, @rcBottom]
+		this.updateForm(this.@form, rcBottom)
+	}
+	drawBackground(dc) {
+		this[=>@rcTop, @rcBody, @rcBottom, @colorBody]
+		dc.fill(rcTop, colorBody)
+		dc.rectLine(rcTop, 4, darkColor(colorBody))
+		dc.fill(rcBody, colorBody)
+		dc.fill(rcBottom, colorBody)
+		colorFont=darkColor(colorBody,200)
+		dc.save().font("size:10,color:$colorFont")
+		dc.text(rcTop.incrX(10), 'STACK 페이지 테스트')
+		dc.restore()
+		// 이후 dc 그리기 무시 true 리턴
+		return true;
+	}
+	
+	
+</script>
+
+<script module="canvas_stack_sub">
+	updateCanvas() {
+		vbox(this.@rectCanvas,'45,*,70').inject(rcTop,rcBody,rcBottom)
+		this[@rcTop, @rcBody, @rcBottom]
+		this.addMdc('box',rcBody.incr(2),'mdc_box').var(@title,'sub box')
+		
+		hbox(rcTop,'60,*,40').inject(rcPrev,space,rcClose)
+		rcPrev.center(40,24)
+		rcClose.center(40,24)
+		// form 업데이트 
+		initForm(conf('form.test_sub'))
+		form=this.@form
+		form.addArray('@formRects').reuse()
+		form.@formRects.add(rcPrev, rcClose)
+		this.updateForm(form)
+	}
+	drawBackground(dc) {
+		this.inject(@form)
+		this.drawForm(dc, form)
+		return;
+	}
+	clickButton(node) {
+		page=page()
+		node.inject(code,rect)
+		switch(code) {
+		case prev:
+			page.stack.addPage(page.@main, true)
+		case close:
+			page.stack.addPage(page.@main, true)
+		}
+	}
+	
+</script>
+
+<conf name="form.test_main">
+	formItems: [
+		{tag:btn, code:add, text:캔바스추가, tooltip:스택에 새로운 캔바스를 추가}
+		{tag:space}
+		{tag:btn, code:help, text:도움말}		
+	]	
+</conf>
+
+<conf name="form.test_sub">
+	formItems: [
+		{tag:btn, code:prev, text:이전}
+		{tag:btn, code:help, text:도움말}
+	]
+</conf>
+
+<conf name="menu.test">
+	actionList: [
+		{id:menu.dbTableMng, text:DB테이블관리, icon:'vicon:application_lightning', type:"page", sub:"splitter"}
+		{id:menu.mmLangMng, text:금형다국어관리, icon:'vicon:html_go', type:"page", sub:"form"}
+		{id:menu.mmSourcePage, text:금형소스조회, icon:'vicon:script_code_red', type:"page", sub:"div"}
+		{id:menu.close, text:프로그램 종료, icon:'icons:close'}
+	]
+	menus: [
+		{actionId:menu.dbTableMng }
+		{actionId:menu.mmLangMng }
+		{actionId:menu.mmSourcePage }
+		{type:separator }
+		{actionId:menu.close }
+	]
+</conf>

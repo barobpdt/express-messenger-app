@@ -1,0 +1,200 @@
+<page id="main" margin="0" initPage() {	
+	this.@canvas = widget('c')
+}
+onActivationChange() {
+	popup=this.@c.popupWidget
+	not(this.is('active')) {
+		
+	}
+}>
+	<canvas id="c" module="canvas_form, canvas_songs_search" initWidget() {
+		@grid=createWidget('grid','grid_songs_search', this, 'grid_songs_search_impl')
+		this.addNode('@applyNode')
+		this.addNode('@searchNode')
+		grid.rootNode(this.@searchNode)
+		this.@applyNode.widget=this
+		this.@useTimer=true
+	}>
+	
+</page>
+
+<script eval>
+	p=page('main')
+	p.size(1024,800)
+	p.open()
+	
+	print("CanvasTest eval>>")
+	
+</script>
+
+<script module="canvas_songs_search">	
+	updateCanvas() {
+		vbox(this.@rectCanvas, '30,*,40').inject(rcTop, rcBody, rcBottom)
+		not(this.@form) {
+			this.@form = initForm(conf('form.test_songs_search'))
+		}
+		grid.move(rcBody.incr(4))
+		this.@rcTop=rcTop
+		this.@rcBottom=rcBottom
+		this.updateForm(this.@form, rcBottom)
+	} 
+	timerCallback() {
+		if(this.@currentModifyNode) {
+			this.@currentModifyNode.inject(code, @widget)
+			if(code=='searchText') {
+				this.@currentModifyNode=null
+				// this.@filterChangeTick=System.tick()
+				this.@inputWidget=widget
+			} 
+		}
+		if(this.@filterChangeTick) {
+			dist=System.tick() - this.@filterChangeTick
+			if(dist>800) {
+				this.@filterChangeTick=0
+				grid.@filterText=this.@inputWidget.value()
+				grid.update()
+			}
+		}
+	}
+	changeValueCallback(node) {
+		code=node.code
+		if(code=='checkModule') {
+			grid.@checkModule=node.checked
+		} else {
+			this.@currentModifyNode=node
+		}
+	}
+	openSource(node, rect) {
+		e=this.@popupEditor
+		not(e) {
+			e=createWidget('editor','editor_sorce', null, 'editor,EditorSource')
+			e.syntax(object("syntax","default"))
+			e.flags('tool')
+			this.@popupEditor=e
+
+		}
+		rcPopup=@user.availRect(rect.moveBottom(650,300))
+		src=escapeString(node.lyrics)
+		e.move(rcPopup)
+		e.open()
+		e.value(src)
+		this.@popupWidget=e
+	}
+	drawBackground(dc) {
+		bgColor=this.@baseColor.lightColor(160)
+		title='가사연동 API 테스트'
+		textColor=this.@baseColor.darkColor(100)
+		dc.save().font("size:12, color:${bgColor.lightColor(180)}, weight:bold")
+		dc.fill(this.@rcTop, bgColor)
+		dc.text(this.@rcTop.incrX(10).move(1,1), title) dc.font("color:$textColor")
+		dc.text(this.@rcTop.incrX(10), title)
+		fillGradient(dc, this.@rcBottom, bgColor, bgColor.lightColor(120))
+		dc.restore()
+	}
+	clickBtn(cur) {
+		input=findField(this.@form,'code','searchText').@widget
+		not(input) return this.alert('input 입력객체 오류')
+		q=input.value()
+		switch(cur.code) {
+		case search:			
+			not(q) return this.alert('조회 검색어가 없습니다')
+			node=this.@searchNode.removeAll(true)
+			node.url="http://localhost:8081/api/songs/search?q=$q"
+			node.grid=grid
+			addApiJob("songs_search",node,this.callback_search)
+		case save:
+			not(q) return this.alert('저장 가수가 없습니다')			
+			@fm.artistApply(q,this.@applyNode)
+		case delete:
+		default:
+		}
+	}
+	callback_search(result,target) {
+		not(result.find('#@>finish:')) return;
+		src=fileRead(target.downloadFilename)		
+		target.parseJson(src)
+		target.grid.update()		
+	}
+</script>
+
+<script module="grid_songs_search_impl">
+	init() {
+		addModule(this,'grid')		
+		this.headerHeight(40)
+		this.lineHeight(35)
+		this.model(#[
+			artist:가수 				#200,
+			title: 노래제목			#350,
+			lyrics: 가사				#flex,
+			createdAt: 생성일시		#200
+		])		
+	}	
+	onDraw(dc, node, column, state, over) {
+		rc=this.drawState(dc, node, column, state, over)
+		field=this.field(column)
+		text=node.get(field)
+		if(field=='createdAt') {
+			dc.text(rc, text, 'center')
+		} else {
+			dc.text(rc.incrX(6), text)
+		}
+	}
+	onFilter(node) {
+		filter=this.@filterText
+		not(filter) return true; 
+		if(node.title.find(filter,2)) return true;
+		if(node.lyrics.find(filter,2)) return true;
+		return false;
+	}
+	onMouseDown(p,a) {
+		canvas=this.parentWidget()
+		if( canvas.@popupWidget ) {
+			canvas.@popupWidget.hide()
+		}
+		cur=this.at(p) not(cur) return;
+		if( cur.@code=='lyrics') {
+			rect=this.nodeRect(cur)
+			canvas.openSource(cur, this.mapGlobal(rect) )
+		}		
+	}
+</script>
+
+<script>
+	@user.availRect(rect) {
+		lt=rect.lt()
+		while(n=0,System.info('screenCount')) {
+			rcScreen=System.info('screenRect',n)
+			if( rcScreen.contains(lt)) {
+				if(rcScreen.contains(rect)) return rect;
+				return getRect(rcScreen)
+			}
+		}
+		return null;
+		getRect=function(rs) {
+			rect.inject(x,y,w,h)
+			rs.inject(sx,sy,sw,sh)
+			if(w>sw) w=sw-10
+			if(h>sh) h=sh-10
+			a=x+w, b=y+h
+			if(a>sw) {
+				x=sw-w
+			}
+			if(b>sh) {
+				y=sh-h
+			}
+			print('xxxxxxxxx get rect xxxxxxxxx', b,sh,y, rect)
+			return rc(x,y,w,h)
+		};
+	}
+</script>
+
+<conf name="form.test_songs_search">
+	formItems: [
+		{tag:input, code:searchText, width:120}
+		{tag:btn, code:save, text:저장}
+		{tag:btn, code:search, text:조회}
+		{tag:check, code:checkModule, text:제목만 조회}
+		{tag:space}
+		{tag:btn, code:delete, text:삭제}
+	]
+</conf>

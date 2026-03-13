@@ -1,0 +1,286 @@
+<page id="main" margin="0" initPage() {	
+	this.@canvas = widget('webview')
+}
+onClose() {
+	this.@canvas.killTimer()
+	Baro.process('pythonWebview').close()
+	Baro.worker('webviewCommand').close()
+}>
+	<canvas id="webview" module="canvas_webview" >
+</page>
+
+<script eval>
+	p=page('main')
+	p.size(800,600)
+	p.open()
+	/*	
+	cmd=p.@canvas.@cmd
+	c=p.@canvas
+	c.webviewExec("quit:")
+	c.webviewStart()
+	c.webviewExec("setParent:${p.winId()}")
+	c.webviewExec("show:")
+	c.webviewExec("url:https://www.naver.com/")
+	c.updateCanvas()
+	캐시위치 = C:\Users\{user}\AppData\Local\python\QtWebEngine
+	*/
+	print("CanvasTest eval>>")
+	
+</script>
+
+<script module="canvas_webview">
+	initWidget() {
+		this.@cmd = Baro.process('pythonWebview')
+		this.@status='first'
+		this.@useTimer=true
+		this.@checkStart=false
+		not( object("baro.was").@was ) {
+			initWas()
+			initWebsocket()
+		}
+		this.addArray('@penddingList')
+		this.@startWebviewTick=0
+		// this.webviewCheck()
+		this.webviewStart()
+	}
+	updateCanvas() {
+		if(this.@status.eq('first','check','init')) return;
+		this.@webviewResizeTick=System.tick()
+	} 
+	drawBackground(dc) {
+		bgColor=this.@baseColor.lightColor(100)
+		dc.fill(bgColor)
+	}
+	setWebviewResult(s) {
+		print("setWebviewResult: webview result ==> $s")		
+	}
+	timerCallback() {
+		this.inject(@cmd, @status)
+		if( status.eq('init')) {
+			result = cmd.@logTail.timeout() not(result) return;
+			if(result.find('start:webview') ) {
+				this.@status='start'
+				this.@startWebviewTick=System.tick()
+				this.updateCanvas()
+			}
+			print("init log result==$result")
+			return;
+		}
+		if( status.eq('start')) {
+			if(checkTick(this.@webviewResizeTick,500)) {
+				rect = toRect(this.geo())
+				rect.inject(x,y,w,h)
+				this.webviewExec("geo:$x,$y,$w,$h,0")				
+				this.@webviewResizeTick=0
+				return;
+			} 
+			if(checkTick(this.@startWebviewTick)) {
+				not(this.@checkStart) {
+					this.@checkStart = true
+					this.webviewExec("setParent:${this.winId()}")
+				}
+				if(isValid(this.@penddingList) ) {
+					execSource=this.@penddingList.pop()
+					print("@@ pendding execSource:$execSource")
+					this.webviewExec(execSource, true)
+					return;
+				}
+			}
+			
+			if(cmd.@jobStatus.eq('finish')) {
+				return this.webviewStart()
+			}
+			result=cmd.@logTail.timeout() 
+			not(result) {
+				return;
+			}
+			print(">> webview log result:$result")
+			if( result.find('bridge:') ) {
+				page=page('main')
+				if( result.find('bridge:pageActive')) {
+					return this.webviewExec('pageActive:')
+				}
+				if( result.find('bridge:fullscreen')) {
+					this.webviewExec('zoom:1.5')
+					return page.pageState('fullscreen')
+				}
+				if( result.find('bridge:maximized')) {
+					this.webviewExec('zoom:1.0')
+					return page.pageState('maximized')
+				}
+			}
+		}
+	}
+	webviewCheck() {
+		this.@status='check'
+		info=object('python.installInfo')
+		not(info.childCount()) {
+			pythonInstallStart('list', true)
+			addUserWorker('user', this, function() {
+				info=object('python.installInfo')
+				while(n=0,32) {
+					System.sleep(500)
+					if(info.childCount()) {
+						break;
+					}
+				}
+				not(info.childCount()) return this.alert('파이션 설치정보를 찾을수 없습니다');
+				this.webviewCheck()
+			})
+			return;
+		}
+		// pythonInstallStart('rembg Pillow', true)
+		aa=findField(info,'name','PyQt5')
+		ab=findField(info,'name','PyQtWebEngine')
+		if(aa && ab ) {
+			return this.webviewStart()
+		}
+		pythonInstallStart('PyQt5')
+		pythonInstallStart('PyQtWebEngine')
+		pythonInstallStart('pywin32')
+		this.@cmdInstall=pythonInstallStart()
+		addUserWorker('user',this,function() {
+			for(n=0,100 ) {
+				System.sleep(500)
+				cmd=this.@cmdInstall
+				aa=notValid(cmd.@cmdJobList)
+				ab=cmd.@jobStatus.eq('finish')
+				if( aa && ab ) {
+					return this.webviewStart()
+				}
+			}
+		})
+
+	}
+	webviewStart() {
+		this.@status='init'
+		this.@checkStart=false
+		this.@startWebviewTick=0
+		this.@penddingList.reuse()
+		cmd=this.@cmd 
+		not(checkTag(cmd,'process')) return print("@@webviewStart 오류 (webview command 객체 미정의)");
+		if( cmd.@jobStatus=='run' ) {
+			print("webview 프로세스가 이미 실행중입니다")
+			return;
+		}
+		py=pathJoin(conf('python.path'), 'python.exe')
+		sourcePath=pathJoin(conf('python.RUN_PATH'), 'webCommand.py')
+		not(isFile(sourcePath)) {
+			log("error::@python.getCommand 소스파일 경로가 없습니다 (경로:$sourcePath)")
+		}
+		logObj = logAppend("pythonWebview-log")
+		outObj = logTail("pythonWebview-out")		
+		not( cmd.@jobMode ) {
+			// job
+			cmd.@jobMode='pythonWebview'		
+			cmd.@jobStatus='start'
+			cmd.@logAppend=logObj
+			cmd.@logTail=outObj
+			cmd.@canvas=this
+			cmd.addArray('@cmdJobList')
+			// worker 
+			cmd.@callbackWorker=@webview.callbackWorker
+			cmd.addArray('@webviewCommandList')
+			addCmdJob(cmd)
+		}
+		cmd.@webviewCommandList.reuse()
+		logFileName=logObj.get('logFileName')
+		outFileName=outObj.get('logFileName')
+		line=f["$py" "$sourcePath" --command="$logFileName" --out="$outFileName"]
+		url=this.@movePageUrl
+		if(url) {
+			this.@movePageUrl=''
+			line.add(" --url=$url")
+		}
+		addCmdJob(cmd, line)
+	}
+	webviewExec(execSource, skipPendding) {
+		cmd=this.@cmd
+		if( cmd.@jobStatus!='run' ) {
+			print("@@ webviewExec 오류 웹뷰 실행중이 아닙니다")
+			this.@penddingList.add(execSource)
+			return;
+		}
+		if(checkTick(this.@startWebviewTick)) {
+			cmd.@webviewCommandList.add(execSource)
+			addUserWorker('webviewCommand', cmd )
+		}  else {
+			this.@penddingList.add(execSource)
+			print(">> webview.exec : ${this.@penddingList}")
+		}		
+	}
+	webviewStop() {
+		this.webviewExec('quit:')
+	}
+	@webview.callbackWorker() {
+		cmd=this
+		if( cmd.@jobStatus!='run' ) {
+			while(n=0,30) {
+				System.sleep(100)
+				// print(">>@keyboad.execSource workerStatus => $n", cmd.@jobStatus);
+				if( cmd.@jobStatus=='run' ) {									
+					if( cmd.@canvas.@checkStart ) {
+						break;
+					}
+				}
+			}
+			if( cmd.@jobStatus!='run' ) {
+				return print("@@ python webview command 프로그램이 실행중이 아닙니다");
+			}
+		}
+		source=cmd.@webviewCommandList.pop()
+		print(">> webview command start", source)
+		cmd.@logTail.timeout()
+		cmd.@logAppend.append("@#>${source}")
+		result=''
+		while(n=0,30) {
+			System.sleep(10)
+			result = cmd.@logTail.timeout()
+			if(result) {
+				print(">>@webview callback result: $n $result")
+				cmd.@canvas.setWebviewResult(result)
+				break;
+			}
+		}
+		
+		if( cmd.@webviewCommandList.size() ) {
+			worker=cmd.@worker
+			workerSize=worker.list().size()
+			not(workerSize) {
+				print(">> 웹커멘드 요청건수 불일치 남은 목록 삭제", cmd.@webviewCommandList)
+				cmd.@webviewCommandList.reuse()
+			}
+		}
+	}
+</script>
+
+<script>
+	mergeCssRoot(pathArr) {
+		map=object('data.cssRoot').removeAll(true)
+		while(path,pathArr) {
+			parse(fileRead(path))
+		}
+		ss='';
+		while(k,map.keys()) {
+			v=map.get(k)
+			ss.add("\n$k:$v;") 
+		}
+		return ":root {$ss}"
+		parse=function(&s) {
+			s.findPos(':root') not(s.ch()) break;
+			s.findPos('{',0,1)
+			ss=s.match()
+			while(ss.valid()) {
+				c=ss.ch() not(c) break;
+				if(c.eq('/')) {
+					c.match()
+					continue;
+				}
+				k=ss.findPos(':').trim()
+				if(map.isVar(k)) continue;
+				v=ss.findPos(';').trim()
+				map.set(k,v)
+			}
+		};
+	}
+</script>

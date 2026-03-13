@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Gallery</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* 전체 페이지 스타일 */
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        /* 파일 선택 영역 스타일 */
+        .file-select-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .file-select-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        .file-select-button:hover {
+            background: #45a049;
+        }
+
+        .file-select-input {
+            display: none;
+        }
+
+        .drag-drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .drag-drop-area.highlight {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .drag-drop-text {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .drag-drop-icon {
+            font-size: 40px;
+            color: #ccc;
+            margin-bottom: 10px;
+        }
+
+        /* 갤러리 스타일 */
+        .gallery-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 20px auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .gallery-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 전체화면 보기 스타일 */
+        .fullscreen-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .fullscreen-view.active {
+            display: flex;
+        }
+
+        .fullscreen-image-container {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            transform-origin: center;
+            transition: transform 0.3s ease;
+        }
+
+        .fullscreen-image {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .fullscreen-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+
+        .control-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .control-button:hover {
+            opacity: 1;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 10px;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .close-button:hover {
+            opacity: 1;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 20px;
+        }
+
+        .zoom-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .zoom-button:hover {
+            opacity: 1;
+        }
+
+        /* 이미지 정보 표시 */
+        .image-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .fullscreen-view:hover .image-info {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="file-select-container">
+        <button class="file-select-button" id="selectFileBtn">이미지 파일 선택</button>
+        <input type="file" id="fileInput" class="file-select-input" accept="image/*" multiple>
+        
+        <div class="drag-drop-area" id="dragDropArea">
+            <div class="drag-drop-icon">🖼️</div>
+            <div class="drag-drop-text">또는 이미지를 여기에 끌어다 놓으세요</div>
+        </div>
+    </div>
+
+    <div class="gallery-container" id="galleryContainer"></div>
+
+    <div class="fullscreen-view" id="fullscreenView">
+        <div class="fullscreen-image-container" id="fullscreenImageContainer">
+            <img class="fullscreen-image" id="fullscreenImage" src="" alt="Fullscreen Image">
+        </div>
+        <div class="fullscreen-controls">
+            <button class="control-button" id="prevButton">◀</button>
+            <button class="control-button" id="nextButton">▶</button>
+        </div>
+        <div class="zoom-controls">
+            <button class="zoom-button" id="zoomInButton">+</button>
+            <button class="zoom-button" id="zoomOutButton">-</button>
+            <button class="zoom-button" id="resetZoomButton">↺</button>
+        </div>
+        <button class="close-button" id="closeButton">×</button>
+        <div class="image-info" id="imageInfo"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const selectFileBtn = document.getElementById('selectFileBtn');
+            const dragDropArea = document.getElementById('dragDropArea');
+            const galleryContainer = document.getElementById('galleryContainer');
+            const fullscreenView = document.getElementById('fullscreenView');
+            const fullscreenImage = document.getElementById('fullscreenImage');
+            const fullscreenImageContainer = document.getElementById('fullscreenImageContainer');
+            const closeButton = document.getElementById('closeButton');
+            const prevButton = document.getElementById('prevButton');
+            const nextButton = document.getElementById('nextButton');
+            const zoomInButton = document.getElementById('zoomInButton');
+            const zoomOutButton = document.getElementById('zoomOutButton');
+            const resetZoomButton = document.getElementById('resetZoomButton');
+            const imageInfo = document.getElementById('imageInfo');
+
+            let images = [];
+            let currentImageIndex = 0;
+            let currentZoom = 1;
+            const ZOOM_STEP = 0.2;
+            const MAX_ZOOM = 3;
+            const MIN_ZOOM = 0.5;
+
+            // 파일 선택 버튼 클릭 이벤트
+            selectFileBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // 파일 선택 이벤트
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFiles(Array.from(e.target.files));
+                }
+            });
+
+            // 드래그 앤 드롭 이벤트
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dragDropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dragDropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dragDropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dragDropArea.classList.add('highlight');
+            }
+
+            function unhighlight() {
+                dragDropArea.classList.remove('highlight');
+            }
+
+            dragDropArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+
+                if (files.length > 0) {
+                    handleFiles(Array.from(files));
+                }
+            }
+
+            // 파일 처리 함수
+            function handleFiles(files) {
+                const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                
+                imageFiles.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const imageUrl = e.target.result;
+                        images.push(imageUrl);
+                        addImageToGallery(imageUrl);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            // 갤러리에 이미지 추가
+            function addImageToGallery(imageUrl) {
+                const div = document.createElement('div');
+                div.className = 'gallery-item';
+                div.innerHTML = `<img src="${imageUrl}" alt="Gallery Image">`;
+                
+                div.addEventListener('click', () => {
+                    currentImageIndex = images.indexOf(imageUrl);
+                    showFullscreenImage(imageUrl);
+                });
+                
+                galleryContainer.appendChild(div);
+            }
+
+            // 전체화면 이미지 표시
+            function showFullscreenImage(imageUrl) {
+                fullscreenImage.src = imageUrl;
+                fullscreenView.classList.add('active');
+                resetZoom();
+                updateImageInfo();
+            }
+
+            // 이미지 정보 업데이트
+            function updateImageInfo() {
+                if (images.length > 0) {
+                    imageInfo.textContent = `${currentImageIndex + 1} / ${images.length}`;
+                } else {
+                    imageInfo.textContent = '';
+                }
+            }
+
+            // 줌 초기화
+            function resetZoom() {
+                currentZoom = 1;
+                fullscreenImageContainer.style.transform = `scale(${currentZoom})`;
+            }
+
+            // 줌 인
+            function zoomIn() {
+                if (currentZoom < MAX_ZOOM) {
+                    currentZoom += ZOOM_STEP;
+                    fullscreenImageContainer.style.transform = `scale(${currentZoom})`;
+                }
+            }
+
+            // 줌 아웃
+            function zoomOut() {
+                if (currentZoom > MIN_ZOOM) {
+                    currentZoom -= ZOOM_STEP;
+                    fullscreenImageContainer.style.transform = `scale(${currentZoom})`;
+                }
+            }
+
+            // 이전 이미지
+            function showPreviousImage() {
+                if (currentImageIndex > 0) {
+                    currentImageIndex--;
+                    showFullscreenImage(images[currentImageIndex]);
+                }
+            }
+
+            // 다음 이미지
+            function showNextImage() {
+                if (currentImageIndex < images.length - 1) {
+                    currentImageIndex++;
+                    showFullscreenImage(images[currentImageIndex]);
+                }
+            }
+
+            // 이벤트 리스너
+            closeButton.addEventListener('click', () => {
+                fullscreenView.classList.remove('active');
+            });
+
+            prevButton.addEventListener('click', showPreviousImage);
+            nextButton.addEventListener('click', showNextImage);
+            zoomInButton.addEventListener('click', zoomIn);
+            zoomOutButton.addEventListener('click', zoomOut);
+            resetZoomButton.addEventListener('click', resetZoom);
+
+            // 전체화면 클릭 이벤트 (좌우 영역 클릭으로 네비게이션)
+            fullscreenView.addEventListener('click', (e) => {
+                // 컨트롤 영역 클릭은 무시
+                if (e.target.closest('.fullscreen-controls') || 
+                    e.target.closest('.zoom-controls') || 
+                    e.target.closest('.close-button')) return;
+                
+                const rect = fullscreenView.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const width = rect.width;
+                
+                // 좌측 30% 영역 클릭 시 이전 이미지
+                if (x < width * 0.3) {
+                    showPreviousImage();
+                }
+                // 우측 30% 영역 클릭 시 다음 이미지
+                else if (x > width * 0.7) {
+                    showNextImage();
+                }
+            });
+
+            // 마우스 휠 이벤트 (전체화면 모드에서)
+            fullscreenView.addEventListener('wheel', (e) => {
+                if (fullscreenView.classList.contains('active')) {
+                    if (e.ctrlKey) {
+                        // Ctrl + 휠: 줌 인/아웃
+                        e.preventDefault();
+                        if (e.deltaY < 0) {
+                            zoomIn();
+                        } else {
+                            zoomOut();
+                        }
+                    } else {
+                        // 휠: 이전/다음 이미지
+                        e.preventDefault();
+                        if (e.deltaY > 0) {
+                            showNextImage();
+                        } else {
+                            showPreviousImage();
+                        }
+                    }
+                }
+            }, { passive: false });
+
+            // 키보드 단축키
+            document.addEventListener('keydown', (e) => {
+                if (!fullscreenView.classList.contains('active')) return;
+
+                switch(e.key) {
+                    case 'Escape':
+                        fullscreenView.classList.remove('active');
+                        break;
+                    case 'ArrowLeft':
+                        showPreviousImage();
+                        break;
+                    case 'ArrowRight':
+                        showNextImage();
+                        break;
+                    case ' ':
+                        e.preventDefault(); // 스페이스바 기본 동작 방지
+                        showNextImage();
+                        break;
+                    case '+':
+                        zoomIn();
+                        break;
+                    case '-':
+                        zoomOut();
+                        break;
+                    case 'r':
+                        resetZoom();
+                        break;
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

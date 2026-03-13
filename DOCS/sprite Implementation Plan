@@ -1,0 +1,31 @@
+# Sprite Web Manager Plan
+
+This plan details the steps to build a web-based Sprite Animation Manager.
+
+## Proposed Changes
+
+### Frontend Layer
+- #### [NEW] `public/sprite-manager.html`
+  - Drag and drop zone for sprite images.
+  - Inputs for frame width, height, and FPS.
+  - Inputs for rows (행수), columns (열수), and margin/padding (여백).
+  - Interactive canvas preview using `window.requestAnimationFrame` to animate the sprite sheet in real-time.
+  - Visual grid overlay on the uploaded image to show how the frames are sliced based on the input values.
+  - Export functionality:
+    - CSS snippet generator using `steps()`.
+    - API integration to save as GIF via backend.
+
+### Backend Layer
+- #### [NEW] `routes/sprite.js`
+  - Create a new Express router for sprite operations.
+  - Endpoint `POST /api/sprite/gif`: Receive image data (or file upload via multer), frame width, height, and FPS. Use `canvas` and `gifencoder` to generate the GIF and return it as a downloadable file.
+- #### [MODIFY] `server.js`
+  - Mount the `routes/sprite.js` router.
+
+## Verification Plan
+1. Open `sprite-manager.html` in the browser.
+2. Upload `8049563-bg.png`.
+3. Enter frame dimensions (e.g., 300x200) and FPS.
+4. Verify the preview animation looks correct.
+5. Click "Generate GIF" and ensure the downloaded file is a valid animated GIF.
+6. Verify the generated CSS snippet can be copied and used.

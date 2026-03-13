@@ -1,0 +1,616 @@
+<script module="mdc_keyboard">
+	init() {
+		// backgroundImage=Cf.imageLoad("tools/keyborad_bg.png");	
+		this.makeKeyMap('@engLower');
+		this.makeKeyMap('@engUpper');
+		this.makeKeyMap('@korLower');
+		this.makeKeyMap('@korUpper');
+		this.makeKeyMap('@etc');
+		this.currentPos=0
+		this.canvasWidth=890;
+		this.canvasHeight=276;
+		this.inputHeight=46;
+		this.addArray('@ingArray')
+		this.@langMode='kor';
+		this.@keyMode=''
+		this.@inputCheck=false; 
+		this.@ingString = ''
+		this.@ingBuffer = ''
+		this.@doneString =''
+		this.@inputResultMdc = null
+		this.@fontStyle = 'size:14pt, color:#fafafa'
+		this.@fontOverStyle = 'size:15pt, color:#fafafa, weight:bolde'
+		@keyboard.pythonStart()
+	}
+	getAvailSize() {
+		this[=>canvasWidth, canvasHeight, inputHeight]
+		return pt(canvasWidth, canvasHeight+inputHeight)
+	}
+	setInputMdc(input) {
+		this.@inputResultMdc = input
+	}	
+	drawOverlay(dc) {
+		this[=> @offset, @row, @column, @fontOverStyle]
+		field="$row:$column"
+		rect = this.@rectOverlay.offset(offset).incr(-4)		
+		// shift
+		if(field.eq('2:0','2:11')) {
+			dc.fill(rect,'#80808a').rectLine(rc, 0, '#20202a')
+		}
+		// ctrl
+		else if(field.eq('3:1')) {
+			dc.fill(rect,'#7a7070').rectLine(rc, 0, '#20202a');
+		}
+		else {
+			dc.fill(rect,'#80808a').rectLine(rect, 0, '#20202a')
+		}
+		dc.save().font(fontOverStyle)
+		this.drawKeyText(dc, rect, row, column)
+		dc.restore()
+	}
+	updateMdc() {	
+		this[=> inputHeight, canvasHeight]
+		ox=8, oy=8, bw=67, bh=60, gabX=6, gabY=7;
+		if( this.@inputCheck ) {
+			vbox(this.@rectAvail, "*,$inputHeight,$canvasHeight").inject(status, input, keyboard)
+			this.@rectInput= input
+			this.@rectStatus=status
+			this.@rectKeyboard = keyboard
+			this.showInput()
+		} else {
+			vbox(this.@rectAvail, "*,$canvasHeight").inject(status, keyboard)
+			this.@rectInput=null
+			this.@rectStatus=status
+			this.@rectKeyboard = keyboard
+		}
+		this.@rectKeyboard.inject(sx,sy)
+		sy+=oy;
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				cx=sx+ox;
+				while( c=0, c<10, c++ ) {
+					this[rc $n $c]=rc(cx,sy,bw,bh) cx+=bw+gabX;
+				}
+				w=876-cx;
+				if( w<60 ) w=110;
+				this[rc $n $c]=rc(cx,sy,w,bh);
+				sy+=bh+gabY;
+			case 1:
+				cx=sx+24;
+				while( c=0, c<10, c++ ) {
+					this[rc $n $c]=rc(cx,sy,bw,bh) cx+=bw+gabX;
+				}
+				w=876-cx;
+				if( w<60 ) w=110;
+				this[rc $n $c]=rc(cx,sy,w,bh);
+				sy+=bh+gabY;
+			default:
+				cx=sx+ox;
+				while( c=0, c<12, c++ ) {
+					this[rc $n $c]=rc(cx,sy,bw,bh) cx+=bw+gabX;
+				}
+				sy+=bh+gabY;
+				if( n.eq(3) ) {
+					this.@rectSpace = mergeRect(this[rc $n 4], this[rc $n 7])
+				}
+			}
+		}
+	}
+	drawDc() {		
+		keyCode=this.@langMode
+		if(keyCode.ne("etc") ) {
+			if( this.@keyMode.eq("shift","shiftOn") ) {
+				keyCode.add("Upper")
+			} else {
+				keyCode.add("Lower")
+			}
+		}
+		this.@keyMap = this.get("@$keyCode")
+		dc=this	
+		dc.fill('#1a1a1a');
+		// dc.image(rc, background);
+		dc.save().font(this.@fontStyle);
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				while( c=0, c<11, c++ ) {
+					rc=this[rc $n $c]
+					dc.fill(rc,'#333333').rectLine(rc, 0, '#20202a')
+					this.drawKeyText(dc,rc,n,c)
+				}
+			case 1:
+				while( c=0, c<11, c++ ) {
+					rc=this[rc $n $c]
+					dc.fill(rc,'#333333').rectLine(rc, 0, '#20202a')
+					this.drawKeyText(dc,rc,n,c)
+				}
+			case 2:
+				while( c=0, c<12, c++ ) {
+					rc=this[rc $n $c]
+					if( c.eq(0,11) ) {
+						if( this.@keyMode.eq("shiftOn") ) {
+							dc.fill(rc,'#c06a7b').rectLine(rc, 0, '#d09ab0', 2);
+						} else if( this.@keyMode.eq("shift") ) {
+							dc.fill(rc,'#9a9090').rectLine(rc, 0, '#20202a');
+						} else {
+							dc.fill(rc,'#4d4d4d').rectLine(rc, 0, '#20202a');
+						}
+					} else {
+						dc.fill(rc,'#333333').rectLine(rc, 0, '#20202a')
+					}
+					this.drawKeyText(dc,rc,n,c)
+				}
+			case 3:
+				while( c=0, c<12, c++ ) {
+					if( c.eq(4,5,6,7) ) {
+						if( c!=4 ) continue;
+						rc=this.@rectSpace
+						dc.fill(rc,'#333333').rectLine(rc, 0, '#20202a');
+					} else {
+						rc=this[rc $n $c]
+						def=true
+						if( c.eq(1) ) {
+							 if( this.@keyMode=='ctrl' ) ) {
+								dc.fill(rc,'#9a9090').rectLine(rc, 0, '#20202a')
+								def=false;
+							}
+						} else if( c.eq(8) ) {
+							if( this.@langMode=='kor' ) {
+								dc.fill(rc,'#707a7a').rectLine(rc, 0, '#40404a')
+								def=false;
+							}
+						} else {
+							dc.fill(rc,'#4d4d4d').rectLine(rc, 0, '#20202a')
+						}
+						this.drawKeyText(dc,rc,n,c)
+					}
+				}
+			default:
+			}
+		}
+		dc.restore()
+	}
+	mouseDown(pt) {
+		print(">> keyboard mouse down ", pt)
+		_update=func() {
+			this.@mouseDownRect=rc;
+			this.@row = n
+			this.@column = c
+			this.addOverlay('mouseDown', rc )
+			return true;
+		};
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				while( c=0, c<11, c++ ) {
+					rc=this[rc $n $c]
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			case 1:
+				while( c=0, c<11, c++ ) {
+					rc=this[rc $n $c]
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			case 2:
+				while( c=0, c<12, c++ ) {
+					rc=this[rc $n $c]
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			case 3:
+				while( c=0, c<12, c++ ) {
+					if( c.eq(4,5,6,7) ) {
+						not( c.eq(4) ) continue;
+						rc=this@rectSpace
+					} else {
+						rc=this[rc $n $c]
+					}
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			default:
+			}
+		}
+		return true;
+	}
+	mouseUp(pt) {		
+		_update=func(rc) {
+			if( this.@mouseDownRect ) {
+				this.@mouseDownRect=null;
+			}
+			if( rc ) {
+				this.keyDown(n,c);
+			}
+			this.removeOverlay('mouseUp', rc)
+			return true;
+		};
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				while( c=0, c<11, c++ ) {
+					rc=this[rc $n $c]
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			case 1:
+				while( c=0, c<11, c++ ) {
+					rc=this[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			case 2:
+				while( c=0, c<12, c++ ) {
+					rc=this[rc $n $c]
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			case 3:
+				while( c=0, c<12, c++ ) {
+					if( c.eq(4,5,6,7) ) {
+						not( c.eq(4) ) continue;
+						rc=this.@rectSpace
+					} else {
+						rc=this[rc $n $c]
+					}
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			default:
+			}
+		}
+		return _update();		
+	}
+	
+	showInput() {		
+		if( this.@inputCheck && this.@inputWidget) {
+			offset=this.@offset
+			rectScreen=this.@rectInput.offset(offset).incr(4)
+			this.@inputWidget.move(rectScreen)
+			this.@inputWidget.show()
+		}
+	}
+	createInput() {
+		this.@inputWidget = createWidget('input','inputKeyboard',this.@canvas)
+		this.@inputCheck = true
+		return input;
+	}
+	drawKeyText(dc,rc, row,column,offset) {
+		if( offset) {
+			rc=rc.offset(offset)
+		}
+		key=this.@keyMap[k $row $column]
+		switch(key) {
+		case comma:	
+			dc.text(rc,',' ,'center');
+		case dot: 
+			dc.text(rc, '.','center');
+		case bs:
+			img=Cf.imageLoad('tools/icon_bs.png');
+			dc.image( rc, img, "center");
+		case enter:
+			img=Cf.imageLoad('tools/icon_enter.png');
+			dc.image( rc, img, "center");
+		case etc:
+			img=Cf.imageLoad('tools/icon_etc.png');
+			dc.image( rc, img, "center");
+		default:
+			dc.text(rc, key, 'center');
+		}
+	}
+	 
+	makeKeyMap(varName) {
+		name=varName.value(1)
+		str=conf("keyboard.${name}").ref();
+		keyMap=this.addNode(varName);
+		row=0;
+		while( str.valid() ) {
+			line=str.findPos("\n");
+			not(line.ch()) continue;
+			while( line.valid(), c ) {
+				keyMap[k $row $c]=line.findPos(",").trim();
+			}
+			row++;
+		}
+	}
+	
+	clearIng() {
+		this.@ingString = ''
+		this.@ingBuffer = ''
+		this.@ingArray.reuse()
+	}
+	deleteIngBuffer(&s) {		
+		a=arrRemoveLast(this.@ingArray) not(a) return false;
+		command = @keyboard.source('keyboard.en2koWord',arrJoin(a))
+		@keyboard.exec(command)
+		return true;
+	}
+	
+	setText(checkClear, value) {
+		if( value) {
+			if( this.@ingString) this.@doneString.add(this.@ingString)
+			this.@doneString.add(value)
+		}		
+		if(checkClear) {
+			this.clearIng()
+		}
+		if( this.@inputResultMdc) {
+			this.@inputResultMdc.setKeyboardValue(this)
+		}
+		this.canvasUpdate()
+	}
+	keyDown(n,c) {		
+		keyCode=this.@langMode
+		if(keyCode.ne("etc") ) {
+			keyCode="eng";
+			if( this.@keyMode.eq("shift","shiftOn") ) {
+				keyCode.add("Upper");
+			} else {
+				keyCode.add("Lower");
+			}
+		} 
+		keyMap=this[@$keyCode]
+		switch(n ) {
+		case 0:
+			if( c.eq(10) ) {
+				 // 지우기
+				 if( this.deleteIngBuffer() ) {
+					return;
+				 } 
+				 if( this.@doneString) {
+					this.@doneString = this.@doneString.substr(0,-1)
+				 } else {
+					this.clearIng()
+				 }
+				 this.setText();
+			} else {
+				_value( keyMap[k $n $c] );
+			}
+		case 1:
+			if( c.eq(10) ) {
+				_value("\n");
+			} else {
+				_value( keyMap[k $n $c] );
+			}
+		case 2:
+			if( c.eq(0,11) ) {
+				keyMode=this.@keyMode
+				if( keyMode.eq("shift","shiftOn") ) {
+					this.@keyMode=when(keyMode.eq("shift"),"shiftOn");
+				} else {
+					this.@keyMode="shift";
+				}
+				this.drawDc()
+			} else {
+				_value( keyMap[k $n $c] );
+			}
+		case 3:
+			switch( c) {
+			case [9,10]: 
+				str=strJoin(this.@doneString, this.@ingString)
+				if(c.eq(9) ) {
+					if(this.currentPos>0) this.currentPos--;
+				} else {
+					last=str.length() - 1
+					if(this.currentPos<last]) this.currentPos++;
+				} 
+			case 0:
+				if( this.@langMode.eq('etc') ) {
+					this.@langMode=this.@prevMode;
+				} else {
+					this.@prevMode=this.@langMode;
+					this.@langMode='etc';
+				}
+				this.drawDc()
+			case 1:
+				if( this.@keyMode.eq("ctrl") ) {
+					this.@keyMode='';
+				} else {
+					this.@keyMode='ctrl';
+				}
+				this.drawDc()
+			case 3:	_value( "\t" );
+			case 4:	_value( 'space' );
+			case 8:
+				if( this.@langMode.eq('kor') ) {
+					this.@langMode='eng';
+				} else {
+					this.@langMode='kor';
+				}
+				this.drawDc()
+			case 11:
+				this.@doneString = ''
+				this.setText(true)
+			default:
+				_value( keyMap[k $n $c] );
+			}
+		default:
+		}
+		this.@canvas.update();
+		_value=func(val ) {
+			print("xxxxx val == $val xxxxx", this.@keyMode, this.@langMode)
+			switch( val ) {
+			case space: val=' '
+			case enter: val="\n";
+			case tab: val="\t";
+			case dot: val='.';
+			case comma:	val=',';
+			}
+			if( this.@langMode.eq('kor') ) {
+				print("_value 1")
+				if( val.is("alpha") ) {
+					this.@ingBuffer.add(val) 
+					command=@keyboard.source('keyboard.en2ko', this.@ingBuffer)
+					print(">> command == $command")
+					@keyboard.exec(command)
+				} else {
+				print("_value 2", this.setText)
+					this.setText(true, val)
+				}
+			} else {
+				print("_value 3")
+				this.setText(true, val)
+			}			
+			if( this.@keyMode.eq("shift", "ctrl") ) {
+				this.@keyMode='';
+				this.drawDc()
+			}
+		};		
+	}
+	setResult(&s) {
+		s.findPos('@#> ing:') 
+		not(s.ch()) {
+			return print("@@setResult keyboard 결과처리 오류")
+		}
+		arr = setIngArray(s.match())
+		s.findPos('@#> kor:')
+		not(s.ch()) {
+			return print("@@setResult keyboard 결과처리 오류", arr)
+		}
+		str = s.findPos("\n").trim()
+		asize=arr.size(), slen=str.length()
+		print(">> $arr, $str", asize, slen)
+		if(asize && slen) {
+			a=arr.get(asize-1), b=str.substr(slen-1)
+			if( asize.gt(1) && a.eq(b)) {				
+				arr.remove(0,asize-1)
+				prev=this.@ingBuffer.ch(-1)
+				this.@doneString.add(str.substr(0,-1))
+				this.@ingString = b
+				this.@ingBuffer = prev
+			} else if(slen.gt(1)) {
+				this.@doneString.add(str.substr(0,1))
+				this.@ingString = str.substr(1)
+				keyCount=0
+				while(c,arr) {
+					// 'ㄳ','ㄵ','ㄶ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅄ'
+					if(c.eq('ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅢ')) 
+					{
+						keyCount+=2;
+					} else {
+						keyCount++;
+					}
+				}
+				sp=this.@ingBuffer.size() - keyCount;
+				prev=this.@ingBuffer.value(sp)
+				this.@ingBuffer = prev
+			} else {
+				this.@ingString = str
+			}
+		} else {
+			print(">> 결과가 유효하지 않습니다 ", arr, str)
+		}
+		
+		
+		if( this.@inputResultMdc) {
+			this.@inputResultMdc.setKeyboardValue(this)
+		}
+		
+		setIngArray = function(&s) {
+			arr=this.@ingArray.reuse()
+			while(s.valid()) {
+				s.findPos("'") not(s.ch()) break;
+				arr.add(s.findPos("'").trim())
+			}
+			return arr;
+		};
+	}
+</script>
+
+<script type="keyboadCommand">
+	@keyboard.source(confId) {
+		s=conf(confId) not(s) return;
+		s.ref()
+		ss=''
+		fn=Cf.funcNode('parent')
+		arr=args(1)
+		while(s.valid()) {
+			left = s.findPos('@[',0,1)
+			ss.add(left)
+			not(s.ch()) break;
+			s.incr()
+			key=s.match(1).trim()
+			print("key==$key")
+			if(typeof(key,'bool')) break;
+			if(typeof(key,'num')) {
+				ss.add(arr.get(key))
+			} else {
+				ss.add(fn.get(key))
+			}
+		}
+		return ss;
+	}
+	@keyboard.pythonStart() {
+		py=pathJoin(conf('python.path'), 'python.exe')
+		sourcePath	= pathJoin(conf('python.RUN_PATH'), 'runCommand.py')
+		not(isFile(sourcePath)) {
+			log("error::@python.getCommand 소스파일 경로가 없습니다 (경로:$sourcePath)")
+		}		
+		cmdId='pythonKeyboardCommand'
+		logObj	= logAppend("keyboardAutomata-log")
+		outObj	= logTail("keyboardAutomata-out")	
+		cmd=Baro.process(cmdId)
+		not( cmd.@jobMode ) {
+			cmd.@jobMode='keyboardAutomata'		
+			cmd.@workerStatus='stay'
+			cmd.@logAppend = logObj
+			cmd.@logTail = outObj
+			cmd.addArray('@cmdJobList')
+		}
+		not(cmd.@currentMdc) {
+			cmd.@currentMdc = this
+		}
+		not(cmd.@callbackWorker) {
+			cmd.@callbackWorker = @keyboard.execCallback
+		}
+		logFileName=logObj.get('logFileName')
+		outFileName=outObj.get('logFileName')
+		line=f["$py" "$sourcePath" --command="$logFileName" --out="$outFileName"]
+		print("python start : $cmdId $line")
+		addCmdJob(cmdId, line)
+	}
+	@keyboard.exec(execSource) {
+		cmd=Baro.process('pythonKeyboardCommand')
+		cmd.execSource=execSource
+		addUserWorker('keyboardCommand', cmd )
+	}
+	@keyboard.execCallback() {
+		cmd=this
+		if( cmd.@jobStatus!='run' ) {			
+			@keyboard.pythonStart()
+			while(n=0,30) {
+				System.sleep(100)
+				print(">>@keyboad.execSource workerStatus => $n", cmd.get('@workerStatus'));
+				if( cmd.@jobStatus=='run' ) break;
+			}
+			if( cmd.@jobStatus!='run' ) {
+				return print("@@ python command 프로그램이 실행중이 아닙니다");
+			}
+		}
+		cmd.@logTail.timeout()
+		cmd.@logAppend.append("@#>exec:${cmd.execSource}")
+		result=''
+		while(n=0,30) {
+			System.sleep(10)
+			result = cmd.@logTail.timeout()
+			if(result) {
+				print(">>@keyboad.execSource $n $result")
+				cmd.@currentMdc.setResult(result)
+				break;
+			}
+		}
+	}
+</script>
+
+<conf name="keyboard.en2ko">
+	result = en2ko('@[0]')
+	log(f"kor:{result}")
+</conf>
+
+<conf name="keyboard.en2koWord">
+	result = en2koWord(@[0])
+	log(f"ingBuffer:{result}")
+</conf>
+

@@ -1,0 +1,367 @@
+<page id="main">
+	<canvas id="c" module="CanvasTest">
+</page>
+
+<script module="Keyboard">
+	init() {
+		keyboardInfo=this.addNode('keyboardInfo');
+		@automata=Cf.automata();
+		@backgroundImage=Cf.imageLoad("keyborad_bg.png");		
+		this.makeKeyMap('engLower');
+		this.makeKeyMap('engUpper');
+		this.makeKeyMap('korLower');
+		this.makeKeyMap('korUpper');
+		this.makeKeyMap('etc');
+		this.langMode='eng';
+		this[ingString]='';
+		this[doneString]='';
+		this[leftString]='';
+		this[rightString]='';
+		keyboardInfo.keyMap='KorLower';
+		keyboardInfo.canvasHeight=276;
+		keyboardInfo.inputHeight=46;
+		keyboardInfo.useInput=false;
+		this.timer("focus",800);
+		this.showKeyboard();
+	}
+	onTimer() {
+		input=this.var(focusWidget) not(input) return;
+		input.active();
+		input.focus();
+		this.var(focusWidget, null);
+	}
+	showKeyboard(param) {
+		this.inject(keyboardInfo)
+		keyboardInfo.rc=null;
+		keyboardInfo.inject(canvasHeight, inputHeight);
+		inputWidget=null;
+		inputCheck=false;
+		if(typeof(param,"bool") ) {
+			inputCheck=param;
+			if(inputCheck) {				
+				inputWidget=inputKeyboardWidget(this); 
+			}
+		} else if(typeof(param,"widget") ) {
+			inputWidget=param;
+		}
+		if( inputCheck ) {
+			canvasHeight+=inputHeight;
+			inputWidget.show();
+		}
+		keyboardInfo.with(inputCheck, inputWidget);
+		this.size(891,canvasHeight);
+		this.update();
+	}
+	 
+	makeKeyMap(code) {
+		str=conf("keyboard.${code}").ref();
+		keys=this.addNode(code);
+		row=0;
+		while( str.valid() ) {
+			line=str.findPos("\n");
+			not(line.ch()) continue;
+			while( line.valid(), c ) {
+				keys[k $row $c]=line.findPos(",").trim();
+			}
+			row++;
+		}
+	}
+	onDraw(dc) {
+		this.inject(keyboardInfo)
+		rc=dc.rect();
+		dc.mode();
+		not( rc.eq(keyboardInfo.rc) ) {
+			keyboardInfo.rc=rc;
+			recalcRect(rc);
+		}
+		drawKeyboard(dc, rc, backgroundImage);
+	}
+	onMouseDown(pt) {
+		this.inject(keyboardInfo)
+		_update=func() {
+			this.mouseDownRect=rc;
+			this.update();
+		};
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				while( c=0, c<11, c++ ) {
+					rc=keyboardInfo[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			case 1:
+				while( c=0, c<11, c++ ) {
+					rc=keyboardInfo[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			case 2:
+				while( c=0, c<12, c++ ) {
+					rc=keyboardInfo[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			case 3:
+				while( c=0, c<12, c++ ) {
+					if( c.eq(4,5,6,7) ) {
+						not( c.eq(4) ) continue;
+						rc=keyboardInfo[rcSpace];
+					} else {
+						rc=keyboardInfo[rc $n $c];
+					}
+					not( rc.contains(pt) ) continue;
+					return _update();
+				}
+			default:
+			}
+		}		
+	}
+	onMouseUp(pt) {
+		this.inject(keyboardInfo)
+		_update=func(rc) {
+			if( this.mouseDownRect ) {
+				this.mouseDownRect=null;
+				this.update();
+			}
+			if( rc ) {
+				this.keyDown(n,c);
+			}
+		};
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				while( c=0, c<11, c++ ) {
+					rc=keyboardInfo[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			case 1:
+				while( c=0, c<11, c++ ) {
+					rc=keyboardInfo[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			case 2:
+				while( c=0, c<12, c++ ) {
+					rc=keyboardInfo[rc $n $c];
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			case 3:
+				while( c=0, c<12, c++ ) {
+					if( c.eq(4,5,6,7) ) {
+						not( c.eq(4) ) continue;
+						rc=keyboardInfo[rcSpace];
+					} else {
+						rc=keyboardInfo[rc $n $c];
+					}
+					not( rc.contains(pt) ) continue;
+					return _update(rc);
+				}
+			default:
+			}
+		}
+		_update();		
+	}
+	recalcRect(rc) {
+		this.inject(keyboardInfo)
+		keyboardInfo.inject(useInput, inputWidget);
+		ox=8, oy=8, bw=67, bh=60, gabX=6, gabY=7;
+		if( useInput ) {
+			while(rcBox, vbox(rc, "$inputHeight,*"), idx ) {
+				switch(idx) {
+				case input:
+					rcGeo=this.mapGlobal(rcBox.incr(4));
+					inputWidget.move(rcGeo);
+					inputWidget.show();
+				case keyboard:
+					rcBox.inject(sx, sy);
+				default:
+				}
+			}
+		} else {
+			rc.inject(sx, sy);
+		}
+		sy+=oy;
+		while( n=0, n<4, n++ ) {
+			switch(n) {
+			case 0:
+				cx=sx+ox;
+				while( c=0, c<10, c++ ) {
+					keyboardInfo[rc $n $c]=rc(cx,sy,bw,bh) cx+=bw+gabX;
+				}
+				w=876-cx;
+				if( w<60 ) w=110;
+				keyboardInfo[rc $n $c]=rc(cx,sy,w,bh);
+				sy+=bh+gabY;
+			case 1:
+				cx=sx+24;
+				while( c=0, c<10, c++ ) {
+					keyboardInfo[rc $n $c]=rc(cx,sy,bw,bh) cx+=bw+gabX;
+				}
+				w=876-cx;
+				if( w<60 ) w=110;
+				keyboardInfo[rc $n $c]=rc(cx,sy,w,bh);
+				sy+=bh+gabY;
+			default:
+				cx=sx+ox;
+				while( c=0, c<12, c++ ) {
+					keyboardInfo[rc $n $c]=rc(cx,sy,bw,bh) cx+=bw+gabX;
+				}
+				sy+=bh+gabY;
+				if( n.eq(3) ) {
+					r1=keyboardInfo[rc $n 4], r2=keyboardInfo[rc $n 7];
+					keyboardInfo[rcSpace]=mergeRect(r1,r2);
+				}
+			}
+		}
+	}
+	clear() {
+		automata.clear();
+		this[leftString]='';
+		this[doneString]='';
+		this[doingString]='';
+		this[ingString]='';
+	}
+	setInputText(addMode) {	
+		this.inject(keyboardInfo)
+		keyboardInfo.inject(inputWidget)
+		str='';
+		not(addMode.eq("doingString")) {
+			str.add(this[$addMode]);		
+		}
+		str.add(this[doingString]);
+		if( addMode.eq('leftString') ) {
+			str.add(this[rightString]);
+		} 
+		if(inputWidget) {
+			inputWidget.value(str);
+			this.var(focusWidget, inputWidget);
+		}
+	}
+	keyDown(n,c) {
+		this.inject(keyboardInfo, keyMode, langMode );
+		kid=langMode;
+		not(kid.eq("etc") ) {
+			kid="eng";
+			if( keyMode.eq("shift","shiftOn") ) {
+				kid.add("Upper");
+			} else {
+				kid.add("Lower");
+			}
+		} 
+		keyMap=this.get(kid);	
+		addMode=when( this[leftString], 'leftString','doneString');
+		ing=this[ingString];
+		switch(n ) {
+		case 0:
+			if( c.eq(10) ) {
+				if( ing ) {
+					if( ing.size().eq(1) ) {
+						this.clear();
+					} else {
+						this[ingString]=ing.value(0,-1);
+						automata.toString(this, addMode);
+					}
+				} else {
+					if( keyMode.eq("ctrl") ) {
+						this[$addMode]='';
+						this.keyMode='';
+					} else {
+						str=this[$addMode];
+						if(str) this[$addMode]=str.substr(0,-1);
+					}
+				}
+				this.setInputText(addMode);
+			} else {
+				_value( keyMap[k $n $c] );
+			}
+		case 1:
+			if( c.eq(10) ) {
+				_value("\n");
+			} else {
+				_value( keyMap[k $n $c] );
+			}
+		case 2:
+			if( c.eq(0,11) ) {
+				if( keyMode.eq("shift","shiftOn") ) {
+					this.keyMode=when(keyMode.eq("shift"),"shiftOn");
+				} else {
+					this.keyMode="shift";
+				}
+			} else {
+				_value( keyMap[k $n $c] );
+			}
+		case 3:
+			switch( c) {
+			case [9,10]:
+				input=keyboardInfo.inputWidget;
+				if(input) {
+					pos=input.pos();
+					if(c.eq(9) ) {
+						if(pos>0) pos--;
+					} else {
+						len=input.value().length();
+						if(pos<len) pos++;
+					}
+					input.pos(pos);
+					this.var(focusWidget, input);
+				}
+			case 0:
+				if( langMode.eq('etc') ) {
+					this.langMode=this.prevMode;
+				} else {
+					this.prevMode=langMode;
+					this.langMode='etc';
+				}
+			case 1:
+				if(keyMode.eq("ctrl") ) {
+					this.keyMode='';
+				} else {
+					this.keyMode='ctrl';
+				}
+			case 3:	_value( "\t" );
+			case 4:	_value( " " );
+			case 8:
+				if( langMode.eq('kor') ) {
+					this.langMode='eng';
+				} else {
+					this.langMode='kor';
+				}
+			case 11:
+				this.clear();
+			default:
+				_value( keyMap[k $n $c] );
+			}
+		default:
+		}
+		this.update();
+		_value=func(val ) {
+			switch( val ) {
+			case enter: val="\n";
+			case tab: val="\t";
+			case dot: val='.';
+			case comma:	val=',';
+			}
+			if( langMode.eq('kor') ) {
+				if( val.is("alpha") ) {
+					this[ingString].add(val);
+					automata.toString(this, addMode);
+				} else {
+					automata.toString(this, addMode);
+					this[doneString].add(this[doingString]);
+					this.clear();
+					this[$addMode].add(val);
+				}
+			} else {
+				automata.toString(this, addMode);
+				this[$addMode].add(val);
+			}
+			this.setInputText(addMode);
+			if( keyMode.eq("shift", "ctrl") ) {
+				this.keyMode='';
+			}  
+		};		
+	}
+</script>

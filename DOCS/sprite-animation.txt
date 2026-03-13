@@ -1,0 +1,49 @@
+.sprite-animation {
+    width: 100px; /* 한 프레임의 가로 사이즈 지정 */
+    height: 100px; /* 한 프레임의 세로 사이즈 지정 */
+    background: url('/images/sprite/8049563-bg.png') left center;
+    /* 1초 동안 10프레임을 딱딱 끊어서 이동 무한 반복 */
+    animation: play-sprite 1s steps(10) infinite; 
+}
+
+@keyframes play-sprite {
+    100% { background-position: -1000px; } /* 100px * 10프레임 = 목표 이동거리 */
+}
+##
+npm install canvas gifencoder
+node scripts/sprite-to-gif.js <이미지_경로> <1프레임_가로길이> <1프레임_세로길이> [FPS(선택)]
+node scripts/sprite-to-gif.js public/images/sprite/8049563-bg.png 300 200 10
+
+##
+https://www.freepik.com/free-photos-vectors/2d-sprites
+
+## 배경제거
+npm info @imgly/background-removal-node
+npm install @imgly/background-removal-node
+
+node scripts/remove-bg.js public/images/sample.jpg
+node scripts/remove-bg.js public/images/sample.jpg public/images/my-transparent-image.png
+
+
+import { Rembg } from "rembg-node";
+import fs from "fs";
+
+async function removeBackground(inputPath, outputPath) {
+    const input = fs.readFileSync(inputPath);
+    // 최초 실행 시 모델(.onnx)을 다운로드하여 약간의 시간이 걸립니다.
+    const rembg = new Rembg(); 
+    const output = await rembg.remove(input); // AI 추론 진행
+    fs.writeFileSync(outputPath, output.base64Image, 'base64');
+}
+
+node -e "import('jimp').then(m => console.log(Object.keys(m)))"
+
+
+.sprite-animation {
+  width: 750px;
+  height: 1313px;
+  background-image: url('YOUR_IMAGE_PATH.png');
+  /* Note: Multi-row sprites are difficult to animate purely with steps() */
+  /* It is recommended to reconstruct the sprite into a single horizontal row. */
+}
+

@@ -1,0 +1,65 @@
+<page id="main" onInit() {
+	@splitter = widget('splitter')
+	@leftPanel = createWidget('canvas', 'leftPanel', null, 'canvas,canvas_mdc,canvas_left_panel')
+	@rightPanel = createWidget('canvas', 'rightPanel', null, 'canvas,canvas_mdc,canvas_right_panel')
+	splitter.addPage(leftPanel)
+	splitter.addPage(rightPanel)
+	this.timer(200, function() {
+		total=splitter.sizes().sum()
+		arr=recalc(total, "250,*")
+		splitter.sizes(arr)
+	})
+}>
+	<splitter type="hbox">
+</page>
+
+<script eval>
+	p=this.var(@page) 
+	p.size(800,600)
+	p.open()
+	print("CanvasTest_splitter eval>> ", p)
+</script>
+
+ 
+
+<script module="canvas_left_panel">	 
+	updateCanvas() { 
+		rect=this.rect()
+		this.addMdc('box', rect.incr(10), 'mdc_box').var(@title,'LEFT_PANEL')
+	}
+</script>
+
+<script module="canvas_right_panel">	 
+	updateCanvas() { 
+		this.inject(@splitter, @rectCanvas)
+		canvas=this
+		not(splitter) {
+			splitter=createWidget('splitter','splitter', canvas)
+			topPanel=createWidget('canvas','topPanel', null, 'canvas,canvas_mdc,canvas_toppanel')
+			bodyPanel=createWidget('canvas','bodyPanel', null,'canvas,canvas_mdc,canvas_bodypanel')
+			splitter.stretchFactor(1)
+			splitter.orientation('vbox')
+			splitter.minWidth(200)
+			splitter.addPage(topPanel)
+			splitter.addPage(bodyPanel)
+			this.with(@splitter, @topPanel, @bodyPanel)
+		}
+		rcBox=rectCanvas.incr(10)
+		splitter.move(rcBox)
+		splitter.show()
+	}	
+</script>
+
+<script module="canvas_toppanel">
+	updateCanvas() { 
+		rect=this.rect()
+		this.addMdc('box', rect.incr(10), 'mdc_box').var(@title,'TOP_PANEL')
+	}
+</script>
+
+<script module="canvas_bodypanel">	
+	updateCanvas() { 
+		rect=this.rect()
+		this.addMdc('box', rect.incr(10), 'mdc_box').var(@title,'BODY_PANEL')
+	}
+</script>

@@ -3,7 +3,7 @@ import { ENV } from "./config/env.js";
 import { db } from "./config/db.js";
 import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable, offlineMessagesTable } from "./db/schema.js";
 import { and, eq, or, like, sql, desc } from "drizzle-orm";
-import job from "./config/cron.js";
+// import job from "./config/cron.js";
 import cors from "cors";
 import { initializeDatabase } from "./db/init.js";
 import { catchAsyncErrors } from "./config/auth.js";
@@ -25,13 +25,17 @@ import { exec } from "child_process";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
+import AdmZip from "adm-zip";
 
-const __filename = fileURLToPath(import.meta.url);
+// const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOAD_AVATAR_DIR = path.join(__dirname, "public/images/avatar");
 const UPLOAD_DIR = path.join(__dirname, "uploads");
+const UPLOAD_FILES_DIR = path.join(__dirname, "public/uploads/files");
 const FILE_TTL_MS = 60 * 60 * 1000; // 1시간
 
 const fileStore = new Map();
+const usePush = false;
 
 
 // Firebase Admin 초기화
@@ -58,6 +62,43 @@ let activeSqliteDb = null;
 // { username: WebSocket }
 const onlineUsers = new Map();
 
+function setUserInfo(ws, username, user) {
+	if (!user) return;
+	ws.username = username;
+	ws.avatar = user.avatar || null;
+	ws.nickname = user.nickname || null;
+	onlineUsers.set(username, ws);
+	broadcastOnlineUsers();
+
+	// 오프라인 메시지 확인 및 전송
+	db.select().from(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username)).orderBy(offlineMessagesTable.createdAt)
+		.then(async (messages) => {
+			if (messages.length > 0) {
+				ws.send(JSON.stringify({
+					type: 'text',
+					senderId: 'system',
+					timestamp: Date.now(),
+					targetUser: username,
+					text: `🔔 오프라인 동안 ${messages.length}개의 귓속말이 도착했습니다.`
+				}));
+
+				for (const msg of messages) {
+					const sender = onlineUsers.get(msg.sender) || null;
+					ws.send(JSON.stringify({
+						type: 'text',
+						senderId: msg.sender,
+						senderAvatar: sender ? sender.avatar : null,
+						timestamp: msg.createdAt,
+						targetUser: username,
+						text: msg.message
+					}));
+				}
+				// 읽은 메시지 삭제
+				await db.delete(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username));
+			}
+		}).catch(err => logger.error("오프라인 메시지 로드 실패", err));
+}
+
 wss.on('connection', (ws) => {
 	// 임시 ID (로그인 전)
 	ws.id = uuidv4();
@@ -66,51 +107,15 @@ wss.on('connection', (ws) => {
 	ws.on('message', (message) => {
 		try {
 			const parsed = JSON.parse(message);
-
 			if (parsed.type === 'init') {
 				const username = parsed.username;
 				if (username) {
 					// DB에서 아바타 가져오기
-					db.select({ avatar: usersTable.avatar }).from(usersTable).where(eq(usersTable.username, username)).limit(1)
-						.then(users => {
-							ws.username = username;
-							ws.avatar = users[0]?.avatar || null;
-
-							onlineUsers.set(username, ws);
-							broadcastOnlineUsers();
-
-							// 오프라인 메시지 확인 및 전송
-							db.select().from(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username)).orderBy(offlineMessagesTable.createdAt)
-								.then(async (messages) => {
-									if (messages.length > 0) {
-										ws.send(JSON.stringify({
-											type: 'text',
-											senderId: 'system',
-											timestamp: Date.now(),
-											targetUser: username,
-											text: `🔔 오프라인 동안 ${messages.length}개의 귓속말이 도착했습니다.`
-										}));
-
-										for (const msg of messages) {
-											ws.send(JSON.stringify({
-												type: 'text',
-												senderId: msg.sender,
-												timestamp: msg.createdAt,
-												targetUser: username,
-												text: msg.message
-											}));
-										}
-										// 읽은 메시지 삭제
-										await db.delete(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username));
-									}
-								}).catch(err => logger.error("오프라인 메시지 로드 실패", err));
-						})
+					db.select({ avatar: usersTable.avatar, nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.username, username)).limit(1)
+						.then(users => setUserInfo(ws, username, users[0]))
 						.catch(err => {
 							logger.error("Failed to fetch avatar for init", err);
-							ws.username = username;
-							ws.avatar = null;
-							onlineUsers.set(username, ws);
-							broadcastOnlineUsers();
+							setUserInfo(ws, username, { avatar: null, nickname: username })
 						});
 				}
 				return;
@@ -132,6 +137,7 @@ wss.on('connection', (ws) => {
 			if (targetUser) {
 				// 귓속말 (Direct Message)
 				const targetWs = onlineUsers.get(targetUser);
+				parsed.senderAvatar = ws.avatar;
 				if (targetWs && targetWs.readyState === 1) {
 					targetWs.send(JSON.stringify(parsed));
 				} else if (parsed.type === 'text') {
@@ -176,7 +182,7 @@ wss.on('connection', (ws) => {
 			}
 
 			// FCM 푸시 알림 발송 (일반 텍스트 메시지나 파일인 경우에만)
-			if (admin.apps.length > 0 && (parsed.type === 'text' || parsed.type === 'file')) {
+			if (usePush && admin.apps.length > 0 && (parsed.type === 'text' || parsed.type === 'file')) {
 				const senderId = parsed.senderId || 'Unknown';
 				// 알림 제목/내용 구성
 				let title = `메시지 도착 (${senderId})`;
@@ -223,10 +229,12 @@ wss.on('connection', (ws) => {
 			const leaveMsg = JSON.stringify({
 				type: `${gameType}-leave`,
 				room: room,
-				senderId: ws.username || 'Unknown'
+				senderId: ws.username || 'Unknown',
+				senderAvatar: ws.avatar || null
 			});
 			wss.clients.forEach(client => {
-				if (client.readyState === 1 && client !== ws) {
+				const roomCheck = client.joinedRooms.has(room);
+				if (client.readyState === 1 && client !== ws && roomCheck) {
 					client.send(leaveMsg);
 				}
 			});
@@ -254,12 +262,13 @@ wss.on('connection', (ws) => {
 async function broadcastOnlineUsers() {
 	try {
 		// DB에서 전체 사용자 목록 조회
-		const allUsers = await db.select({ username: usersTable.username, avatar: usersTable.avatar }).from(usersTable);
+		const allUsers = await db.select({ username: usersTable.username, avatar: usersTable.avatar, nickname: usersTable.nickname }).from(usersTable);
 
 		const onlineCount = onlineUsers.size;
 		const users = allUsers.map(u => ({
 			username: u.username,
 			avatar: u.avatar || null,
+			nickname: u.nickname || null,
 			isOnline: onlineUsers.has(u.username)
 		}));
 
@@ -277,7 +286,7 @@ async function broadcastOnlineUsers() {
 	}
 }
 
-if (ENV.NODE_ENV === "production") job.start();
+// if (ENV.NODE_ENV === "production") job.start();
 
 // 미들웨어
 app.use(cors({
@@ -336,20 +345,35 @@ app.post("/api/user/login", async (req, res) => {
 		}
 
 		const token = jwt.sign({ userId: user.id, username: user.username }, CMD_JWT_SECRET, { expiresIn: '30d' });
-		res.json({ success: true, token, username: user.username });
+		res.json({ success: true, token, username: user.username, avatar: user.avatar, nickname: user.nickname });
 	} catch (error) {
 		logger.error("Login Error", error);
 		res.status(500).json({ success: false, error: "Server error" });
 	}
 });
+app.get("/api/user/info", async (req, res) => {
+	const { username } = req.query;
+	if (!username) return res.status(400).json({ success: false, error: "Username required" });
 
+	try {
+		const users = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+		if (users.length === 0) return res.status(401).json({ success: false, error: "Invalid credentials" });
+		const user = users[0];
+		const token = jwt.sign({ userId: user.id, username: user.username }, CMD_JWT_SECRET, { expiresIn: '30d' });
+		// console.log("user info=>", user);
+		res.json({ success: true, token, username: user.username, avatar: user.avatar, nickname: user.nickname || null });
+	} catch (error) {
+		logger.error("Login Error", error);
+		res.status(500).json({ success: false, error: "Server error" });
+	}
+});
 // ─── 사용자 아바타 변경 API ───
 app.post("/api/user/avatar", async (req, res) => {
-	const { username, avatar } = req.body;
+	const { username, avatar, nickname } = req.body;
 	if (!username) return res.status(400).json({ success: false, error: "Username processing error" });
 
 	try {
-		await db.update(usersTable).set({ avatar }).where(eq(usersTable.username, username));
+		await db.update(usersTable).set({ avatar, nickname }).where(eq(usersTable.username, username));
 
 		// 해당 유저가 온라인이라면 웹소켓 객체에도 아바타 업데이트 후 브로드캐스트
 		if (onlineUsers.has(username)) {
@@ -377,16 +401,15 @@ app.post("/api/cmd/login", (req, res) => {
 // 시스템 명령어(CMD) 실행 엔드포인트 (로컬 네트워크 + JWT 인증 제한)
 app.post("/api/cmd", (req, res) => {
 	const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
 	// 간단한 로컬 네트워크(사설 IP) 대역 필터링
-	const isLocal = clientIp === '::1' ||
+	const isLocal = clientIp === 'localhost' ||
 		clientIp === '127.0.0.1' ||
 		clientIp.includes('192.168.') ||
-		clientIp.includes('10.');
+		clientIp.includes('172.');
 
 	if (!isLocal) {
 		logger.warn(`Rejected unauthorized CMD access from ${clientIp}`);
-		return res.status(403).json({ success: false, error: 'Permission denied. Local network only.' });
+		// return res.status(403).json({ success: false, error: 'Permission denied. Local network only.' });
 	}
 
 	// JWT 인증 확인
@@ -1044,10 +1067,48 @@ app.get('/api/videos/:filename', (req, res) => {
 	}
 });
 
+// avatar upload
+if (!fs.existsSync(UPLOAD_AVATAR_DIR)) fs.mkdirSync(UPLOAD_AVATAR_DIR, { recursive: true });
+if (!fs.existsSync(UPLOAD_FILES_DIR)) fs.mkdirSync(UPLOAD_FILES_DIR, { recursive: true });
+
+const uploadAvatar = multer({
+	storage: multer.diskStorage({
+		destination: (_, __, cb) => cb(null, UPLOAD_AVATAR_DIR),
+		filename: (req, file, cb) => {
+			const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+			cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+		}
+	}),
+	limits: { fileSize: 10 * 1024 * 1024 }, // 최대 10MB
+});
+const uploadFile = multer({
+	storage: multer.diskStorage({
+		destination: (_, __, cb) => cb(null, UPLOAD_FILES_DIR),
+		filename: (req, file, cb) => {
+			const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+			cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+		}
+	}),
+	limits: { fileSize: 10 * 1024 * 1024 }, // 최대 10MB
+});
+app.post("/api/upload/avatar", uploadAvatar.single("file"), (req, res) => {
+	if (!req.file) return res.status(400).json({ error: "파일이 없습니다." });
+	const fileId = req.file.filename;
+	const url = '/images/avatar/' + fileId
+	console.log('upload avatar=>', req.body.nickName, url)
+	res.status(201).json({ fileId, name: req.file.originalname, url });
+});
+app.post("/api/upload/file", uploadFile.single("file"), (req, res) => {
+	if (!req.file) return res.status(400).json({ error: "파일이 없습니다." });
+	const fileId = req.file.filename;
+	const url = '/uploads/files/' + fileId
+	res.status(201).json({ fileId, name: req.file.originalname, url });
+});
+
+
 // ─── 파일 공유 API (업로드 → 다운로드 링크) ──────────────────────────────────
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
 const upload = multer({
 	storage: multer.diskStorage({
 		destination: (_, __, cb) => cb(null, UPLOAD_DIR),
@@ -1481,7 +1542,8 @@ app.use(errorMiddleware);
 
 (async () => {
 	try {
-		await initializeDatabase();
+		console.log("Server is running on PORT: " + ENV.PORT);
+		// await initializeDatabase();
 		server.listen(ENV.PORT, () => {
 			logger.info(`Server (HTTP & WS) is running on PORT: ${ENV.PORT}`);
 		});
@@ -1490,6 +1552,160 @@ app.use(errorMiddleware);
 		process.exit(1);
 	}
 })();
+
+// ══════════════════════════════════════════
+// ZIP 파일 브라우저 API
+// ══════════════════════════════════════════
+
+// ZIP 안의 파일 목록 조회
+// GET /api/zip/list?path=uploads/archive.zip
+app.get("/api/zip/list", (req, res) => {
+	try {
+		let zipPath = req.query.zipPath;
+		if (!zipPath) {
+			const relPath = req.query.path;
+			if (!relPath) return res.status(400).json({ error: "path 파라미터가 필요합니다" });
+			zipPath = path.resolve(__dirname, relPath);
+			// 보안: 프로젝트 루트 외부 접근 차단
+			if (!zipPath.startsWith(__dirname)) {
+				return res.status(403).json({ error: "접근 불가 경로입니다" });
+			}
+		}
+		if (!fs.existsSync(zipPath)) {
+			return res.status(404).json({ error: "ZIP 파일을 찾을 수 없습니다: " + relPath });
+		}
+		const zip = new AdmZip(zipPath);
+		const entries = zip.getEntries().map(entry => ({
+			name: entry.entryName,
+			isDirectory: entry.isDirectory,
+			size: entry.header.size,
+			compressedSize: entry.header.compressedSize,
+			ratio: entry.header.size > 0
+				? ((1 - entry.header.compressedSize / entry.header.size) * 100).toFixed(1)
+				: '0.0',
+			date: entry.header.time ? new Date(entry.header.time).toISOString() : null,
+			comment: entry.comment || ''
+		}));
+
+		const files = entries.filter(e => !e.isDirectory);
+		const totalSize = files.reduce((s, f) => s + f.size, 0);
+		const totalCompressed = files.reduce((s, f) => s + f.compressedSize, 0);
+
+		res.json({
+			file: path.basename(zipPath),
+			fileCount: files.length,
+			totalSize,
+			totalCompressed,
+			savedRatio: totalSize > 0
+				? ((1 - totalCompressed / totalSize) * 100).toFixed(1)
+				: '0.0',
+			entries
+		});
+	} catch (err) {
+		logger.error("ZIP list error", { error: err.message });
+		res.status(500).json({ error: err.message });
+	}
+});
+
+// ZIP 내 단일 파일 다운로드
+// GET /api/zip/download-entry?path=uploads/archive.zip&entry=folder/file.txt
+app.get("/api/zip/download-entry", (req, res) => {
+	try {
+		const { path: relPath, entry: entryName } = req.query;
+		if (!relPath || !entryName) {
+			return res.status(400).json({ error: "path와 entry 파라미터가 필요합니다" });
+		}
+
+		const zipPath = path.resolve(__dirname, relPath);
+		if (!zipPath.startsWith(__dirname)) {
+			return res.status(403).json({ error: "접근 불가 경로입니다" });
+		}
+		if (!fs.existsSync(zipPath)) {
+			return res.status(404).json({ error: "ZIP 파일을 찾을 수 없습니다" });
+		}
+
+		const zip = new AdmZip(zipPath);
+		const entry = zip.getEntry(entryName);
+		if (!entry || entry.isDirectory) {
+			return res.status(404).json({ error: "항목을 찾을 수 없습니다" });
+		}
+
+		const fileData = zip.readFile(entry);
+		const fileName = path.basename(entryName);
+		res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+		res.setHeader("Content-Type", "application/octet-stream");
+		res.setHeader("Content-Length", fileData.length);
+		res.send(fileData);
+	} catch (err) {
+		logger.error("ZIP download-entry error", { error: err.message });
+		res.status(500).json({ error: err.message });
+	}
+});
+
+// ZIP 전체 다운로드 (archiver 대신 adm-zip 활용)
+// GET /api/zip/download?path=uploads/archive.zip
+app.get("/api/zip/download", (req, res) => {
+	try {
+		const relPath = req.query.path;
+		if (!relPath) return res.status(400).json({ error: "path 파라미터가 필요합니다" });
+
+		const zipPath = path.resolve(__dirname, relPath);
+		if (!zipPath.startsWith(__dirname)) {
+			return res.status(403).json({ error: "접근 불가 경로입니다" });
+		}
+		if (!fs.existsSync(zipPath)) {
+			return res.status(404).json({ error: "ZIP 파일을 찾을 수 없습니다" });
+		}
+
+		const fileName = path.basename(zipPath);
+		res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+		res.setHeader("Content-Type", "application/zip");
+		res.sendFile(zipPath);
+	} catch (err) {
+		logger.error("ZIP download error", { error: err.message });
+		res.status(500).json({ error: err.message });
+	}
+});
+
+// 선택 항목만 ZIP으로 다운로드
+// POST /api/zip/download-selected  body: { path, entries: ["a.txt","folder/b.jpg"] }
+app.post("/api/zip/download-selected", express.json(), (req, res) => {
+	try {
+		const { path: relPath, entries: selectedEntries, filename = "selected_files.zip" } = req.body;
+		if (!relPath || !Array.isArray(selectedEntries) || selectedEntries.length === 0) {
+			return res.status(400).json({ error: "path와 entries 배열이 필요합니다" });
+		}
+
+		const zipPath = path.resolve(__dirname, relPath);
+		if (!zipPath.startsWith(__dirname)) {
+			return res.status(403).json({ error: "접근 불가 경로입니다" });
+		}
+		if (!fs.existsSync(zipPath)) {
+			return res.status(404).json({ error: "ZIP 파일을 찾을 수 없습니다" });
+		}
+
+		const srcZip = new AdmZip(zipPath);
+		const outZip = new AdmZip();
+
+		for (const entryName of selectedEntries) {
+			const entry = srcZip.getEntry(entryName);
+			if (entry && !entry.isDirectory) {
+				const data = srcZip.readFile(entry);
+				outZip.addFile(entryName, data);
+			}
+		}
+
+		const buffer = outZip.toBuffer();
+		const safeFilename = encodeURIComponent(filename);
+		res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${safeFilename}`);
+		res.setHeader("Content-Type", "application/zip");
+		res.setHeader("Content-Length", buffer.length);
+		res.send(buffer);
+	} catch (err) {
+		logger.error("ZIP download-selected error", { error: err.message });
+		res.status(500).json({ error: err.message });
+	}
+});
 
 // 미처리 예외 → 로그 파일 기록
 process.on("uncaughtException", (err) => logger.error("Uncaught Exception", { stack: err.stack }));

@@ -1,0 +1,38 @@
+<page id="main" module="player#test, player#impl">
+	<player id="player">
+	<hbox>
+		<button id="load" text="동영상열기">
+		<button id="stop" text="멈춤">
+		<space>
+	</hbox>
+</page>
+ 
+<script module="player#test">
+	init() {
+		@player = this.player
+		@btnLoad = this.load
+		@btnStop = this.stop
+		event(btnLoad,'onClick', this.clickLoad)
+		event(btnStop,'onClick', this.clickStop)
+		event(player, 'onStateChange', this.stateChange)
+		event(player, 'onMessage', this.message)
+	}
+	initPage() {
+		print("xxxxxxxxx init page xxxxxxxx", player, btnLoad)
+	}
+</script>
+<script module="player#imple">
+	clickLoad() {
+		
+	}
+	clickStop() {
+		player.stop()
+	}
+	stateChange() {
+		state=this.playState()
+		print("state change ....",state)
+	}
+	message(line) {
+		print("player message >> $line")
+	}
+</script>

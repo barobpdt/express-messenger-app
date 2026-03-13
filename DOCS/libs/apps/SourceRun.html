@@ -1,0 +1,291 @@
+<page id="main" title="소스 테스트 페이지" module="SourceRun">
+	<splitter type="vbox">
+</page>
+// ##소스편집 
+<page id="editPanel" margin="0,8,0,0" module="EditPanel">
+	<hbox>
+		<label id="editorTitle" stretch=1>
+		<label text="찾기: "><input id="searchInput">
+	</hbox>
+	<editor id="editor" module="editor,EditorSource">
+	<hbox>
+		<button id="btnRun" text="실행" onClick() { page().runScript() }>
+		<label id="editorInfo" stretch=1>
+	</hbox>
+</page>
+// ##로그출력
+<page id="logPanel" margin="0,8,0,0" module="LogPanel">
+	<hbox>
+		<label id="logTitle" stretch=1>
+		<label text="찾기: "><input id="searchInput" onEnter() { page().searchText(this)}>
+	</hbox>
+	<editor id="editor">
+	<hbox>
+		<button id="btnClear" text="지우기" onClick() { page().clearLog() }>
+		<label id="logInfo" stretch=1>
+	</hbox>
+</page>
+// ##키맵등록 ctrl+s
+<dialog id="keyMapInput" title="키맵등록 페이지">
+<form>
+	<row>
+	<label text="키맵"><input id="key">
+	</row>
+	<row>
+	<label text="설명"><input id="note">
+	</row>
+</form>
+</dialog>
+
+<dialog id="keyTemplateInput" title="키탬플릿등록 페이지">
+	<form>
+		<row>
+			<label text="탬플릿"><input id="key">
+		</row>
+		<row>
+			<label text="설명"><input id="note">
+		</row>
+	</form>
+</dialog>
+
+<script module="SourceRun">
+	init() {
+		@editPanel  = page("editPanel")
+		@logPanel   = page("logPanel")
+		@splitter   = widget("splitter")
+		splitter.addPage(editPanel)
+		splitter.addPage(logPanel)
+		this.positionLoad()
+		this.timer(200, this.setSplitterSize)
+	}
+	onEvent(type, node) {
+		
+	}
+	onActivationChange() {
+		if( this.is('active') ) {
+			editPanel.editorFocus();
+		}
+	}
+	onClose() {
+		this.positionSave();
+	}
+	onTimer() {
+		str=logTail('SourceRun').timeout();
+		if(str) logPanel.appendLog(str)
+	}
+	editorFocus() {
+		editPanel.editorFocus()
+	}
+	setSplitterSize() {
+		total=splitter.sizes().sum();
+		if(total>600) {
+			arr=recalc(total, "550,*");
+		} else {
+			arr=recalc(total, "7,3")
+		}
+		splitter.sizes(arr);
+		print("set splitter sizes==>", arr );
+	}
+</script>
+
+<script module="EditPanel">
+initPage() {
+	@editor=widget('editor')
+	@editorTitle=widget('editorTitle')
+	@editorInfo=widget('editorInfo')
+	@searchInput=widget('searchInput')
+	
+	event(searchInput,'onEnter',this.searchText, this)
+	this.setEditorSyntax() 
+	this.setKeyMap()
+	editorTitle.value("소스테스트 실행창")
+}
+editorFocus() {
+	this.timer(250, func() { editor.focus() })
+}
+runScript(key) {
+	sel=editor.is("select");
+	not(key) key=when(sel,KEY.R, KEY.B);
+	if( key.eq(KEY.Return, KEY.Enter) ) {
+		if(sel) {
+			line=editor.text("select");
+			editor.movePos("selectEnd");
+		} else {
+			line=editor.sp('lineStart').spText("lineEnd");
+			editor.movePos("lineEnd").insert("\r\n");
+		}
+		return Cf.sourceCall(line, true);
+	}
+	val='';
+	editor.focus();
+	pos=editor.pos();
+	if(key.eq(KEY.B)) {
+		editor.searchPrev('~~');
+		sp=editor.pos();
+		if( sp.lt(pos)) {
+			editor.pos(sp+2);
+		} else {
+			editor.pos(pos);
+		}
+		editor.searchNext('~~');
+		ep=editor.pos();
+		if(sp.eq(pos)) {
+			val=editor.value();
+		} else if(sp.lt(pos)) {
+			if(ep.lt(pos)) {
+				ep=editor.pos("end");
+			} else {
+				ep-=2;
+			}
+			if(pos.lt(ep)) {
+				val=editor.text(sp,ep);
+			} else {
+				return print("run postion error", sp, ep, pos);
+			}
+		} else if(sp.eq(ep)) {
+			if(sp.gt(pos)) {
+				sp=0;
+				ep-=2;
+			} else {
+				ep=editor.pos("end");            	
+			}
+			if(sp.lt(ep)) val=editor.text(sp,ep);
+		} else if(pos.lt(ep) && ep.lt(sp) ) {
+			sp=0, ep-=2;
+			val=editor.text(sp,ep);
+		}
+		editor.pos(pos)
+		val.ref();
+		if( val.find("~~",1) ) {
+			src=val.findLast("~~",1).right();
+			src.findPos("\n");
+			print("src==$src");
+		} else {
+			src=val;
+		} 
+	} 
+	else if(key.eq(KEY.S)) {
+		this.sourcerRunRange().inject(sp,ep)
+		src=editor.text(sp,ep)
+		src.ref()
+		src.findPos("\n")
+	} 
+	else { 
+		if(sel) {
+			val=editor.text("select");
+		} else {
+			val=editor.value();
+		}
+		src=val.ref()
+	}
+	c=src.ch()
+	not(c) this.alert("실행할 소스가 없습니다");
+	Cf.error(true);
+	if( c.eq('<') ) {
+		Cf.sourceApply(src);  
+	} else {
+		Cf.sourceCall(src, true); 
+	}
+	err=Cf.error();
+	if(err) {
+		logAppend("SourceRun").append("실행오류:\n${err}");
+	}
+}
+keyTemplateInput() {
+	dialog=dialog('keyTemplateInput') not(dialog) return this.alert("키템플릿설정 대화상자 오류");
+	dialog.open(this,"center")
+	dialog.formValue.inject(key, note)
+	not(key) return insertBindText(editor);
+}
+keyMapInput() {
+	dialog=dialog('keyMapInput');
+	dialog.open(this,"center")
+}
+searchFocus() {
+	page().active()
+	this.timer(50, func() {
+		searchInput.focus()
+	})
+}
+setEditorSyntax() {
+	node=Cf.getObject("syntax","default");
+	not(node) {
+		node=Cf.getObject("syntax","default",true);
+		node.parseJson(conf("editor.syntax"));
+	}
+	editor.syntax(node);
+}
+setKeyMap() {
+	map=object("map.editorKey");
+	node=map.addNode('default');
+	not(node.childCount()) {
+		db=Baro.db("config");
+		db.fetchAll("select key, data from keymap_info where targetId='default'", node);
+		while(sub, node) {
+			sub.inject(key,data);
+			node.set(key,data);
+		}
+	}
+	editor.var(keyMap, node);
+}
+searchText() { 
+	str=searchInput.value();
+	if(str) global("prevSearchValue",str);
+	this.editorFocus()
+	editor.editorSearch(0);	
+}
+keymapInfo() {
+	
+}
+sourcerRunRange(sp) {
+	editor.timeVal(changeTick, true)
+	not(sp) sp=editor.pos()
+	cp=sp
+	range('##>', cp).inject(sp,ep)
+	if( sp<ep) {
+		return range('~~',cp,sp,ep) 
+	}
+	
+	range = func(str, sp) {
+		asize = args().size()
+		if( asize.eq(4) ) {
+			args(2,start, end)
+			editor.findAll(str, start, end)
+		} else {
+			start=0, end=editor.pos('end')
+			editor.findAll(str)
+		}
+		arr=editor.var(finds)
+		not(arr.size()) return point(start, end)
+		sa=start, ea=end
+		while(pos,arr) {
+			pos.inject(x,y)
+			if(sp.lt(x)) {
+				ea = x
+				break
+			}
+			sa=y
+		}
+		return point(sa, ea)
+	};
+}
+</script>
+<script module="LogPanel">
+	initPage() {
+		@editor=widget('editor')
+		@logTitle=widget('logTitle')	
+		@logInfo=widget('logInfo')
+	}
+	appendLog(str) {
+		editor.append(str, true);
+	}
+	clearLog() {
+		editor.clear();
+		Cf.debug('clear')
+		page('editPanel').editorFocus()
+	}
+	apiResult(socket, uri, &data, param) {
+		this.appendLog("$uri => $data")
+	}
+</script>
+

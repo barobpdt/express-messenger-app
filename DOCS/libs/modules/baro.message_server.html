@@ -1,0 +1,206 @@
+<script module="message_server" note="메시지서버 모듈">
+	init() {
+		@server = Baro.was('message_server')
+		@buffer_size = 81920
+		@session = global('@sessionMaps')
+	}
+	start(port) {
+		not(port) port=8094
+		server.startServer(port, this, this.serverProc)
+	}
+	closeClient(client) {
+		print('close client === ', client)
+		client.close()
+	}
+	dispatchMessage(client, type, params, props, data, size) {
+		print(">> server dispatch message ",type, params, props, size )
+		messageNode = client.@messageNode.removeAll(true)
+		if( props) {
+			messageNode.parseJson(props)
+		}
+		switch(type) {
+		case login: 
+			this.resLogin(client, messageNode, params)
+		case uploadFile:
+			this.resUploadFile(client, messageNode, params, data, size)
+		case downloadFile:
+			this.resDownloadFile(client, messageNode, params, data, size)
+		case command:
+			this.sendClient(client, 'res_command', params, json(messageNode), '')
+		case echo:
+			this.sendClient(client, 'res_echo', params, json(messageNode), '')
+		default:
+			return print("@@dispatchMessage 타입:$type 미정의");
+		}
+	}
+	sendClient(client, type, params, props, data) {
+		not(props) {
+			tm=System.localtime()
+			props="{tm:$tm}"
+		}
+		size=data.size()
+		buffer="##>$type:$size:$params$props\r\n\r\n"
+		if(size) buffer.add(data)
+		not( client.sendData(buffer) ) {
+			this.closeClient(client)
+		}
+	}
+	serverProc() {
+		not(client) return;
+		if(client.@checkRun ) {
+			return;
+		}		
+		data=client.read(buffer_size)
+		not(data) {
+			print(">> serverProc data null")
+			return;
+		}
+		if( typeof(data,'bool') ) {
+			print(">> 사용자종료 serverProc data==$data")
+			return this.closeClient(client);
+		}
+		client.@checkRun=true
+		this.dispatchData(client,data)
+		client.@checkRun=false
+		not( client.isConnect()) {
+			print(">> 사용자 종료 serverProc client invalid")
+			this.closeClient(client)
+		}
+	}
+	dispatchData(client, &data) {
+		left=data.findPos('##>') 
+		if( left.size() > 32 ) {
+			print("@@message_server dispatchData 시작오류 ", left.size(), client.peek())
+			client.flush()
+			return;
+		}
+		not(lineCheck(data,'{')) {
+			return print("@@message_server dispatchData 프로토콜오류 line=$line")  
+		}
+		line=data.findPos("{",0,1)
+		print("server>> header==>$line")
+		type=line.findPos(':').trim()
+		size=line.findPos(':').trim()
+		params=line.trim()
+		props=data.match()
+		data.findPos("\r\n\r\n")
+		not( client.@messageNode) {
+			client.addNode('@messageNode')
+		}		
+		this.dispatchMessage(client, type, params, props, data, size.toInt() )
+	}
+	readAll() {
+		total=0
+		while(n=0,4096) {
+			recv = client.read(buffer_size)
+			recvSize=recv.size()
+			not(recvSize) {
+				break;
+			}
+			total+=recvSize
+		}
+		return total;
+	}
+	clientList() {
+		return server.clientArray()
+	}
+	resLogin(client, messageNode, params) {
+		messageNode.inject(userId, workType)
+		if(userId) { 
+			not(workType) workType='message'
+			token=strEncode(userId,'_',System.tick())
+			messageNode.token = token
+			messageNode.resultType='ok'
+			messageNode.message='로그인성공'
+			session.set("login.$token", client)
+			client.with(@userId,@workType,@token)
+		} else {
+			messageNode.resultType='error'
+			messageNode.message='사용자 아이디가 없습니다'
+		}
+		this.sendClient(client, 'res_login', params, json(messageNode), '')
+	}
+	
+	resUploadFile(client, messageNode, params, data, size) {
+		messageNode.inject(remoteFilename) 
+		tempPath = conf('path.temp')
+		not(tempPath) tempPath='C:/temp'
+		tempFilename = pathJoin(tempPath, strJoin(client.@userId,'-',System.tick()) )
+		file=fileObject()
+		if(file.open(tempFilename,'append')) {
+			file.append(data)
+			appendSize = data.size()
+			while( size.gt(appendSize) ) {
+				recv = client.read(buffer_size)
+				recvSize=recv.size()
+				not(recvSize) {					
+					break;
+				}
+				file.append(recv)
+				appendSize+=recvSize;						
+			}
+			print(">> server upload recv 정보 : ", size, appendSize)
+			if( isFile(remoteFilename)) {
+				remoteFilename = getDownloadName(remoteFilename)
+			}
+			if(size==appendSize) {
+				fileMove(tempFilename, remoteFilename, true, 'command', messageNode.modifyDatetime)
+				messageNode.resultType="ok"
+				messageNode.message="$remoteFilename 업로드 성공"
+			} else {
+				messageNode.resultType="error"
+				messageNode.message="$remoteFilename 업로드 실패 파일크기가 다릅니다"			
+			}			
+			file.close()
+		} else {
+			// client.flush()
+			this.readAll()
+			messageNode.resultType="error"
+			messageNode.message="$remoteFilename 파일열기 오류"
+		}
+		this.sendClient(client, 'res_upload', params, json(messageNode), '')
+	}
+	
+	resDownloadFile(client, messageNode, params, data, size) {
+		messageNode.inject(remoteFilename)
+		file=fileObject()
+		sendFlag=false
+		if(file.open(remoteFilename,'read')) {
+			messageNode.resultType="ok"
+			messageNode.message="$remoteFilename 파일 다운로드 시작"
+			sendFlag = true
+			sendSize = 0			
+			totalSize=file.size()
+			props=json(messageNode)
+			while(totalSize.gt(sendSize), idx) {
+				remain = totalSize - sendSize
+				if(remain.gt(buffer_size)) remain=buffer_size
+				data=file.read(remain)
+				if(idx==0) {
+					result=client.sendData("##>res_download:$totalSize:$params$props\r\n$data")
+				} else {
+					result=client.sendData(data)
+				}
+				not(result) {
+					print("@@ message_server download 파일 전송오류 ", totalSize, sendSize)
+					break;
+				}
+				sendSize+=data.size();
+			}
+			if( error ) {
+				print("@@ download error $remotFilePath", totalSize, sendSize)
+				client.close()
+			}
+		} else {
+			messageNode.resultType="error"
+			messageNode.message="$remotFilePath 파일오픈 오류"
+			print("@@ download error $remotFilePath", totalSize, sendSize)
+		}
+		file.close()
+		print(">> download sendFlag == $sendFlag", messageNode)
+		not(sendFlag) {
+			this.sendClient(client, 'res_download', params, json(messageNode), '')
+		}
+	}
+
+</script>

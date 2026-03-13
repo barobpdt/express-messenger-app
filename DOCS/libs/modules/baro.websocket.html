@@ -1,0 +1,149 @@
+<script module="websocket">
+	init(port) {
+		@server=Baro.server('websocket')
+		@port = nvl(port, 8092)
+		this.start()
+	}
+	start() {
+		server.var(type, 'websocket')
+		server.start(port, this, this.acceptClient)
+		server.callbackClient(this, this.websocketClient)		
+	}
+	getServer() {
+		return server
+	}
+	acceptClient(client) {
+		print("@@ web socket server accept clinet", clinet)
+	}
+	websocketClient(client, type) {
+		config=client.config()
+		print("@@ web socket client type==$type")
+		switch(type) {
+		case start:
+			client.@first=true;
+			client.@type = 'websocket'
+		case connect:
+			print("client connect", config);
+		case recv:
+			if( client.@first ) {
+			    client.@first=false;
+				config.recvRemainSize=0;
+				config.recvData='';
+			    data=client.readAll();
+			    socketHandshake( client, data );
+			} else {
+				data=client.readWs()
+				if(data) {
+					this.socketMessageProc(client, data);
+				} else {
+					print("@@ client recv close");
+					client.close()
+				}
+			}
+		default:
+			client.close();
+		}
+	}
+	sendClient(client, type, errorCode, params, data) {
+		size = data.size()
+		not(params) params='{}'
+		print(">> send client ##>$type:$size:$errorCode$params")
+		client.sendWs("##>$type:$size:$errorCode$params\r\n\r\n$data")
+	}
+	socketMessageProc(client, &data) {
+		config=client.config()
+		not(config.@messageNode) {
+			config.addNode('@messageNode')
+		}
+		left=data.findPos('##>') 
+		if( left.size() ) {
+			print("@@websocket message 시작오류 ", left.size())
+			return;
+		}
+		not(lineCheck(data,'{')) {
+			return print("@@websocket message 프로토콜오류 ", getLine(data))
+		}
+		line=data.findPos("{",1,1)
+		type=line.findPos(':').trim()
+		size=line.findPos(':').trim()
+		reqType=line.trim()
+		params=data.match()
+		data.findPos("\r\n\r\n")
+		
+		print("@@ 웹소켓 메시지처리 시작 $type ==>  $header", data.size(), size, contentType )
+		if( size > data.size() ) {
+			config.recvRemainSize = size - data.size();
+			config.recvData=data;
+			print("@@ 소켓 요청 크기오류 ", type, size, reqType, config.recvRemainSize);
+			return;
+		}
+		this.dispatchMessage(client, type, reqType, params, data, size.toInt(), config )
+	}
+	dispatchMessage(client, type, reqType, params, data, size, config) {
+		config.@messageNode.removeAll(true)
+		if( params) {
+			config.@messageNode.parseJson(params)
+		}
+		switch(type) {
+		case login: 
+			this.resLogin(client, data, size, config);
+		case userInfo: 
+			this.resUserInfo(client, data, size, config);
+		case pageInfo: 
+			this.resPageInfo(client, data, size, config);
+		default:
+		}
+	}			
+	resLogin(client, data, size, config) {		
+		config.@messageNode.inject(userId, workType)
+		config.@messageNode.result='ok'
+		client.@userId=userId
+		this.sendClient(client, 'res_login', 200, json(config.@messageNode))		
+	}
+	resUserInfo(client, data, size, config) {
+		config.@messageNode.inject(icon, note, detail)
+		client[@icon, @note, @detail]
+		this.sendClient(client, 'res_userInfo', 200, json(config.@messageNode))		
+	}
+	resPageInfo(client, data, size, config) {
+		config.@messageNode.inject(pageCode)
+		path=pathJoin(conf('web.rootPath'), "chat/${pageCode}.html")
+		if(isFile(path)) {
+			src=fileRead(path)
+		} else {
+			src=format(conf("webpage.$pageCode"))
+		}
+		this.sendClient(client, 'res_pageInfo', 200, json(config.@messageNode), src)
+	}
+</script>
+
+<script>
+	socketHandshake(client, &data) {	   
+	    header=data.findPos("\r\n\r\n");
+	    print("websocket handshake header==$header");
+	    while( header.valid(), n, 0 ) {
+			line=header.findPos("\r\n");
+			if( n.eq(0) ) {
+				client.set("reqInfo", line.trim() );
+			} else {
+				key=line.findPos(':').trim();
+				value=line.trim();
+				client.set(key, value);
+			}
+	    }
+	    rst='';
+	    key=client.get('Sec-WebSocket-Key');
+	    if( key ) {
+			key.add('258EAFA5-E914-47DA-95CA-C5AB0DC85B11');
+			accept=Cf.handshakeKey(key);
+			rst.add("HTTP/1.1 101 Switching Protocols\r\n");
+			rst.add("Upgrade: websocket\r\n");
+			rst.add("Connection: Upgrade\r\n");
+			rst.add("Sec-WebSocket-Accept: ${accept}\r\n");
+			// rst.add("Sec-WebSocket-Protocol: chat\r\n");
+			rst.add("\r\n");
+			print("@@ websocket responce==$rst, key=$key");
+			client.sendData(rst);
+	    }
+	}
+</script>

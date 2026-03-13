@@ -1,0 +1,72 @@
+ git rm --cached data/test.db ; git commit -m "Remove test.db from git tracking" ; git push
+
+ git commit -am "(fix) Add google-services.json to android CI build" ; git push
+
+Get-Content -Path .\crash.log -Encoding Unicode | Out-String
+Get-Content -Path .\crash.log -Encoding Unicode | Select-String -Pattern "FATAL|Exception|Error|com.express.messenger" -Context 0,15 | Out-String
+
+
+네! GitHub Actions를 통해 클라우드에서 앱을 빌드하려면, 클라우드 환경에도 google-services.json 파일이 있어야 합니다. 그런데 이 파일은 보안상 소스코드 저장소(GitHub)에 직접 올리면 안 되기 때문에 GitHub Secrets라는 비밀 보관소에 내용을 저장해두고, 빌드할 때만 꺼내 쓰도록 설정해야 합니다.
+
+android.yml
+    - name: Ensure correct directory for google-services.json
+      working-directory: ./android/app
+      run: |
+        echo '${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}' | base64 --decode > google-services.json
+
+
+파일에 "빌드 직전에 Secrets에서 인증키 내용을 가져와서 google-services.json 파일로 만들어라" 라는 단계를 추가해 두었습니다!
+
+⚙️ 이제 GitHub 페이지에서 직접 해주셔야 할 일:
+컴퓨터에 가지고 계신 google-services.json 파일을 메모장이나 VS Code로 열어서, 안에 있는 텍스트 내용 전체를 복사해 둡니다.
+웹 브라우저를 열고 다음 사이트로 들어갑니다. (Base64 인코딩 과정)
+https://www.base64encode.org/
+위쪽 빈칸에 아까 복사한 텍스트를 붙여넣고 아래 ENCODE 버튼을 누릅니다.
+아래쪽 결과 칸에 암호처럼 변환된 긴 문자열이 나옵니다. 이 변환된 문자열을 전부 복사합니다.
+이제 본인의 GitHub 프로젝트 저장소(Repository) 페이지로 들어갑니다.
+상단 메뉴에서 [Settings(설정)] -> 왼쪽 메뉴 하단의 [Secrets and variables] -> [Actions] 를 클릭합니다.
+초록색 [New repository secret] 버튼을 누릅니다.
+입력창에 다음 내용을 적어주세요:
+Name (이름): GOOGLE_SERVICES_JSON_BASE64 (띄어쓰기 없이 대문자로 정확히 적어주세요!)
+Secret (내용): 아까 2번에서 복사한 Base64로 변환된 긴 문자열을 붙여넣기 합니다.
+[Add secret] 초록색 버튼을 눌러 저장합니다.
+여기까지 완료하신 후, GitHub Actions에서 다시 빌드를 실행(Re-run)해주시면, 방금 입력한 Secrets 값을 읽어 파일로 복원한 뒤 푸시 알림 인증이 포함된 정상적인 안드로이드 앱(app-debug.apk)이 만들어질 것입니다! 앱 실행 시 팅기던 현상도 사라지게 됩니다
+
+
+npm uninstall @capacitor/push-notifications ; npx cap sync android
+
+        let currentFcmToken = null;
+        if (window.Capacitor && window.Capacitor.Plugins.PushNotifications) {
+            const { PushNotifications } = window.Capacitor.Plugins;
+
+            PushNotifications.requestPermissions().then(result => {
+                if (result.receive === 'granted') {
+                    PushNotifications.register();
+                }
+            });
+
+            PushNotifications.addListener('registration', (token) => {
+                currentFcmToken = token.value;
+            });
+
+            PushNotifications.addListener('registrationError', (error) => {
+                console.error("FCM Registration Error:", error);
+            });
+
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('Push received:', notification);
+            });
+        }
+
+좋은 아침입니다! ☀️ 말씀드린 '웹뷰(WebView) 접속 허브' 기능을 모두 구현해서 깃허브에 푸시했습니다.
+
+주요 변경 사항:
+
+capacitor.config.json: 외부 서버 접속(cleartext 및 navigation) 권한을 허용했습니다.
+index.html (Android 앱 시작 화면):
+처음 켜면 멋진 디자인의 서버 연결 모드 화면이 나타납니다.
+서버 주소(예: http://192.168.0.x:8081)를 입력하면 해당 웹사이트를 안드로이드 앱 화면 전체에 꽉 차게 띄워줍니다. (이후부터는 자동으로 접속됩니다!)
+main.html & messenger.html:
+서버에 접속된 앱 화면 상단에 🔌 앱 연결해제(서버 접속 끊기) 버튼을 추가했습니다. (PC 브라우저에서는 이 버튼이 보이지 않고 스마트폰 앱에서만 보입니다)
+이 버튼을 누르면 초기화 쿼리(?reset=1)를 통해 다시 원래 앱의 index.html 시작 화면으로 부드럽게 돌아옵니다.
+이제 GitHub Actions에서 새 APK 빌드가 생성될 텐데요, 다운로드 후 설치하시면 앞으로는 코드 수정 없이 PC 서버만 켜시고 주소만 입력하면 됩니다! 확인해보시고 디자인이나 기능 수정이 필요하면 언제든 알려주세요!

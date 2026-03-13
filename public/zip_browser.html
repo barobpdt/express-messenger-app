@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📦 ZIP 파일 브라우저</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #21262d;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --primary: #6366f1;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .page-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .page-title h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .page-title span {
+      font-size: .8rem;
+      color: var(--muted);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    /* Search */
+    .search-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: .9rem;
+      outline: none;
+      transition: .15s;
+    }
+
+    .search-bar input:focus {
+      border-color: var(--primary);
+    }
+
+    .search-bar input::placeholder {
+      color: var(--muted);
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: .15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+    }
+
+    .btn.secondary {
+      background: var(--bg3);
+      color: var(--text);
+    }
+
+    .btn.secondary:hover {
+      background: var(--border);
+    }
+
+    .btn.active {
+      background: rgba(99, 102, 241, .2);
+      border-color: var(--primary);
+      color: #818cf8;
+    }
+
+    .btn:disabled {
+      opacity: .4;
+      cursor: default;
+      filter: none;
+    }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .stat-card .label {
+      font-size: .72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .value {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .stat-card .value.green {
+      color: var(--green);
+    }
+
+    .stat-card .value.yellow {
+      color: var(--yellow);
+    }
+
+    .stat-card .value.primary {
+      color: #818cf8;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-in {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 6px 12px;
+      color: var(--text);
+      font-size: .83rem;
+      outline: none;
+    }
+
+    .filter-in::placeholder {
+      color: var(--muted);
+    }
+
+    .sort-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 6px 12px;
+      color: var(--muted);
+      font-size: .8rem;
+      cursor: pointer;
+      transition: .15s;
+    }
+
+    .sort-btn.on {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .sort-btn:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .vsep {
+      width: 1px;
+      height: 22px;
+      background: var(--border);
+      margin: 0 2px;
+    }
+
+    .toolbar-right {
+      margin-left: auto;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Badge */
+    .sel-badge {
+      display: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 12px;
+      padding: 1px 8px;
+      font-size: .75rem;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+    .sel-badge.show {
+      display: inline;
+    }
+
+    /* Table (List View) */
+    .table-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      background: var(--bg3);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    thead th.num {
+      text-align: right;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(48, 54, 61, .6);
+      transition: .1s;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: var(--bg3);
+    }
+
+    tbody td {
+      padding: 9px 14px;
+      font-size: .85rem;
+      vertical-align: middle;
+    }
+
+    tbody td.num {
+      text-align: right;
+      font-family: Consolas, monospace;
+      color: var(--muted);
+    }
+
+    tbody td.name {
+      max-width: 380px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .ratio-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ratio-bar {
+      height: 5px;
+      border-radius: 3px;
+      background: var(--bg3);
+      flex: 1;
+      min-width: 50px;
+    }
+
+    .ratio-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: .3s;
+    }
+
+    .ratio-text {
+      font-family: Consolas, monospace;
+      font-size: .78rem;
+      color: var(--muted);
+      width: 38px;
+      text-align: right;
+    }
+
+    td.date {
+      font-size: .78rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    td.chk,
+    th.chk {
+      width: 36px;
+      text-align: center;
+      padding: 9px 6px !important;
+    }
+
+    input[type=checkbox] {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+
+    tbody tr.selected {
+      background: rgba(99, 102, 241, .08);
+    }
+
+    .dl-btn {
+      padding: 3px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      cursor: pointer;
+      font-size: .77rem;
+      transition: .15s;
+      white-space: nowrap;
+    }
+
+    .dl-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    /* ── Tree View ── */
+    #tree-view {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .tree-inner {
+      padding: 8px 4px;
+    }
+
+    .tree-node {
+      user-select: none;
+    }
+
+    .tree-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: .1s;
+      min-height: 32px;
+    }
+
+    .tree-row:hover {
+      background: var(--bg3);
+    }
+
+    .tree-row.selected-row {
+      background: rgba(99, 102, 241, .1);
+    }
+
+    .tree-row.selected-row .tree-name {
+      color: #818cf8;
+    }
+
+    .tree-toggler {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .7rem;
+      color: var(--muted);
+      border-radius: 3px;
+      flex-shrink: 0;
+      transition: .15s;
+    }
+
+    .tree-toggler:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .tree-toggler.leaf {
+      cursor: default;
+      color: transparent;
+    }
+
+    .tree-toggler.open::before {
+      content: '▼';
+    }
+
+    .tree-toggler:not(.open):not(.leaf)::before {
+      content: '▶';
+    }
+
+    .tree-icon {
+      font-size: .95rem;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+
+    .tree-name {
+      font-size: .85rem;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tree-name.folder {
+      color: var(--yellow);
+      font-weight: 500;
+    }
+
+    .tree-meta {
+      font-family: Consolas, monospace;
+      font-size: .75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    .tree-chk {
+      flex-shrink: 0;
+    }
+
+    .tree-dl {
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      cursor: pointer;
+      font-size: .74rem;
+      transition: .15s;
+      flex-shrink: 0;
+    }
+
+    .tree-dl:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .tree-children {
+      display: none;
+    }
+
+    .tree-children.open {
+      display: block;
+    }
+
+    /* States */
+    #empty-state,
+    #loading-state,
+    #error-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    #empty-state .ico,
+    #loading-state .ico,
+    #error-state .ico {
+      font-size: 2.8rem;
+      margin-bottom: 12px;
+    }
+
+    #error-state .ico {
+      color: #f87171;
+    }
+
+    #error-state .msg {
+      font-size: .9rem;
+      color: #f87171;
+      margin-top: 8px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="page-title">
+    <h1>📦 ZIP 파일 브라우저</h1>
+    <span>서버 내 ZIP 파일 목록 조회</span>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <input id="zip-path" type="text" placeholder="ZIP 파일 상대 경로 (예: uploads/archive.zip)" value="">
+    <button class="btn" onclick="loadZip()">🔍 조회</button>
+    <button class="btn secondary" id="dl-zip-btn" onclick="downloadZip()" disabled>⬇ ZIP 전체</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats" style="display:none"></div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" id="toolbar" style="display:none">
+    <input class="filter-in" id="filter-in" type="text" placeholder="🔍 파일명 필터..." oninput="onFilter()">
+    <div class="vsep" id="sort-sep"></div>
+    <button class="sort-btn" id="sort-name" onclick="sortBy('name')">이름 ↕</button>
+    <button class="sort-btn" id="sort-size" onclick="sortBy('size')">크기 ↕</button>
+    <button class="sort-btn" id="sort-ratio" onclick="sortBy('ratio')">압축률 ↕</button>
+    <div class="vsep"></div>
+    <!-- View Toggle -->
+    <button class="btn secondary" id="view-list-btn" onclick="setView('list')" title="목록 보기">☰ 목록</button>
+    <button class="btn secondary" id="view-tree-btn" onclick="setView('tree')" title="트리 보기">🌲 트리</button>
+    <div class="toolbar-right">
+      <span id="row-count" style="font-size:.8rem;color:var(--muted);line-height:2.2;"></span>
+      <button class="btn" id="dl-selected-btn" onclick="downloadSelected()" disabled
+        style="padding:6px 14px;font-size:.82rem;background:var(--green);border-color:var(--green);">
+        ⬇ 선택 다운로드<span class="sel-badge" id="sel-badge">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- List View -->
+  <div class="table-wrap" id="list-view">
+    <div id="empty-state">
+      <div class="ico">📦</div>
+      <div>ZIP 파일 경로를 입력하고 조회하세요</div>
+    </div>
+    <div id="loading-state" style="display:none">
+      <div class="spinner"></div>
+      <div>불러오는 중...</div>
+    </div>
+    <div id="error-state" style="display:none">
+      <div class="ico">⚠️</div>
+      <div>오류가 발생했습니다</div>
+      <div class="msg" id="error-msg"></div>
+    </div>
+    <table id="main-table" style="display:none">
+      <thead>
+        <tr>
+          <th class="chk"><input type="checkbox" id="chk-all" onchange="toggleAll(this.checked)" title="전체 선택"></th>
+          <th>파일 경로</th>
+          <th class="num">원본 크기</th>
+          <th class="num">압축 크기</th>
+          <th style="width:130px">압축률</th>
+          <th class="num">날짜</th>
+          <th style="width:76px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Tree View -->
+  <div id="tree-view">
+    <div class="tree-inner" id="tree-inner"></div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════
+    let _data = null;
+    let _sortKey = 'name', _sortAsc = true;
+    let _currentPath = '';
+    let _viewMode = 'list'; // 'list' | 'tree'
+    let _collapsed = {};    // 트리 폴더 접힘 상태
+
+    // ═══════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════
+    function fmtSize(b) {
+      if (!b) return '0 B';
+      const u = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(b) / Math.log(1024));
+      return (b / 1024 ** i).toFixed(i ? 1 : 0) + ' ' + u[i];
+    }
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return d.toLocaleDateString('ko-KR') + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    }
+    function extIcon(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      return ({
+        jpg: '🖼', jpeg: '🖼', png: '🖼', gif: '🖼', webp: '🖼', svg: '🖼',
+        mp4: '🎬', mov: '🎬', avi: '🎬', mkv: '🎬', mp3: '🎵', wav: '🎵',
+        pdf: '📄', doc: '📄', docx: '📄', xls: '📊', xlsx: '📊', ppt: '📊', pptx: '📊',
+        txt: '📝', md: '📝', json: '📋', xml: '📋', csv: '📋',
+        js: '⚙️', ts: '⚙️', py: '🐍', java: '☕', html: '🌐', css: '🎨',
+        zip: '📦', gz: '📦', tar: '📦', rar: '📦',
+        exe: '🖥', msi: '🖥', sh: '🔧', bat: '🔧'
+      })[ext] || '📄';
+    }
+    function barColor(r) { return r > 50 ? '#22c55e' : r > 20 ? '#f59e0b' : '#6366f1'; }
+    function $id(id) { return document.getElementById(id); }
+
+    // ═══════════════════════════════════
+    // API
+    // ═══════════════════════════════════
+    async function loadZip() {
+      const p = $id('zip-path').value.trim();
+      if (!p) { alert('ZIP 경로를 입력하세요'); return; }
+      _currentPath = p;
+      _collapsed = {};
+      setState('loading');
+      try {
+        const res = await fetch(`/api/zip/list?path=${encodeURIComponent(p)}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || '서버 오류');
+        _data = json;
+        renderAll();
+      } catch (e) { setState('error', e.message); }
+    }
+
+    function downloadZip() {
+      window.location.href = `/api/zip/download?path=${encodeURIComponent(_currentPath)}`;
+    }
+    function downloadEntry(entry) {
+      window.location.href = `/api/zip/download-entry?path=${encodeURIComponent(_currentPath)}&entry=${encodeURIComponent(entry)}`;
+    }
+
+    async function downloadSelected() {
+      const cbs = Array.from(document.querySelectorAll('.row-chk:checked'));
+      if (!cbs.length) return;
+      const entries = cbs.map(cb => cb.dataset.entry);
+      const base = _currentPath.split('/').pop().replace(/\.zip$/i, '');
+      const filename = `${base}_selected_${entries.length}files.zip`;
+      const btn = $id('dl-selected-btn');
+      btn.disabled = true; btn.innerHTML = '⏳ 생성 중...';
+      try {
+        const res = await fetch('/api/zip/download-selected', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: _currentPath, entries, filename })
+        });
+        if (!res.ok) throw new Error((await res.json()).error || '오류');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) { alert('실패: ' + e.message); }
+      finally {
+        btn.disabled = false;
+        btn.innerHTML = '⬇ 선택 다운로드<span class="sel-badge show" id="sel-badge">' +
+          document.querySelectorAll('.row-chk:checked').length + '</span>';
+      }
+    }
+
+    // ═══════════════════════════════════
+    // RENDER ALL
+    // ═══════════════════════════════════
+    function renderAll() {
+      if (!_data) return;
+
+      // Stats
+      const sc = $id('stats'); sc.style.display = 'flex';
+      sc.innerHTML = `
+    <div class="stat-card"><div class="label">파일 수</div><div class="value primary">${_data.fileCount.toLocaleString()}개</div></div>
+    <div class="stat-card"><div class="label">원본 크기</div><div class="value">${fmtSize(_data.totalSize)}</div></div>
+    <div class="stat-card"><div class="label">압축 크기</div><div class="value yellow">${fmtSize(_data.totalCompressed)}</div></div>
+    <div class="stat-card"><div class="label">절감률</div><div class="value green">${_data.savedRatio}%</div></div>`;
+
+      $id('toolbar').style.display = 'flex';
+      $id('dl-zip-btn').disabled = false;
+      setView(_viewMode);
+    }
+
+    // ═══════════════════════════════════
+    // VIEW TOGGLE
+    // ═══════════════════════════════════
+    function setView(mode) {
+      _viewMode = mode;
+      const isList = mode === 'list';
+      $id('view-list-btn').classList.toggle('active', isList);
+      $id('view-tree-btn').classList.toggle('active', !isList);
+
+      // 정렬 버튼은 목록에서만 유효
+      ['sort-sep', 'sort-name', 'sort-size', 'sort-ratio'].forEach(id => {
+        const el = $id(id); if (el) el.style.display = isList ? '' : 'none';
+      });
+
+      if (isList) {
+        $id('list-view').style.display = 'block';
+        $id('tree-view').style.display = 'none';
+        applyFilter();
+      } else {
+        $id('list-view').style.display = 'none';
+        $id('tree-view').style.display = 'block';
+        renderTree();
+      }
+    }
+
+    // ═══════════════════════════════════
+    // LIST VIEW
+    // ═══════════════════════════════════
+    function onFilter() { if (_viewMode === 'list') applyFilter(); else renderTree(); }
+
+    function applyFilter() {
+      if (!_data) return;
+      setState('table');
+      const q = $id('filter-in').value.toLowerCase();
+      let rows = _data.entries.filter(e => !e.isDirectory);
+      if (q) rows = rows.filter(e => e.name.toLowerCase().includes(q));
+
+      rows.sort((a, b) => {
+        const va = _sortKey === 'size' ? a.size : _sortKey === 'ratio' ? parseFloat(a.ratio) : a.name;
+        const vb = _sortKey === 'size' ? b.size : _sortKey === 'ratio' ? parseFloat(b.ratio) : b.name;
+        return va < vb ? (_sortAsc ? -1 : 1) : va > vb ? (_sortAsc ? 1 : -1) : 0;
+      });
+
+      $id('tbody').innerHTML = rows.map((e, i) => {
+        const parts = e.name.split('/'), fname = parts.pop();
+        const dir = parts.length ? parts.join('/') + '/' : '';
+        const r = parseFloat(e.ratio);
+        const esc = e.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `<tr id="lr-${i}">
+      <td class="chk"><input type="checkbox" class="row-chk" data-entry="${esc}" onchange="onChkChange()"></td>
+      <td class="name" title="${e.name}" onclick="toggleRow('lr-${i}')">
+        ${dir ? `<span style="color:var(--muted);font-size:.76rem">${dir}</span>` : ''}<span>${extIcon(fname)}</span> ${fname}
+      </td>
+      <td class="num">${fmtSize(e.size)}</td>
+      <td class="num">${fmtSize(e.compressedSize)}</td>
+      <td><div class="ratio-bar-wrap">
+        <div class="ratio-bar"><div class="ratio-fill" style="width:${Math.min(r, 100)}%;background:${barColor(r)}"></div></div>
+        <span class="ratio-text">${r}%</span>
+      </div></td>
+      <td class="date">${fmtDate(e.date)}</td>
+      <td style="text-align:center"><button class="dl-btn" onclick="downloadEntry('${esc}')">⬇ 다운</button></td>
+    </tr>`;
+      }).join('');
+
+      const total = _data.entries.filter(e => !e.isDirectory).length;
+      $id('row-count').textContent = `${rows.length} / ${total}개`;
+      $id('chk-all').checked = false;
+      $id('chk-all').indeterminate = false;
+      updateSelUI();
+    }
+
+    function sortBy(key) {
+      _sortAsc = _sortKey === key ? !_sortAsc : true;
+      _sortKey = key;
+      ['name', 'size', 'ratio'].forEach(k => {
+        const btn = $id('sort-' + k);
+        const label = k === 'name' ? '이름' : k === 'size' ? '크기' : '압축률';
+        btn.classList.toggle('on', _sortKey === k);
+        btn.textContent = label + (_sortKey === k ? (_sortAsc ? ' ↑' : ' ↓') : ' ↕');
+      });
+      applyFilter();
+    }
+
+    // ═══════════════════════════════════
+    // TREE VIEW
+    // ═══════════════════════════════════
+
+    /** 플랫 entries → 중첩 트리 */
+    function buildTree(entries) {
+      const root = { __files: [], __dirs: {} };
+      const q = ($id('filter-in').value || '').toLowerCase();
+      for (const e of entries) {
+        if (e.isDirectory) continue;
+        if (q && !e.name.toLowerCase().includes(q)) continue;
+        const parts = e.name.split('/');
+        let node = root;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const d = parts[i];
+          if (!node.__dirs[d]) node.__dirs[d] = { __files: [], __dirs: {} };
+          node = node.__dirs[d];
+        }
+        node.__files.push(e);
+      }
+      return root;
+    }
+
+    /** 재귀 렌더 → HTML 문자열 */
+    function renderNode(node, pathPrefix, depth) {
+      const indent = depth * 20;
+      let html = '';
+
+      // 폴더 먼저 (알파벳 정렬)
+      const dirs = Object.keys(node.__dirs).sort();
+      for (const dname of dirs) {
+        const child = node.__dirs[dname];
+        const fullPath = pathPrefix + dname;
+        const isOpen = !_collapsed[fullPath];
+        const fileCount = countFiles(child);
+        const totalSize = sumSize(child);
+
+        html += `
+    <div class="tree-node" id="tn-${CSS.escape(fullPath)}">
+      <div class="tree-row${isOpen ? '' : ''}" onclick="toggleFolder('${fullPath.replace(/'/g, "\\'")}',event)">
+        <span style="width:${indent}px;flex-shrink:0"></span>
+        <span class="tree-chk"><input type="checkbox" class="row-chk folder-chk" data-folder="${fullPath.replace(/"/g, '&quot;')}"
+          onclick="event.stopPropagation()" onchange="onFolderChk(this,'${fullPath.replace(/'/g, "\\'")}')"></span>
+        <span class="tree-toggler${isOpen ? ' open' : ''}" id="tog-${CSS.escape(fullPath)}"></span>
+        <span class="tree-icon">📁</span>
+        <span class="tree-name folder">${dname}</span>
+        <span class="tree-meta" style="font-size:.72rem;gap:8px;display:flex">
+          <span style="color:var(--muted)">${fileCount}개</span>
+          <span style="color:var(--yellow)">${fmtSize(totalSize)}</span>
+        </span>
+      </div>
+      <div class="tree-children${isOpen ? ' open' : ''}" id="tc-${CSS.escape(fullPath)}">
+        ${renderNode(child, fullPath + '/', depth + 1)}
+      </div>
+    </div>`;
+      }
+
+      // 파일
+      const files = [...node.__files].sort((a, b) => a.name.localeCompare(b.name));
+      for (const e of files) {
+        const parts = e.name.split('/'), fname = parts[parts.length - 1];
+        const r = parseFloat(e.ratio);
+        const esc = e.name.replace(/'/g, "\'").replace(/"/g, '&quot;');
+        html += `
+    <div class="tree-row" id="tf-${CSS.escape(e.name)}"
+      onclick="toggleFileRow('${CSS.escape(e.name)}',event)">
+      <span style="width:${indent}px;flex-shrink:0"></span>
+      <span class="tree-chk"><input type="checkbox" class="row-chk" data-entry="${esc}"
+        onclick="event.stopPropagation()" onchange="onChkChange()"></span>
+      <span class="tree-toggler leaf"></span>
+      <span class="tree-icon">${extIcon(fname)}</span>
+      <span class="tree-name" title="${e.name}">${fname}</span>
+      <span class="tree-meta" style="display:flex;gap:10px">
+        <span>${fmtSize(e.size)}</span>
+        <span style="color:${barColor(r)}">${r}%</span>
+      </span>
+      <button class="tree-dl" onclick="event.stopPropagation();downloadEntry('${esc}')">⬇</button>
+    </div>`;
+      }
+      return html;
+    }
+
+    function countFiles(node) {
+      let c = node.__files.length;
+      for (const d of Object.values(node.__dirs)) c += countFiles(d);
+      return c;
+    }
+    function sumSize(node) {
+      let s = node.__files.reduce((a, f) => a + f.size, 0);
+      for (const d of Object.values(node.__dirs)) s += sumSize(d);
+      return s;
+    }
+
+    function renderTree() {
+      if (!_data) return;
+      const tree = buildTree(_data.entries);
+      const html = renderNode(tree, '', 0);
+      $id('tree-inner').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--muted)">표시할 항목이 없습니다</div>';
+      // 행 수 표시
+      const total = _data.entries.filter(e => !e.isDirectory).length;
+      const q = $id('filter-in').value;
+      const shown = q ? $id('tree-inner').querySelectorAll('.row-chk:not(.folder-chk)').length : total;
+      $id('row-count').textContent = `${shown} / ${total}개`;
+      updateSelUI();
+    }
+
+    function toggleFolder(path, evt) {
+      if (evt && evt.target.closest('.tree-chk, .tree-dl')) return;
+      _collapsed[path] = !_collapsed[path];
+      const tog = $id('tog-' + CSS.escape(path));
+      const children = $id('tc-' + CSS.escape(path));
+      if (tog) tog.classList.toggle('open', !_collapsed[path]);
+      if (children) children.classList.toggle('open', !_collapsed[path]);
+    }
+
+    function toggleFileRow(id, evt) {
+      if (evt && evt.target.closest('.tree-chk, .tree-dl')) return;
+      const row = $id('tf-' + id);
+      if (!row) return;
+      const cb = row.querySelector('.row-chk');
+      if (cb) { cb.checked = !cb.checked; onChkChange(); }
+    }
+
+    /** 폴더 체크박스: 하위 파일 전부 체크/해제 */
+    function onFolderChk(cb, folderPath) {
+      const container = $id('tc-' + CSS.escape(folderPath));
+      if (!container) return;
+      container.querySelectorAll('.row-chk:not(.folder-chk)').forEach(c => {
+        c.checked = cb.checked;
+        c.closest('.tree-row')?.classList.toggle('selected-row', cb.checked);
+      });
+      // 하위 폴더 체크박스도 동기화
+      container.querySelectorAll('.folder-chk').forEach(c => c.checked = cb.checked);
+      onChkChange();
+    }
+
+    // ═══════════════════════════════════
+    // SELECTION
+    // ═══════════════════════════════════
+    function toggleRow(rowId) {
+      const row = $id(rowId);
+      const cb = row?.querySelector('.row-chk');
+      if (cb) { cb.checked = !cb.checked; onChkChange(); }
+    }
+    function toggleAll(checked) {
+      document.querySelectorAll('.row-chk:not(.folder-chk)').forEach(cb => cb.checked = checked);
+      document.querySelectorAll('tbody tr').forEach(tr => tr.classList.toggle('selected', checked));
+      if ($id('chk-all')) { $id('chk-all').indeterminate = false; }
+      updateSelUI();
+    }
+    function onChkChange() {
+      const all = document.querySelectorAll('.row-chk:not(.folder-chk)');
+      const sel = document.querySelectorAll('.row-chk:not(.folder-chk):checked');
+      // list view
+      all.forEach(cb => cb.closest('tbody tr')?.classList.toggle('selected', cb.checked));
+      // tree view  highlight
+      all.forEach(cb => cb.closest('.tree-row')?.classList.toggle('selected-row', cb.checked));
+      const chkAll = $id('chk-all');
+      if (chkAll) {
+        chkAll.checked = sel.length === all.length && all.length > 0;
+        chkAll.indeterminate = sel.length > 0 && sel.length < all.length;
+      }
+      updateSelUI();
+    }
+    function updateSelUI() {
+      const n = document.querySelectorAll('.row-chk:not(.folder-chk):checked').length;
+      const btn = $id('dl-selected-btn');
+      const badge = $id('sel-badge');
+      if (!btn || !badge) return;
+      btn.disabled = n === 0;
+      badge.textContent = n;
+      badge.classList.toggle('show', n > 0);
+    }
+
+    // ═══════════════════════════════════
+    // STATES
+    // ═══════════════════════════════════
+    function setState(s, msg = '') {
+      ['empty-state', 'loading-state', 'error-state'].forEach(id => { $id(id).style.display = 'none'; });
+      $id('main-table').style.display = 'none';
+      if (s === 'empty') $id('empty-state').style.display = '';
+      else if (s === 'loading') $id('loading-state').style.display = '';
+      else if (s === 'error') { $id('error-state').style.display = ''; $id('error-msg').textContent = msg; }
+      else if (s === 'table') $id('main-table').style.display = 'table';
+    }
+
+    // Enter key
+    $id('zip-path').addEventListener('keydown', e => { if (e.key === 'Enter') loadZip(); });
+  </script>
+</body>
+
+</html>

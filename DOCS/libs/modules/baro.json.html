@@ -1,0 +1,249 @@
+<script module="json">
+	init(prefix, useIndent) {
+		@childPrefix	= nvl(prefix,'children')
+		@useIndent		= useIndent
+	}
+	jsonValue(obj, depth) {	
+		nl=conf('cf.newline')
+		findChild = func(node, sub) {
+			while(cur,node) {
+				if(cur==sub) return cur;
+			}
+			return;
+		};
+		arrayValue = func(arr, depth) {
+			ss=''
+			if( useIndent ) {
+				ss.add(nl)
+			}
+			ss.add("[");
+			num=0, depth+=1;
+			while( val, arr ) {
+				if(typeof(val,'func')) continue;
+				if( num++ ) ss.add(','); 
+				if( this.checkVal(val) ) {
+					ss.add( val )
+					continue;
+				}
+				if(typeof(val,'node','array')) {
+					if(useIndent) {
+						ss.add(nl)
+						while(n=0, n<depth, n++ ) ss.add("\t");
+					}
+					ss.add( this.jsonValue(val,depth) );			
+				} else {
+					ss.add( Cf.jsValue(val) )
+				}
+				num++; 
+			}
+			if(useIndent) {
+				depth-=1;
+				ss.add(nl)
+				while(n=0, n<depth, n++ ) ss.add("\t");
+			}
+			ss.add("]")
+			return ss;
+		}
+		not(depth) depth=0;
+		if(typeof(obj,'array')) {
+			return arrayValue(obj,depth);
+		}
+		if(typeof(obj,'node')) {
+			node=obj
+		} else {
+			node=_node()
+		}
+		rst=''
+		rst.add('{')
+		num=0, depth+=1;
+		while( key, node.keys() ) {	
+			if( key.ch('@') ) continue;
+			if( key.eq('children') ) continue;
+			val=node.get(key);
+			if(typeof(val,'func')) continue;
+			if( num++ ) rst.add(',');
+			if(useIndent) {
+				rst.add(nl)
+				while(n=0, n<depth, n++ ) rst.add("\t");
+			}			
+			if(typeof(val,'node','array')) {
+				if(typeof(val,'node') && findChild(node,val)) {
+					rst.add( Cf.jsValue(key), ':', Cf.jsValue('[node]') );
+				} else {
+					rst.add( Cf.jsValue(key), ':', this.jsonValue(val,depth) );
+				}
+			} else { 
+				if( this.checkVal(val) ) {
+					rst.add(Cf.jsValue(key), ':', val )
+				} else {
+					rst.add(Cf.jsValue(key), ':', Cf.jsValue(val) )
+				}
+			}
+		}
+		if( node.childCount() && this.member(childPrefix)) {
+			if( num++ ) rst.add(',')
+			if(useIndent) {	
+				rst.add(nl)
+				while(n=0, n<depth, n++ ) rst.add("\t");
+				depth+=1;
+			}
+			rst.add( Cf.jsValue(childPrefix), ': [')
+			while(cur, node, childIndex) {
+				if(childIndex) rst.add(',')
+				if(useIndent) {	
+					rst.add(nl)
+					while(n=0, n<depth, n++ ) rst.add("\t");
+				}
+				rst.add( this.jsonValue(cur,depth) )
+			}
+			if(useIndent) {
+				depth-=1;
+				rst.add(nl)
+				while(n=0, n<depth, n++ ) rst.add("\t");
+			}
+			rst.add(']')
+		}
+		if(useIndent) {
+			depth-=1;
+			rst.add(nl)
+			while(n=0, n<depth, n++ ) rst.add("\t");
+		}
+		rst.add("}");
+		return rst;
+	}
+
+	checkVal( val ) {
+		chk = typeof(val,'num') || typeof(val,'bool') || typeof(val,'null') 
+		if(chk) return chk;
+		if(typeof(val,'string') && val.eq('true','false') ) return true;
+		return false;
+	}
+	
+	listData(node, fields, listCode, skip) {
+		/*
+			checkField => 첫번째 자식노드 필드정보 : 자식노드 각각 필드정보
+			skip => 노드 프로퍼티 무식 (리스트만 생성)
+		*/
+		rst='';
+		not( listCode ) listCode='children';
+		if( listCode=='none') {
+			listCode=''
+		} else if(node.get(listCode)) {
+			listCode=''
+		}
+		fa=null, checkField=true;
+		not(fields) fields=node.var(fields);
+		if( fields ) {
+			if( typeof(fields,'bool') ) {
+				checkField=false;
+			} else if( typeof(fields,'array') ) {
+				fa=fields;
+			} else {
+				fa=fields.split(',');
+			}
+		} else {
+			checkField=node.var(checkField);
+		}
+		if( skip ) {
+			rst.add("[");
+		} else {
+			num=0;
+			rst.add("{");
+			if(node.var(propMode)) {
+				checkField=false;
+				while( key, node.keys() ) {
+					if( key.ch('@') ) continue;
+					val=node.get(key);
+					if(typeof(val,'func','node','array')) continue;
+					rst.add(Cf.jsValue(key), ':', Cf.jsValue(val) );
+					num++;
+				}
+			} else {
+				while( key, node.keys() ) {
+					if( key.ch('@') ) continue;
+					val=node.get(key);
+					if(typeof(val,'null','func')) continue;
+					if( num++ ) rst.add(',');
+					if( this.checkVal(val) ) {
+						rst.add(Cf.jsValue(key), ':', val )
+						continue;
+					}
+					if(typeof(val,'node','array')) {
+						rst.add(Cf.jsValue(key), ':', this.nodeStr(val) );
+					} else {
+						if( typeof(val,'num') || val.eq('true','false') ) {
+							rst.add(Cf.jsValue(key), ':', val )
+						} else {
+							rst.add(Cf.jsValue(key), ':', Cf.jsValue(val) )
+						}
+					}
+				}
+				if( typeof(fa,'array') ) {
+					if( num ) rst.add(',');
+					rst.add('"fields":[')
+					while( key, fa, idx, 0 ) {
+						if( idx ) rst.add(',');
+						rst.add( Cf.jsValue(key) );
+					}
+					rst.add("]");
+					num++;
+				}
+			}
+			if( node.childCount() && listCode ) {
+				if(num) rst.add(',');
+				rst.add(' "',listCode,'":[');
+			} else {
+				rst.add('}')
+				return rst;
+			} 
+		}
+		
+		idx=0;
+		while( cur, node ) {
+			if( idx ) rst.add(',');
+			if(cur.var(useCheck)) continue;
+			idx++;
+			rst.add("{");
+			propCheck=when(cur.tag, cur.tag.eq('object', 'array'));
+			if(propCheck) {
+				fieldArray=cur.keys();
+			} else {
+				fieldArray=fa;
+				not(fieldArray) {
+					fieldArray=cur.keys();
+					if(checkField) fa=fieldArray;
+				}
+			}
+			while( key, fieldArray, num ) {
+				if( num ) rst.add(","); 
+				val=cur.get(key);
+				if( this.checkVal(val) ) {
+					rst.add(Cf.jsValue(key), ':', val )
+					continue;
+				}
+				if(typeof(val,'node','array')) {
+					rst.add(Cf.jsValue(key), ':', this.nodeStr(val) );
+				} else {
+					rst.add(Cf.jsValue(key), ':', Cf.jsValue(val) )
+				}
+			}
+			if( cur.childCount() ) { 
+				not(propCheck ) {
+					if( num ) rst.add(",");
+					rst.add(' "',listCode,'":', this.listData(cur, when(checkField,null,fa), listCode, true));
+				}
+			}
+			rst.add("}");
+		}
+		if(skip) {
+			rst.add("]");		
+		} else {
+			rst.add("]}");
+		}
+		return rst;
+	}
+	 
+	toString(node) {
+		return this.jsonValue(node)
+	} 
+</script>

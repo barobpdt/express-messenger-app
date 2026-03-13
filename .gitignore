@@ -25,10 +25,12 @@ Thumbs.db
 
 # 임시 파일
 tmp/
+public/images/avatar/
 *.tmp
 
 *.mp4
 data/
 BARO/
+uploads/
 firebase-adminsdk.json
 google-services.json
