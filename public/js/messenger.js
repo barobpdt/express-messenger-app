@@ -691,16 +691,14 @@ inputEl.addEventListener('input', function () {
 
 // ─── 메시지 수신 및 명령어 실행 ───
 function receiveMessage(data) {
-	// 백그라운드 게임용 소켓 데이터는 채팅창에 렌더링하지 않음
-	const ignoredGameTypes = ['ladder-init', 'ladder-start', 'ladder-join', 'roulette-init', 'roulette-spin', 'roulette-join', 'roulette-leave', 'go-init', 'go-move', 'go-ready', 'go-leave'];
-	if (ignoredGameTypes.includes(data.type)) {
-		return;
-	}
 	// PPT 화이트보드 메시지는 채팅창에 표시하지 않음
-	if (data.type && data.type.startsWith('ppt-')) {
+	if (!data.type) {
+		console.log('@@ receiveMessage 타입오류=>', data);
 		return;
 	}
-
+	if (data.type.startsWith('ppt-')) {
+		return;
+	}
 
 	if (data.type === 'onlineUsers') {
 		const countBadge = document.getElementById('user-count');
@@ -721,6 +719,11 @@ function receiveMessage(data) {
 		return;
 	}
 
+	// 백그라운드 게임용 소켓 데이터는 채팅창에 렌더링하지 않음
+	const ignoredGameTypes = ['ladder-init', 'ladder-start', 'ladder-join', 'roulette-init', 'roulette-spin', 'roulette-join', 'roulette-leave', 'go-init', 'go-move', 'go-ready', 'go-leave'];
+	if (ignoredGameTypes.includes(data.type)) {
+		return;
+	}
 	// 사다리 게임 초대(전체)
 	if (data.type === 'ladder-invite') {
 		const joinUrl = `/ladder-game.html?room=${data.room}&role=player`;
@@ -1361,6 +1364,23 @@ function handleWebRTCSignaling(data) {
 }
 
 // ── 발신 ─────────────────────────────────────────────────
+async function checkMicrophoneExists() {
+	try {
+		const devices = await navigator.mediaDevices.enumerateDevices();
+		const microphones = devices.filter(device => device.kind === 'audioinput');
+		if (microphones.length > 0) {
+			console.log("마이크가 존재합니다.");
+			return true;
+		} else {
+			console.log("마이크가 없습니다.");
+			return false;
+		}
+	} catch (error) {
+		console.error("장치를 확인하는 중 오류가 발생했습니다.", error);
+		return false;
+	}
+}
+
 async function startCall(targetUsername) {
 	if (_callState !== 'idle') { alert('이미 통화 중입니다.'); return; }
 	if (!ws || ws.readyState !== WebSocket.OPEN) { alert('서버에 연결되지 않았습니다.'); return; }

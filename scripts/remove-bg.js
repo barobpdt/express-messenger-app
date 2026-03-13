@@ -1,3 +1,4 @@
+// "@imgly/background-removal-node": "^1.4.5",
 import { removeBackground } from '@imgly/background-removal-node';
 import fs from "fs";
 import path from "path";
