@@ -26,7 +26,9 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
 import AdmZip from "adm-zip";
+import { Server } from 'socket.io';
 
+// npm install socket.io
 // const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_AVATAR_DIR = path.join(__dirname, "public/images/avatar");
@@ -36,6 +38,7 @@ const FILE_TTL_MS = 60 * 60 * 1000; // 1시간
 
 const fileStore = new Map();
 const usePush = false;
+const serverInfo = {};
 
 
 // Firebase Admin 초기화
@@ -57,8 +60,8 @@ if (fs.existsSync(firebaseKeyPath)) {
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
-let activeSqliteDb = null;
 
+let activeSqliteDb = null;
 // { username: WebSocket }
 const onlineUsers = new Map();
 
@@ -99,14 +102,42 @@ function setUserInfo(ws, username, user) {
 		}).catch(err => logger.error("오프라인 메시지 로드 실패", err));
 }
 
+/* #################### 카라오케 스트리밍 상태 #################### */
+const RECORDINGS_DIR = path.join(__dirname, 'recordings');
+if (!fs.existsSync(RECORDINGS_DIR)) fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+
+// 현재 활성 스트리밍 세션 상태
+// { sessionId, song, fd (파일 디스크립터), filename, startTime, streamerWs }
+let karaokeSession = null;
+
 wss.on('connection', (ws) => {
 	// 임시 ID (로그인 전)
 	ws.id = uuidv4();
 	ws.joinedRooms = new Set(); // 속한 게임 방 추적용
 
-	ws.on('message', (message) => {
+	ws.on('message', (message, isBinary) => {
+		/* ── 카라오케: binary 청크 수신 (스트리머 → 서버 → 시청자) ── */
+		if (karaokeSession && isBinary) {
+			// 서버-사이드 녹화 파일에 append
+			if (Buffer.isBuffer(message) && karaokeSession.fd !== null) {
+				try {
+					fs.writeSync(karaokeSession.fd, message);
+				} catch (e) {
+					logger.error('카라오케 녹화 쓰기 실패', e);
+				}
+			}
+			// 시청자(karaoke-viewer 방)에게 binary 중계
+			wss.clients.forEach(client => {
+				if (client !== ws && client.readyState === 1 && client.joinedRooms?.has('karaoke-viewer')) {
+					client.send(message, { binary: true });
+				}
+			});
+			return;
+		}
+
 		try {
 			const parsed = JSON.parse(message);
+			console.log(">> type==" + parsed.type)
 			if (parsed.type === 'init') {
 				const username = parsed.username;
 				if (username) {
@@ -117,6 +148,47 @@ wss.on('connection', (ws) => {
 							logger.error("Failed to fetch avatar for init", err);
 							setUserInfo(ws, username, { avatar: null, nickname: username })
 						});
+				}
+				return;
+			}
+
+			/* ── 카라오케: 스트림 시작 ── */
+			if (parsed.type === 'karaoke-start') {
+				const sessionId = uuidv4();
+				const now = new Date();
+				const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+				const songTitle = parsed.song?.title ? parsed.song.title.replace(/[\\/:*?"<>|]/g, '_') : 'unknown';
+				const filename = `${dateStr}_${songTitle}_${sessionId.slice(0, 8)}.webm`;
+				const filepath = path.join(RECORDINGS_DIR, filename);
+				const fd = fs.openSync(filepath, 'w');
+				karaokeSession = { sessionId, song: parsed.song || {}, fd, filename, filepath, startTime: Date.now(), streamerWs: ws };
+				ws.isKaraokeStreamer = true;
+				logger.info(`카라오케 스트리밍 시작: ${filename}`);
+				// 시청자에게 곡 정보 + 세션 시작 알림
+				const startMsg = JSON.stringify({ type: 'karaoke-session-start', sessionId, song: parsed.song });
+				wss.clients.forEach(client => {
+					if (client.readyState === 1 && client.joinedRooms?.has('karaoke-viewer')) {
+						client.send(startMsg);
+					}
+				});
+				ws.send(JSON.stringify({ type: 'karaoke-start-ack', sessionId, filename }));
+				return;
+			}
+
+			/* ── 카라오케: 스트림 중지 ── */
+			if (parsed.type === 'karaoke-stop') {
+				if (karaokeSession && karaokeSession.fd !== null) {
+					try { fs.closeSync(karaokeSession.fd); } catch (e) { /* ignore */ }
+					const { filename, song, startTime } = karaokeSession;
+					const duration = Math.round((Date.now() - startTime) / 1000);
+					logger.info(`카라오케 스트리밍 종료: ${filename} (${duration}초)`);
+					const stopMsg = JSON.stringify({ type: 'karaoke-session-stop', filename, song, duration });
+					wss.clients.forEach(client => {
+						if (client.readyState === 1 && client.joinedRooms?.has('karaoke-viewer')) {
+							client.send(stopMsg);
+						}
+					});
+					karaokeSession = null;
 				}
 				return;
 			}
@@ -223,6 +295,15 @@ wss.on('connection', (ws) => {
 	});
 
 	ws.on('close', () => {
+		// 카라오케 스트리머가 끊어질 때 녹화 정리
+		if (ws.isKaraokeStreamer && karaokeSession && karaokeSession.streamerWs === ws) {
+			try { fs.closeSync(karaokeSession.fd); } catch (e) { /* ignore */ }
+			const stopMsg = JSON.stringify({ type: 'karaoke-session-stop', filename: karaokeSession.filename, song: karaokeSession.song, duration: Math.round((Date.now() - karaokeSession.startTime) / 1000) });
+			wss.clients.forEach(client => {
+				if (client.readyState === 1 && client.joinedRooms?.has('karaoke-viewer')) client.send(stopMsg);
+			});
+			karaokeSession = null;
+		}
 		// 끊어질 때, 참여 중이던 모든 게임 방에 퇴장 이벤트 전송
 		for (const room of ws.joinedRooms) {
 			const gameType = room.split('-')[0]; // e.g., 'ladder', 'roulette'
@@ -429,14 +510,26 @@ app.post("/api/cmd", (req, res) => {
 	if (!command) {
 		return res.status(400).json({ success: false, error: '명령어가 없습니다.' });
 	}
-
-	exec(command, (error, stdout, stderr) => {
-		if (error) {
-			return res.status(500).json({ success: false, error: error.message, output: stderr });
+	if (command == 'networkGameStart') {
+		if (serverInfo.backEndPlayer) {
+			return res.json({ success: false, output: '이미 네트워크 게임이 진행 중입니다.' });
 		}
-		// Windows cmd 환경에서 한글 깨짐 방지는 일단 그대로 반환
-		res.json({ success: true, output: stdout });
-	});
+		const { ngPlayers, ngProjectiles } = networkGameStart();
+		serverInfo.ngPlayers = ngPlayers;
+		serverInfo.ngProjectiles = ngProjectiles;
+		return res.json({ success: true, output: '네트워크 게임 시작 성공' });
+	} else if (command == 'serverInfo') {
+		console.log('server info=>', serverInfo)
+		return res.json({ success: true, output: JSON.stringify(serverInfo) });
+	} else {
+		exec(command, (error, stdout, stderr) => {
+			if (error) {
+				return res.status(500).json({ success: false, error: error.message, output: stderr });
+			}
+			// Windows cmd 환경에서 한글 깨짐 방지는 일단 그대로 반환
+			res.json({ success: true, output: stdout });
+		});
+	}
 });
 
 // 파일에 로그 저장하는 엔드포인트 (/log 명령어용)
@@ -1543,7 +1636,7 @@ app.use(errorMiddleware);
 (async () => {
 	try {
 		// console.log("Server is running on PORT: " + ENV.PORT);
-		await initializeDatabase();
+		// await initializeDatabase();
 		server.listen(ENV.PORT, () => {
 			logger.info(`Server (HTTP & WS) is running on PORT: ${ENV.PORT}`);
 		});
@@ -1706,6 +1799,326 @@ app.post("/api/zip/download-selected", express.json(), (req, res) => {
 		res.status(500).json({ error: err.message });
 	}
 });
+
+/* ==================== 카라오케 녹화 REST API ==================== */
+
+// 녹화 목록 조회
+app.get('/api/karaoke/recordings', (req, res) => {
+	try {
+		if (!fs.existsSync(RECORDINGS_DIR)) return res.json({ success: true, recordings: [] });
+		const files = fs.readdirSync(RECORDINGS_DIR)
+			.filter(f => f.endsWith('.webm'))
+			.map(f => {
+				const filepath = path.join(RECORDINGS_DIR, f);
+				const stat = fs.statSync(filepath);
+				return {
+					filename: f,
+					size: stat.size,
+					sizeKB: Math.round(stat.size / 1024),
+					createdAt: stat.birthtime,
+					modifiedAt: stat.mtime,
+				};
+			})
+			.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+		res.json({ success: true, recordings: files });
+	} catch (err) {
+		logger.error('녹화 목록 조회 실패', err);
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+// 녹화 파일 다운로드
+app.get('/api/karaoke/download/:filename', (req, res) => {
+	try {
+		const filename = path.basename(req.params.filename); // path traversal 방지
+		if (!filename.endsWith('.webm')) return res.status(400).json({ error: '잘못된 파일 형식입니다' });
+		const filepath = path.join(RECORDINGS_DIR, filename);
+		if (!fs.existsSync(filepath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다' });
+		res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+		res.setHeader('Content-Type', 'video/webm');
+		res.sendFile(filepath);
+	} catch (err) {
+		logger.error('녹화 다운로드 실패', err);
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+// 녹화 파일 삭제
+app.delete('/api/karaoke/recordings/:filename', (req, res) => {
+	try {
+		const filename = path.basename(req.params.filename);
+		if (!filename.endsWith('.webm')) return res.status(400).json({ error: '잘못된 파일 형식입니다' });
+		const filepath = path.join(RECORDINGS_DIR, filename);
+		if (!fs.existsSync(filepath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다' });
+		fs.unlinkSync(filepath);
+		res.json({ success: true, message: `${filename} 삭제 완료` });
+	} catch (err) {
+		logger.error('녹화 삭제 실패', err);
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+// 현재 스트리밍 상태 조회
+app.get('/api/karaoke/status', (req, res) => {
+	if (karaokeSession) {
+		res.json({
+			success: true,
+			streaming: true,
+			sessionId: karaokeSession.sessionId,
+			song: karaokeSession.song,
+			startTime: karaokeSession.startTime,
+			filename: karaokeSession.filename,
+		});
+	} else {
+		res.json({ success: true, streaming: false });
+	}
+});
+
+
+/* #################### network game start #################### */
+function networkGameStart() {
+	const ngPlayers = {}
+	const ngProjectiles = {}
+	const ngBombs = {}
+	const ioServer = http.createServer();
+	const io = new Server(ioServer, { cors: { origin: "*" }, pingInterval: 2000, pingTimeout: 5000 });
+	ioServer.listen(8082, () => { logger.info(`socket io server is running on port 8082`) });
+	const SPEED = 5
+	const RADIUS = 10
+	let PROJECTILE_RADIUS = 5
+	let projectileId = 0
+	let bombId = 0
+
+	io.on('connection', (socket) => {
+		console.log('a user connected')
+		io.emit('updatePlayers', ngPlayers)
+		socket.on('shoot', ({ x, y, angle }) => {
+			projectileId++
+			const velocity = {
+				x: Math.cos(angle) * 5,
+				y: Math.sin(angle) * 5
+			}
+			ngProjectiles[projectileId] = {
+				x,
+				y,
+				velocity,
+				playerId: socket.id
+			}
+		})
+
+		socket.on('dropBomb', ({ x, y }) => {
+			bombId++
+			const currentBombId = bombId
+			ngBombs[currentBombId] = {
+				x,
+				y,
+				playerId: socket.id,
+				timer: 2000
+			}
+
+			// Explosion logic
+			setTimeout(() => {
+				if (!ngBombs[currentBombId]) return
+
+				const bomb = ngBombs[currentBombId]
+				// Target all other players
+				for (const targetId in ngPlayers) {
+					if (targetId === bomb.playerId) continue
+
+					const target = ngPlayers[targetId]
+					const angle = Math.atan2(target.y - bomb.y, target.x - bomb.x)
+
+					projectileId++
+					ngProjectiles[projectileId] = {
+						x: bomb.x,
+						y: bomb.y,
+						velocity: {
+							x: Math.cos(angle) * 7, // Faster projectiles for bomb
+							y: Math.sin(angle) * 7
+						},
+						playerId: bomb.playerId
+					}
+				}
+
+				delete ngBombs[currentBombId]
+			}, 2000)
+		})
+
+		socket.on('initGame', ({ username, width, height, character }) => {
+			ngPlayers[socket.id] = {
+				x: 1024 * Math.random(),
+				y: 576 * Math.random(),
+				color: `hsl(${360 * Math.random()}, 100%, 50%)`,
+				sequenceNumber: 0,
+				score: 0,
+				username,
+				character: character || 'circle',
+				angle: 0
+			}
+
+			// where we init our canvas
+			ngPlayers[socket.id].canvas = {
+				width,
+				height
+			}
+
+			ngPlayers[socket.id].radius = RADIUS
+		})
+
+		socket.on('disconnect', (reason) => {
+			console.log(reason)
+			delete ngPlayers[socket.id]
+			io.emit('updatePlayers', ngPlayers)
+		})
+
+		socket.on('keydown', ({ keycode, sequenceNumber }) => {
+			const backEndPlayer = ngPlayers[socket.id]
+
+			if (!ngPlayers[socket.id]) return
+
+			ngPlayers[socket.id].sequenceNumber = sequenceNumber
+
+			let dx = 0
+			let dy = 0
+			switch (keycode) {
+				case 'KeyW':
+				case 'ArrowUp':
+					ngPlayers[socket.id].y -= SPEED
+					dy = -1
+					break
+
+				case 'KeyA':
+				case 'ArrowLeft':
+					ngPlayers[socket.id].x -= SPEED
+					dx = -1
+					break
+
+				case 'KeyS':
+				case 'ArrowDown':
+					ngPlayers[socket.id].y += SPEED
+					dy = 1
+					break
+
+				case 'KeyD':
+				case 'ArrowRight':
+					ngPlayers[socket.id].x += SPEED
+					dx = 1
+					break
+			}
+
+			// Update angle if moving
+			if (dx !== 0 || dy !== 0) {
+				ngPlayers[socket.id].angle = Math.atan2(dy, dx)
+			}
+
+			const playerSides = {
+				left: backEndPlayer.x - backEndPlayer.radius,
+				right: backEndPlayer.x + backEndPlayer.radius,
+				top: backEndPlayer.y - backEndPlayer.radius,
+				bottom: backEndPlayer.y + backEndPlayer.radius
+			}
+
+			if (playerSides.left < 0) ngPlayers[socket.id].x = backEndPlayer.radius
+
+			if (playerSides.right > 1024)
+				ngPlayers[socket.id].x = 1024 - backEndPlayer.radius
+
+			if (playerSides.top < 0) ngPlayers[socket.id].y = backEndPlayer.radius
+
+			if (playerSides.bottom > 576)
+				ngPlayers[socket.id].y = 576 - backEndPlayer.radius
+		})
+	})
+
+	// backend ticker
+	setInterval(() => {
+		// update projectile positions
+		for (const id in ngProjectiles) {
+			ngProjectiles[id].x += ngProjectiles[id].velocity.x
+			ngProjectiles[id].y += ngProjectiles[id].velocity.y
+
+			PROJECTILE_RADIUS = 5
+			if (
+				ngProjectiles[id].x - PROJECTILE_RADIUS >=
+				ngPlayers[ngProjectiles[id].playerId]?.canvas?.width ||
+				ngProjectiles[id].x + PROJECTILE_RADIUS <= 0 ||
+				ngProjectiles[id].y - PROJECTILE_RADIUS >=
+				ngPlayers[ngProjectiles[id].playerId]?.canvas?.height ||
+				ngProjectiles[id].y + PROJECTILE_RADIUS <= 0
+			) {
+				delete ngProjectiles[id]
+				continue
+			}
+
+			for (const playerId in ngPlayers) {
+				const backEndPlayer = ngPlayers[playerId]
+
+				const DISTANCE = Math.hypot(
+					ngProjectiles[id].x - backEndPlayer.x,
+					ngProjectiles[id].y - backEndPlayer.y
+				)
+
+				// collision detection
+				if (
+					DISTANCE < PROJECTILE_RADIUS + backEndPlayer.radius &&
+					ngProjectiles[id].playerId !== playerId
+				) {
+					if (ngPlayers[ngProjectiles[id].playerId])
+						ngPlayers[ngProjectiles[id].playerId].score++
+
+					console.log(ngPlayers[ngProjectiles[id].playerId])
+
+					// Identify the absolute winner (highest score) before person dies
+					const sortedPlayers = Object.values(ngPlayers).sort((a, b) => b.score - a.score);
+					const ranking = sortedPlayers.map(p => ({ username: p.username, score: p.score }));
+					const absoluteWinner = sortedPlayers[0]?.username || 'Unknown';
+
+					io.to(playerId).emit('gameOver', { winner: absoluteWinner, ranking });
+
+					delete ngProjectiles[id]
+					delete ngPlayers[playerId]
+					break
+				}
+			}
+		}
+
+		io.emit('updateProjectiles', ngProjectiles)
+		io.emit('updatePlayers', ngPlayers)
+		io.emit('updateBombs', ngBombs)
+
+		// player-to-player collision detection
+		const playerIds = Object.keys(ngPlayers)
+		for (let i = 0; i < playerIds.length; i++) {
+			for (let j = i + 1; j < playerIds.length; j++) {
+				const idA = playerIds[i]
+				const idB = playerIds[j]
+				const playerA = ngPlayers[idA]
+				const playerB = ngPlayers[idB]
+
+				const distance = Math.hypot(playerA.x - playerB.x, playerA.y - playerB.y)
+				if (distance < playerA.radius + playerB.radius) {
+					// Both players die. Get rankings first.
+					const sortedPlayers = Object.values(ngPlayers).sort((a, b) => b.score - a.score);
+					const ranking = sortedPlayers.map(p => ({ username: p.username, score: p.score }));
+					const absoluteWinner = sortedPlayers[0]?.username || 'Unknown';
+
+					io.to(idA).emit('gameOver', { winner: absoluteWinner, ranking });
+					io.to(idB).emit('gameOver', { winner: absoluteWinner, ranking });
+
+					delete ngPlayers[idA]
+					delete ngPlayers[idB]
+
+					// Since they are deleted, break the inner loop and re-check outer? 
+					// Actually, deleting them mid-loop is fine as long as we break or handle it.
+					// Breaking the inner loop and proceeding to next i is safer if i+1 is still valid.
+					break
+				}
+			}
+		}
+	}, 15)
+
+	return { ngPlayers, ngProjectiles, ngBombs }
+}
 
 // 미처리 예외 → 로그 파일 기록
 process.on("uncaughtException", (err) => logger.error("Uncaught Exception", { stack: err.stack }));

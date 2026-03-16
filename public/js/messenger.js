@@ -403,7 +403,7 @@ function appendMessageBubble(data) {
 		</div>`;
 	el.innerHTML = `
 		${isMine ? iconHtml : `<div style="display: flex; align-items: center; margin-bottom: 4px;">${avatarHtml} ${iconHtml}</div>`}
-		<div style="display:flex; flex-direction:column; max-width:85%; min-width:100px;">			
+		<div style="display:flex; flex-direction:column; min-width:100px;">			
 			${contentHtml}
 			<div class="meta" style="justify-content:${isMine ? 'flex-end' : 'flex-start'}; gap:4px; margin-top:2px;">
 				<span>${time}</span>
@@ -474,8 +474,8 @@ function sendMessage() {
 	if (text.startsWith('/')) {
 		const parts = text.split(' ');
 		const cmd = parts[0];
+		const param = parts[1];
 		const args = parts.slice(1).join(' ');
-
 		if (cmd === '/avatar') {
 			const url = args.trim();
 			fetch(backendOrigin + '/api/user/avatar', {
@@ -603,6 +603,17 @@ function sendMessage() {
 			inputEl.style.height = '40px';
 			inputEl.focus();
 			return;
+		}
+		if (cmd === '/go') {
+			if (param == 'ai') {
+				openSubpage('/go-ai.html?opener=messenger&user='+userInfo.username)
+			}
+			if (param == 'baduk') {
+				openSubpage('/go-ai.html?opener=messenger&user='+userInfo.username)
+			}
+			if (param == 'game') {
+				openSubpage('/multiplayer-game/index.html?opener=messenger&user='+userInfo.username)
+			}
 		}
 
 		if (cmd === '/cmd') {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 
 <head>
@@ -30,6 +30,9 @@
 					<button class="nav-tab" id="category-selector-btn">🎵 카테고리</button>
 					<button class="nav-tab" onclick="location.href='color-table.html'">색상 테이블</button>
 					<button class="nav-tab" onclick="location.href='theme-selector.html'">테마 선택</button>
+					<button class="nav-tab" onclick="KaraokeStreamerUI.togglePanel()"
+						style="background:linear-gradient(135deg,#ff4757,#c0392b);color:#fff;font-weight:700;">
+						스트리밍</button>
 				</nav>
 			</div>
 		</header>
@@ -188,12 +191,133 @@
 		</div>
 	</div>
 
+	<!-- 🎥 카라오케 스트리밍 패널 -->
+	<div id="karaoke-panel"
+		style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; overflow-y:auto;">
+		<div
+			style="max-width:860px; margin:2rem auto; background:var(--color-surface,#1a1a2e); border-radius:1.5rem; padding:2rem; color:var(--color-text,#eee); box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+
+			<!-- 헤더 -->
+			<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+				<div>
+					<h2 style="margin:0; font-size:1.5rem;">🎤 노래방 스트리밍</h2>
+					<p style="margin:0.3rem 0 0; font-size:0.85rem; opacity:0.6;">영상을 실시간으로 노래방 화면에 전송합니다</p>
+				</div>
+				<button onclick="KaraokeStreamerUI.togglePanel()"
+					style="background:transparent; border:none; color:#fff; font-size:1.8rem; cursor:pointer; line-height:1;">×</button>
+			</div>
+
+			<!-- 선택된 곡 표시 -->
+			<div id="karaoke-selected-song"
+				style="background:rgba(255,255,255,0.07); border-radius:0.8rem; padding:1rem 1.2rem; margin-bottom:1.2rem; display:none;">
+				<div style="font-size:0.75rem; opacity:0.6; margin-bottom:0.3rem;">현재 선곡</div>
+				<div id="karaoke-song-title" style="font-size:1.1rem; font-weight:700;"></div>
+				<div id="karaoke-song-artist" style="font-size:0.9rem; opacity:0.7;"></div>
+			</div>
+
+			<!-- 웹캠 미리보기 -->
+			<div
+				style="position:relative; border-radius:1rem; overflow:hidden; background:#000; margin-bottom:1.2rem; aspect-ratio:16/9;">
+				<video id="karaoke-preview" autoplay muted playsinline
+					style="width:100%; height:100%; object-fit:cover;"></video>
+				<div id="karaoke-status-dot" class="status-dot offline"
+					style="position:absolute; top:0.8rem; left:0.8rem; width:12px; height:12px; border-radius:50%; background:#666;">
+				</div>
+				<div id="karaoke-status-text"
+					style="position:absolute; top:0.6rem; left:1.8rem; font-size:0.8rem; font-weight:700; color:#fff; text-shadow:0 1px 4px #000;">
+					⚫ 대기 중</div>
+			</div>
+
+			<!-- 컨트롤 버튼 -->
+			<div style="display:flex; gap:0.8rem; margin-bottom:1.2rem;">
+				<button id="karaoke-stream-start-btn" onclick="KaraokeStreamerUI.startStream()"
+					style="flex:1; padding:0.9rem; border:none; border-radius:0.8rem; background:linear-gradient(135deg,#2ecc71,#27ae60); color:#fff; font-size:1rem; font-weight:700; cursor:pointer;">
+					▶ 스트리밍 시작
+				</button>
+				<button id="karaoke-stream-stop-btn" disabled onclick="KaraokeStreamerUI.stopStream()"
+					style="flex:1; padding:0.9rem; border:none; border-radius:0.8rem; background:linear-gradient(135deg,#e74c3c,#c0392b); color:#fff; font-size:1rem; font-weight:700; cursor:pointer; opacity:0.5;">
+					■ 스트리밍 중지
+				</button>
+			</div>
+
+			<!-- 안내 링크 -->
+			<div style="text-align:center; margin-bottom:1rem;">
+				<a href="/karaoke.html" target="_blank" style="color:#74b9ff; font-size:0.9rem; text-decoration:none;"
+					title="노래방 수신 화면 새 탭으로 열기">
+					📺 노래방 수신 화면 열기 →
+				</a>
+			</div>
+
+			<!-- 로그 -->
+			<div
+				style="background:rgba(0,0,0,0.4); border-radius:0.6rem; padding:0.8rem; max-height:120px; overflow-y:auto;">
+				<div style="font-size:0.7rem; opacity:0.5; margin-bottom:0.4rem;">로그</div>
+				<div id="karaoke-log" style="font-size:0.78rem; font-family:monospace; color:#aaa;"></div>
+			</div>
+
+		</div>
+	</div>
+
+	<!-- CSS for live dot animation -->
+	<style>
+		.status-dot.live {
+			background: #e74c3c !important;
+			animation: blink 1s infinite;
+		}
+
+		.status-dot.offline {
+			background: #555 !important;
+		}
+
+		@keyframes blink {
+
+			0%,
+			100% {
+				opacity: 1
+			}
+
+			50% {
+				opacity: 0.3
+			}
+		}
+
+		#karaoke-stream-stop-btn:not(:disabled) {
+			opacity: 1 !important;
+		}
+	</style>
+
 	<!-- Scripts -->
 	<script src="./js/songs.js"></script>
 	<script src="./js/cart.js"></script>
 	<script src="./js/settings.js"></script>
 	<script src="./js/category-selector.js"></script>
 	<script src="./js/app.js"></script>
+	<script src="./js/karaoke-streamer.js"></script>
+	<script>
+		// KaraokeStreamerUI - 패널 및 스트리밍 UI 제어
+		const KaraokeStreamerUI = {
+			togglePanel() {
+				const panel = document.getElementById('karaoke-panel');
+				panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+				showView('selection')
+			},
+			startStream() {
+				// 현재 선택된 곡 가져오기 (CartManager 마지막 항목 또는 null)
+				const items = typeof CartManager !== 'undefined' ? CartManager.getCartItems() : [];
+				const song = items.length > 0 ? items[items.length - 1] : null;
+				// 선곡 정보 UI 업데이트
+				if (song) {
+					document.getElementById('karaoke-selected-song').style.display = 'block';
+					document.getElementById('karaoke-song-title').textContent = song.title;
+					document.getElementById('karaoke-song-artist').textContent = song.artist;
+				}
+				KaraokeStreamer.startStreaming(song);
+			},
+			stopStream() {
+				KaraokeStreamer.stopStreaming();
+			}
+		};
+	</script>
 </body>
 
 </html>

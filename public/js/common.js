@@ -21,8 +21,8 @@ const getJq = el => isEl(el) ? $(el) :
 	jqCheck(el) ? el :
 		typeof el == 'string' ? (('#' == el.charAt(0) || el.indexOf('.') != -1) ? $(el) : $(document.getElementById(el))) : null;
 
-Object.prototype.update = function (...args) { return Object.assign(this, ...args) }
-Object.prototype.copy = function (...args) { return Object.assign({}, this, ...args) }
+// Object.prototype.update = function (...args) { return Object.assign(this, ...args) }
+// Object.prototype.copy = function (...args) { return Object.assign({}, this, ...args) }
 Object.prototype.isset = function (name) { return this.hasOwnProperty(name) }
 Object.prototype.cmp = function (name, value) { return this.isset(name) && this[name] === value }
 
@@ -45,6 +45,16 @@ String.prototype.trim = function() { return this.replace(/^\s+|\s+$/g,"") }
 String.prototype.ltrim = function() { return this.replace(/^\s+/,"") }
 String.prototype.rtrim = function() { return this.replace(/\s+$/,"") }
 */
+function checkMessenger() {
+	const urlParams = new URLSearchParams(window.location.search);
+	const target = urlParams.get('opener');
+	if (target == 'messenger') {
+		const div = $('<div style="display:flex;position:absolute;right:8px;bottom:8px;width:80px;background:#aaa;"/>').appendTo(document.body)
+		const btn = $('<button style="width:80px;height:24px;">메신저</button>').appendTo(div)
+		btn.on('click', () => parent.closeSubpage())
+		console.log('btn=>', btn)
+	}
+}
 function getByteLength(s) {
 	if (s != undefined && s != "") {
 		for (b = i = 0; c = s.charCodeAt(i++); b += c >> 11 ? 3 : c >> 7 ? 2 : 1);
@@ -61,12 +71,6 @@ function getRandomColor() {
 		color += letters[Math.floor(Math.random() * 16)];
 	}
 	return color;
-}
-function getElRect(el) {
-	const target = getEl(el)
-	if (target) {
-		return target.getBoundingClientRect()
-	}
 }
 const setScrollTop = (parent, target) => {
 	const a = getJq(parent), b = getJq(target)
@@ -103,10 +107,6 @@ const getElOffset = (el, checkRect) => {
 
 const screenSize = () => ({ width: $(window).width(), height: $(window).height() })
 
-const getLocalId = (prefix, arr) => {
-	const idx = arr.length + ''
-	return prefix + '_' + idx.lpad(2, '0')
-}
 const loadCss = (src) => {
 	var link = document.createElement("link");
 	link.href = src;

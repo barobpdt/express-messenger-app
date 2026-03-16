@@ -17,6 +17,8 @@ let categories = [];
 let menus = [];
 let cart = [];
 let currentCategoryId = null;
+let currentTheme = localStorage.getItem('order-theme') || 'warm';
+let currentCartMode = localStorage.getItem('order-cart-mode') || 'sidebar';
 
 // Mock Table ID for now (In real life, this comes from a setup screen or URL param)
 const urlParams = new URLSearchParams(window.location.search);
@@ -41,6 +43,10 @@ async function init() {
 
     // 4. Idle 시뮬레이션용 스크린세이버 시작 (Phase 5)
     initScreensaver();
+
+    // 5. Apply saved theme and cart mode
+    setTheme(currentTheme, false);
+    setCartMode(currentCartMode, false);
 }
 
 // ── 달콤한 UI 렌더링 로직 (Categories & Menus) ── 
@@ -62,9 +68,24 @@ function renderCategories() {
 }
 
 function selectCategory(id) {
-    currentCategoryId = id;
-    renderCategories();
-    renderMenus();
+    // 애니메이션 효과 적용을 위해 그리드에 클래스 추가
+    const gridEl = document.getElementById('menu-grid');
+    gridEl.classList.remove('anim-slide-in', 'anim-scale-fade');
+    
+    // 전체메뉴(null)는 scale-fade, 나머지는 slide-in
+    const animClass = id === null ? 'anim-scale-fade' : 'anim-slide-in';
+    
+    // 약간의 딜레이 후 아바타 렌더링 및 애니메이션 트리거
+    gridEl.style.opacity = '0';
+    
+    setTimeout(() => {
+        currentCategoryId = id;
+        renderCategories();
+        renderMenus();
+        
+        gridEl.classList.add(animClass);
+        gridEl.style.opacity = '1';
+    }, 50);
 
     // UI 업데이트 (현재 선택된 카테고리 헤더)
     const headerTitle = id === null ? "🔥 전체메뉴" : categories.find(c => c.id === id)?.name || "메뉴";
@@ -77,7 +98,7 @@ function renderMenus() {
     // Filter menus based on selected category
     const filteredMenus = currentCategoryId === null
         ? menus
-        : menus.filter(m => m.category_id === currentCategoryId);
+        : menus.filter(m => m.categoryId === currentCategoryId);
 
     if (filteredMenus.length === 0) {
         gridEl.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 50px; color: var(--text-muted);">
@@ -136,8 +157,15 @@ function addToCart(id, name, price) {
 
     // 시각적 피드백 (주문 패널 살짝 흔들기)
     const panel = document.querySelector('.cart-panel');
-    panel.style.transform = 'scale(1.02)';
-    setTimeout(() => panel.style.transform = 'scale(1)', 150);
+    panel.style.transform = (currentCartMode === 'sidebar') ? 'scale(1.02)' : 'translateY(0) scale(1.02)';
+    setTimeout(() => {
+        panel.style.transform = (currentCartMode === 'sidebar') ? 'scale(1)' : 'translateY(0) scale(1)';
+    }, 150);
+
+    // 플로팅 버튼 애니메이션
+    const floatBtn = document.querySelector('.floating-cart-btn');
+    floatBtn.style.transform = 'scale(1.2)';
+    setTimeout(() => floatBtn.style.transform = 'scale(1)', 200);
 }
 
 function updateCartUI() {
@@ -185,6 +213,47 @@ function updateCartUI() {
 
     // 스크롤 맨 아래로
     itemsEl.scrollTop = itemsEl.scrollHeight;
+
+    // Badge update
+    document.getElementById('floating-cart-count').innerText = cart.reduce((sum, c) => sum + c.qty, 0);
+}
+
+function setTheme(theme, save = true) {
+    document.body.classList.remove('theme-warm', 'theme-cool', 'theme-emerald', 'theme-rose');
+    document.body.classList.add(`theme-${theme}`);
+    currentTheme = theme;
+    if (save) localStorage.setItem('order-theme', theme);
+}
+
+function setCartMode(mode, save = true) {
+    document.body.classList.remove('cart-mode-sidebar', 'cart-mode-popup');
+    document.body.classList.add(`cart-mode-${mode}`);
+    
+    // Toggle active state on buttons
+    document.getElementById('mode-sidebar').classList.toggle('active', mode === 'sidebar');
+    document.getElementById('mode-popup').classList.toggle('active', mode === 'popup');
+    
+    currentCartMode = mode;
+    if (save) localStorage.setItem('order-cart-mode', mode);
+
+    // If sidebar mode, ensure panel is visible, otherwise handle popup state
+    const panel = document.querySelector('.cart-panel');
+    if (mode === 'sidebar') {
+        panel.classList.remove('open');
+        panel.style.transform = '';
+    } else {
+        panel.style.transform = 'translateY(120%)';
+    }
+}
+
+function togglePopupCart() {
+    const panel = document.querySelector('.cart-panel');
+    const isOpen = panel.classList.toggle('open');
+    if (isOpen) {
+        panel.style.transform = 'translateY(0)';
+    } else {
+        panel.style.transform = 'translateY(120%)';
+    }
 }
 
 function changeQty(index, delta) {
@@ -392,7 +461,7 @@ function initWebSocket() {
 
 // ── 타이머 / 스크린세이버 (Phase 5) ──
 let idleTimer = null;
-const IDLE_TIMEOUT = 1000 * 30; // 30초 테스트용 (실제 배포 시 60~120초 권장)
+const IDLE_TIMEOUT = 1000 * 60 * 5; // 5분으로 변경 (인증 편의를 위해)
 
 function initScreensaver() {
     const events = ['touchstart', 'click', 'mousemove', 'scroll', 'keypress'];

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>🎤 노래방 화면</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+
+		body {
+			font-family: 'Noto Sans KR', sans-serif;
+			background: #0a0a14;
+			color: #eee;
+			min-height: 100vh;
+			overflow-x: hidden;
+		}
+
+		/* ── 헤더 ── */
+		.header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 1rem 1.5rem;
+			background: linear-gradient(90deg, #1a1a2e, #16213e);
+			border-bottom: 1px solid rgba(255,255,255,0.08);
+			position: sticky;
+			top: 0;
+			z-index: 100;
+		}
+		.header-title { font-size: 1.3rem; font-weight: 900; letter-spacing: -0.5px; }
+		.header-title span { color: #e74c3c; }
+
+		.live-badge {
+			display: flex; align-items: center; gap: 0.5rem;
+			background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4);
+			padding: 0.3rem 0.8rem; border-radius: 2rem;
+			font-size: 0.8rem; font-weight: 700; color: #e74c3c;
+		}
+		.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #e74c3c; animation: blink 1s infinite; }
+		@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+		/* ── 메인 레이아웃 ── */
+		.main {
+			display: grid;
+			grid-template-columns: 1fr 320px;
+			gap: 0;
+			height: calc(100vh - 65px);
+		}
+		@media (max-width: 900px) {
+			.main { grid-template-columns: 1fr; height: auto; }
+			.sidebar { max-height: 50vh; overflow-y: auto; }
+		}
+
+		/* ── 영상 영역 ── */
+		.video-area {
+			position: relative;
+			background: #000;
+			display: flex;
+			flex-direction: column;
+		}
+		#stream-video {
+			width: 100%;
+			flex: 1;
+			object-fit: contain;
+			display: block;
+		}
+
+		/* 오버레이: 곡 정보 */
+		.song-overlay {
+			position: absolute;
+			bottom: 0; left: 0; right: 0;
+			padding: 1.5rem 2rem;
+			background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+		}
+		.song-overlay .song-number { font-size: 0.8rem; color: #f39c12; margin-bottom: 0.3rem; }
+		.song-overlay .song-title { font-size: 1.6rem; font-weight: 900; text-shadow: 0 2px 8px #000; }
+		.song-overlay .song-artist { font-size: 1rem; opacity: 0.75; margin-top: 0.3rem; }
+
+		/* 대기 화면 */
+		.waiting-screen {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			background: radial-gradient(ellipse at center, #1a1a3e 0%, #0a0a18 100%);
+		}
+		.waiting-screen .mic-icon { font-size: 5rem; animation: pulse 2s infinite; margin-bottom: 1.5rem; }
+		.waiting-screen h2 { font-size: 1.4rem; opacity: 0.6; font-weight: 400; }
+		@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+		.buffering {
+			position: absolute;
+			top: 50%; left: 50%;
+			transform: translate(-50%,-50%);
+			display: none;
+			flex-direction: column;
+			align-items: center;
+			gap: 0.8rem;
+		}
+		.buffering.show { display: flex; }
+		.spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #e74c3c; border-radius: 50%; animation: spin 0.8s linear infinite; }
+		@keyframes spin { to{transform: rotate(360deg)} }
+
+		/* ── 사이드바 ── */
+		.sidebar {
+			background: #121220;
+			border-left: 1px solid rgba(255,255,255,0.06);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
+		.sidebar-tabs {
+			display: flex;
+			border-bottom: 1px solid rgba(255,255,255,0.06);
+		}
+		.sidebar-tab {
+			flex: 1; padding: 0.9rem; border: none; background: transparent;
+			color: rgba(255,255,255,0.5); font-size: 0.85rem; cursor: pointer;
+			font-family: inherit; transition: all 0.2s;
+			border-bottom: 2px solid transparent;
+		}
+		.sidebar-tab.active { color: #fff; border-bottom-color: #e74c3c; }
+		.sidebar-content { flex: 1; overflow-y: auto; padding: 1rem; }
+
+		/* 탭 패널 */
+		.tab-panel { display: none; }
+		.tab-panel.active { display: block; }
+
+		/* 녹화 목록 */
+		.recordings-header {
+			display: flex; justify-content: space-between; align-items: center;
+			margin-bottom: 0.8rem;
+		}
+		.recordings-title { font-size: 0.85rem; font-weight: 700; opacity: 0.7; }
+		.refresh-btn {
+			padding: 0.3rem 0.7rem; border: 1px solid rgba(255,255,255,0.2);
+			background: transparent; color: #ccc; border-radius: 0.4rem;
+			font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+		}
+		.refresh-btn:hover { background: rgba(255,255,255,0.1); }
+
+		.recording-item {
+			background: rgba(255,255,255,0.04);
+			border: 1px solid rgba(255,255,255,0.06);
+			border-radius: 0.7rem;
+			padding: 0.8rem;
+			margin-bottom: 0.6rem;
+			transition: background 0.2s;
+		}
+		.recording-item:hover { background: rgba(255,255,255,0.07); }
+		.recording-filename {
+			font-size: 0.78rem; word-break: break-all; opacity: 0.8;
+			margin-bottom: 0.5rem; line-height: 1.4;
+		}
+		.recording-meta { font-size: 0.72rem; opacity: 0.45; margin-bottom: 0.6rem; }
+		.recording-actions { display: flex; gap: 0.4rem; }
+		.btn-download, .btn-delete {
+			flex: 1; padding: 0.45rem; border: none; border-radius: 0.5rem;
+			font-size: 0.78rem; font-weight: 600; cursor: pointer;
+			font-family: inherit; transition: opacity 0.2s;
+		}
+		.btn-download { background: linear-gradient(135deg,#2980b9,#1a5276); color: #fff; }
+		.btn-delete { background: rgba(231,76,60,0.2); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+		.btn-download:hover, .btn-delete:hover { opacity: 0.8; }
+
+		.empty-state { text-align: center; padding: 2rem 1rem; opacity: 0.4; }
+		.empty-state p { font-size: 0.85rem; line-height: 1.6; }
+
+		/* 현재 재생 정보 탭 */
+		.now-playing-card {
+			background: linear-gradient(135deg, rgba(231,76,60,0.15), rgba(192,57,43,0.05));
+			border: 1px solid rgba(231,76,60,0.2);
+			border-radius: 0.8rem;
+			padding: 1.2rem;
+			margin-bottom: 1rem;
+		}
+		.np-label { font-size: 0.7rem; color: #e74c3c; font-weight: 700; letter-spacing: 1px; margin-bottom: 0.6rem; }
+		.np-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; }
+		.np-artist { font-size: 0.85rem; opacity: 0.6; }
+		.np-no-song { opacity: 0.4; font-size: 0.85rem; text-align: center; padding: 1rem; }
+
+		.elapsed {
+			background: rgba(255,255,255,0.04);
+			border-radius: 0.6rem;
+			padding: 0.8rem;
+			text-align: center;
+			margin-bottom: 1rem;
+		}
+		.elapsed-label { font-size: 0.72rem; opacity: 0.5; margin-bottom: 0.3rem; }
+		.elapsed-time { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+	</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<header class="header">
+	<div class="header-title">🎤 노래방 <span>LIVE</span></div>
+	<div id="live-badge" class="live-badge" style="display:none;">
+		<div class="live-dot"></div> LIVE
+	</div>
+</header>
+
+<!-- 메인 -->
+<div class="main">
+
+	<!-- 영상 영역 -->
+	<div class="video-area">
+		<!-- 대기 화면 -->
+		<div class="waiting-screen" id="waiting-screen">
+			<div class="mic-icon">🎤</div>
+			<h2>스트리밍 대기 중...</h2>
+		</div>
+
+		<!-- 스트림 영상 -->
+		<video id="stream-video" autoplay playsinline style="display:none;"></video>
+
+		<!-- 버퍼링 스피너 -->
+		<div class="buffering" id="buffering">
+			<div class="spinner"></div>
+			<span style="font-size:0.85rem;opacity:0.6;">버퍼링 중...</span>
+		</div>
+
+		<!-- 곡 정보 오버레이 -->
+		<div class="song-overlay" id="song-overlay" style="display:none;">
+			<div class="song-number" id="ov-number"></div>
+			<div class="song-title" id="ov-title"></div>
+			<div class="song-artist" id="ov-artist"></div>
+		</div>
+	</div>
+
+	<!-- 사이드바 -->
+	<aside class="sidebar">
+		<div class="sidebar-tabs">
+			<button class="sidebar-tab active" onclick="switchTab('now')">🎵 현재곡</button>
+			<button class="sidebar-tab" onclick="switchTab('recordings')">📂 녹화목록</button>
+		</div>
+		<div class="sidebar-content">
+
+			<!-- 현재 재생 탭 -->
+			<div id="tab-now" class="tab-panel active">
+				<div id="now-playing-content" class="np-no-song">대기 중입니다</div>
+
+				<div class="elapsed" style="display:none;" id="elapsed-box">
+					<div class="elapsed-label">재생 경과</div>
+					<div class="elapsed-time" id="elapsed-time">00:00</div>
+				</div>
+			</div>
+
+			<!-- 녹화 목록 탭 -->
+			<div id="tab-recordings" class="tab-panel">
+				<div class="recordings-header">
+					<span class="recordings-title">저장된 녹화</span>
+					<button class="refresh-btn" onclick="loadRecordings()">↻ 새로고침</button>
+				</div>
+				<div id="recordings-list">
+					<div class="empty-state"><p>녹화 파일을 불러오는 중...</p></div>
+				</div>
+			</div>
+
+		</div>
+	</aside>
+
+</div>
+
+<script>
+/* ── 상태 ── */
+let ws = null;
+let mediaSource = null;
+let sourceBuffer = null;
+let bufferQueue = [];
+let bufferBusy = false;
+let currentSong = null;
+let sessionStart = null;
+let elapsedTimer = null;
+
+/* ── WebSocket 연결 ── */
+function connectWS() {
+	const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+	ws = new WebSocket(`${proto}://${location.host}`);
+	ws.binaryType = 'blob';
+
+	ws.onopen = () => {
+		console.log('[Viewer] WS connected');
+		// karaoke-viewer 방에 합류 (binary 수신 대상이 됨)
+		ws.send(JSON.stringify({ type: 'sys-join', room: 'karaoke-viewer' }));
+		// 이미 스트리밍 중인지 서버에 물어보기
+		checkStreamStatus();
+	};
+
+	ws.onmessage = (event) => {
+		if (event.data instanceof Blob) {
+			onBinaryChunk(event.data);
+			return;
+		}
+		try {
+			const msg = JSON.parse(event.data);
+			if (msg.type === 'karaoke-session-start') onSessionStart(msg);
+			if (msg.type === 'karaoke-session-stop') onSessionStop(msg);
+		} catch (e) { /* ignore */ }
+	};
+
+	ws.onclose = () => {
+		console.log('[Viewer] WS closed, reconnecting in 3s...');
+		setTimeout(connectWS, 3000);
+	};
+	ws.onerror = () => ws.close();
+}
+
+/* ── 서버에 현재 스트리밍 상태 확인 ── */
+async function checkStreamStatus() {
+	try {
+		const res = await fetch('/api/karaoke/status');
+		const data = await res.json();
+		if (data.streaming) {
+			// 이미 스트리밍 중이면 MediaSource 준비 (mid-stream join)
+			onSessionStart({ song: data.song, sessionId: data.sessionId });
+		}
+	} catch (e) { /* ignore */ }
+}
+
+/* ── MediaSource 초기화 ── */
+function initMediaSource() {
+	const video = document.getElementById('stream-video');
+
+	mediaSource = new MediaSource();
+	video.src = URL.createObjectURL(mediaSource);
+
+	mediaSource.addEventListener('sourceopen', () => {
+		const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+			.find(m => MediaSource.isTypeSupported(m)) || 'video/webm';
+		try {
+			sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+			sourceBuffer.mode = 'sequence';
+			sourceBuffer.addEventListener('updateend', flushQueue);
+		} catch (e) {
+			console.error('[Viewer] addSourceBuffer failed:', e);
+		}
+	});
+
+	video.style.display = 'block';
+	document.getElementById('waiting-screen').style.display = 'none';
+	document.getElementById('buffering').classList.add('show');
+
+	video.onplaying = () => {
+		document.getElementById('buffering').classList.remove('show');
+	};
+	video.onwaiting = () => {
+		document.getElementById('buffering').classList.add('show');
+	};
+}
+
+/* ── 청크 큐 처리 ── */
+function onBinaryChunk(blob) {
+	blob.arrayBuffer().then(buf => {
+		bufferQueue.push(buf);
+		flushQueue();
+	});
+}
+
+function flushQueue() {
+	if (bufferBusy || !sourceBuffer || sourceBuffer.updating || bufferQueue.length === 0) return;
+	bufferBusy = true;
+	const buf = bufferQueue.shift();
+	try {
+		sourceBuffer.appendBuffer(buf);
+	} catch (e) {
+		console.warn('[Viewer] appendBuffer error:', e.message);
+		bufferQueue = []; // 에러 시 큐 초기화
+	}
+	bufferBusy = false;
+}
+
+/* ── 세션 시작 ── */
+function onSessionStart(msg) {
+	currentSong = msg.song || {};
+	sessionStart = Date.now();
+
+	// MediaSource 초기화 (새 세션마다 새로 생성)
+	if (mediaSource && mediaSource.readyState === 'open') {
+		try { mediaSource.endOfStream(); } catch(e) {}
+	}
+	bufferQueue = [];
+	bufferBusy = false;
+	sourceBuffer = null;
+	initMediaSource();
+
+	// UI 업데이트
+	document.getElementById('live-badge').style.display = 'flex';
+	updateSongOverlay(currentSong);
+	updateNowPlaying(currentSong);
+	startElapsedTimer();
+}
+
+/* ── 세션 종료 ── */
+function onSessionStop(msg) {
+	document.getElementById('live-badge').style.display = 'none';
+	document.getElementById('song-overlay').style.display = 'none';
+	stopElapsedTimer();
+
+	// MediaSource 닫기
+	try {
+		if (mediaSource && mediaSource.readyState === 'open') {
+			mediaSource.endOfStream();
+		}
+	} catch (e) {}
+
+	// 대기 화면으로 복귀
+	setTimeout(() => {
+		const video = document.getElementById('stream-video');
+		video.style.display = 'none';
+		video.src = '';
+		document.getElementById('waiting-screen').style.display = 'flex';
+	}, 1500);
+
+	// 녹화 목록 자동 갱신
+	loadRecordings();
+
+	// 현재곡 UI 초기화
+	document.getElementById('now-playing-content').innerHTML = '<div class="np-no-song">대기 중입니다</div>';
+	document.getElementById('elapsed-box').style.display = 'none';
+}
+
+/* ── 곡 정보 오버레이 ── */
+function updateSongOverlay(song) {
+	const overlay = document.getElementById('song-overlay');
+	if (!song || (!song.title && !song.artist)) {
+		overlay.style.display = 'none';
+		return;
+	}
+	overlay.style.display = 'block';
+	document.getElementById('ov-number').textContent = song.number ? `#${song.number}` : '';
+	document.getElementById('ov-title').textContent = song.title || '';
+	document.getElementById('ov-artist').textContent = song.artist || '';
+}
+
+/* ── 현재곡 사이드바 ── */
+function updateNowPlaying(song) {
+	const el = document.getElementById('now-playing-content');
+	if (!song || !song.title) {
+		el.innerHTML = '<div class="np-no-song">대기 중입니다</div>';
+		return;
+	}
+	el.innerHTML = `
+		<div class="now-playing-card">
+			<div class="np-label">🔴 NOW PLAYING</div>
+			<div class="np-title">${song.title}</div>
+			<div class="np-artist">${song.artist || ''}</div>
+		</div>`;
+	document.getElementById('elapsed-box').style.display = 'block';
+}
+
+/* ── 경과 시간 타이머 ── */
+function startElapsedTimer() {
+	stopElapsedTimer();
+	elapsedTimer = setInterval(() => {
+		if (!sessionStart) return;
+		const sec = Math.floor((Date.now() - sessionStart) / 1000);
+		const m = String(Math.floor(sec / 60)).padStart(2, '0');
+		const s = String(sec % 60).padStart(2, '0');
+		document.getElementById('elapsed-time').textContent = `${m}:${s}`;
+	}, 1000);
+}
+function stopElapsedTimer() {
+	clearInterval(elapsedTimer);
+	elapsedTimer = null;
+}
+
+/* ── 탭 전환 ── */
+function switchTab(name) {
+	document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+	document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+	document.getElementById(`tab-${name}`).classList.add('active');
+	event.target.classList.add('active');
+	if (name === 'recordings') loadRecordings();
+}
+
+/* ── 녹화 목록 로드 ── */
+async function loadRecordings() {
+	const list = document.getElementById('recordings-list');
+	list.innerHTML = '<div class="empty-state"><p>불러오는 중...</p></div>';
+	try {
+		const res = await fetch('/api/karaoke/recordings');
+		const data = await res.json();
+		if (!data.recordings || data.recordings.length === 0) {
+			list.innerHTML = '<div class="empty-state"><p>저장된 녹화가 없습니다</p></div>';
+			return;
+		}
+		list.innerHTML = data.recordings.map(r => {
+			const date = new Date(r.createdAt).toLocaleString('ko-KR');
+			const sizeMB = r.size > 1024*1024 ? `${(r.size/1024/1024).toFixed(1)} MB` : `${r.sizeKB} KB`;
+			return `
+				<div class="recording-item">
+					<div class="recording-filename">${r.filename}</div>
+					<div class="recording-meta">${date} · ${sizeMB}</div>
+					<div class="recording-actions">
+						<button class="btn-download" onclick="downloadRecording('${r.filename}')">⬇ 다운로드</button>
+						<button class="btn-delete" onclick="deleteRecording('${r.filename}', this)">🗑 삭제</button>
+					</div>
+				</div>`;
+		}).join('');
+	} catch (e) {
+		list.innerHTML = `<div class="empty-state"><p>오류: ${e.message}</p></div>`;
+	}
+}
+
+/* ── 다운로드 ── */
+function downloadRecording(filename) {
+	const a = document.createElement('a');
+	a.href = `/api/karaoke/download/${encodeURIComponent(filename)}`;
+	a.download = filename;
+	a.click();
+}
+
+/* ── 삭제 ── */
+async function deleteRecording(filename, btn) {
+	if (!confirm(`"${filename}" 을(를) 삭제하시겠습니까?`)) return;
+	btn.disabled = true;
+	btn.textContent = '삭제 중...';
+	try {
+		const res = await fetch(`/api/karaoke/recordings/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+		const data = await res.json();
+		if (data.success) {
+			btn.closest('.recording-item').remove();
+			if (!document.querySelector('.recording-item'))
+				document.getElementById('recordings-list').innerHTML = '<div class="empty-state"><p>저장된 녹화가 없습니다</p></div>';
+		}
+	} catch (e) {
+		btn.disabled = false;
+		btn.textContent = '🗑 삭제';
+		alert('삭제 실패: ' + e.message);
+	}
+}
+
+/* ── 초기화 ── */
+connectWS();
+loadRecordings();
+</script>
+</body>
+</html>

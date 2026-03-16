@@ -13,26 +13,166 @@
 
     <style>
         :root {
-            /* 타블렛 키오스크 전용 다크모드 심리스 디자인 팔레트 */
+            /* Basic Colors (will be overridden by themes) */
             --bg-base: #0a0a0c;
             --bg-surface: #141418;
             --bg-panel: rgba(25, 25, 30, 0.6);
-
             --border: rgba(255, 255, 255, 0.08);
             --border-hover: rgba(255, 255, 255, 0.2);
-
             --accent-primary: #f59e0b;
-            /* 식욕을 돋우는 Warm Amber */
             --accent-glow: rgba(245, 158, 11, 0.5);
-            --accent-primary-hover: #fbbf24;
-
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
-
             --color-danger: #ef4444;
-            --color-success: #10b981;
-
             --blur: blur(12px);
+        }
+
+        /* Themes */
+        body.theme-warm {
+            --accent-primary: #f59e0b;
+            --accent-glow: rgba(245, 158, 11, 0.5);
+        }
+
+        body.theme-cool {
+            --accent-primary: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+        }
+
+        body.theme-emerald {
+            --accent-primary: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.5);
+        }
+
+        body.theme-rose {
+            --accent-primary: #f43f5e;
+            --accent-glow: rgba(244, 63, 94, 0.5);
+        }
+
+        /* Animations */
+        @keyframes menuSlideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes menuScaleFade {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .anim-slide-in { animation: menuSlideIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) both; }
+        .anim-scale-fade { animation: menuScaleFade 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+        /* Cart Modes */
+        body.cart-mode-popup .sidebar { width: 160px; }
+        body.cart-mode-popup .cart-panel {
+            position: fixed;
+            top: auto;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            height: 60vh;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            transform: translateY(120%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: rgba(20, 20, 24, 0.95);
+            backdrop-filter: blur(20px);
+        }
+
+        body.cart-mode-popup .cart-panel.open { transform: translateY(0); }
+        
+        /* Floating Cart Button */
+        .floating-cart-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: #000;
+            cursor: pointer;
+            box-shadow: 0 10px 30px var(--accent-glow);
+            z-index: 999;
+            transition: all 0.3s;
+        }
+
+        body.cart-mode-popup .floating-cart-btn { display: flex; }
+        .floating-cart-btn:active { transform: scale(0.9); }
+        .cart-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #fff;
+            color: #000;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 0.85rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Sidebar extra controls */
+        .sidebar-section {
+            padding: 15px;
+            border-top: 1px solid var(--border);
+        }
+        .section-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .t-btn {
+            width: 100%;
+            height: 30px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .t-btn:active { transform: scale(0.9); }
+        .t-warm { background: #f59e0b; }
+        .t-cool { background: #3b82f6; }
+        .t-emerald { background: #10b981; }
+        .t-rose { background: #f43f5e; }
+
+        .mode-toggle {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 4px;
+            gap: 4px;
+        }
+        .m-btn {
+            flex: 1;
+            padding: 8px 0;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .m-btn.active {
+            background: var(--accent-primary);
+            color: #000;
         }
 
         * {
@@ -40,10 +180,8 @@
             margin: 0;
             padding: 0;
             user-select: none;
-            /* 태블릿 텍스트 드래그 방지 */
             -webkit-user-drag: none;
             touch-action: pan-y;
-            /* 수평 스와이프 방지, 세로 스크롤만 허용 */
         }
 
         body {
@@ -53,9 +191,9 @@
             height: 100vh;
             display: flex;
             overflow: hidden;
+            transition: background-color 0.5s;
         }
 
-        /* ── 왼쪽 카테고리 사이드바 ── */
         .sidebar {
             width: 140px;
             background: var(--bg-surface);
@@ -85,13 +223,6 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-        }
-
-        /* 스크롤바 숨기기 */
-        .category-list::-webkit-scrollbar,
-        .menu-grid::-webkit-scrollbar,
-        .cart-items::-webkit-scrollbar {
-            display: none;
         }
 
         .cat-btn {
@@ -140,16 +271,6 @@
             gap: 5px;
         }
 
-        .action-btn:active {
-            transform: scale(0.95);
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .action-btn span {
-            font-size: 1.2rem;
-        }
-
-        /* ── 중앙 메뉴 그리드 ── */
         .main-content {
             flex: 1;
             display: flex;
@@ -170,7 +291,6 @@
             left: 0;
             right: 0;
             pointer-events: none;
-            /* 배경 그라데이션만 클릭 통과 */
         }
 
         .top-bar h2 {
@@ -184,7 +304,6 @@
 
         .menu-grid {
             padding: 100px 40px 40px 40px;
-            /* Top padding accounts for top-bar */
             overflow-y: auto;
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -218,7 +337,6 @@
             overflow: hidden;
         }
 
-        /* 가상의 이미지 박스 (API 연동 전 플레이스홀더) */
         .img-wrapper img {
             width: 100%;
             height: 100%;
@@ -289,7 +407,6 @@
             margin-bottom: 12px;
             line-height: 1.4;
             flex: 1;
-            /* 라인 제한 */
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -317,21 +434,19 @@
             color: white;
         }
 
-        /* 품절 상태 카드 */
         .menu-card.sold-out {
             opacity: 0.5;
             filter: grayscale(100%);
             pointer-events: none;
         }
 
-        /* ── 오른쪽 장바구니 사이드바 ── */
         .cart-panel {
             width: 320px;
             background: var(--bg-surface);
             border-left: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            z-index: 10;
+            z-index: 100;
             box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
         }
 
@@ -387,15 +502,8 @@
         }
 
         @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
         .ci-top {
@@ -455,10 +563,6 @@
             transition: background 0.2s;
         }
 
-        .qty-btn:active {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
         .qty-display {
             width: 32px;
             text-align: center;
@@ -508,19 +612,6 @@
             gap: 10px;
         }
 
-        .order-btn:active {
-            transform: translateY(4px);
-            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
-        }
-
-        .order-btn:disabled {
-            background: #334155;
-            color: #94a3b8;
-            box-shadow: none;
-            pointer-events: none;
-        }
-
-        /* ── 커스텀 팝업 ── */
         .custom-popup {
             position: fixed;
             top: 0;
@@ -730,12 +821,28 @@
             TABLE<br>ORDER
         </div>
         <div class="category-list" id="category-list">
-            <!-- 뼈대 렌더링 (JS가 동적 렌더링 예정) -->
-            <button class="cat-btn active">전체메뉴</button>
-            <button class="cat-btn">메인메뉴</button>
-            <button class="cat-btn">사이드</button>
-            <button class="cat-btn">주류/음료</button>
+            <!-- JS dynamic rendering -->
         </div>
+
+        <!-- New: Theme & Cart Mode Controls -->
+        <div class="sidebar-section">
+            <div class="section-label">THEME</div>
+            <div class="theme-grid">
+                <button class="t-btn t-warm" onclick="setTheme('warm')" title="Warm Amber"></button>
+                <button class="t-btn t-cool" onclick="setTheme('cool')" title="Cool Blue"></button>
+                <button class="t-btn t-emerald" onclick="setTheme('emerald')" title="Emerald Green"></button>
+                <button class="t-btn t-rose" onclick="setTheme('rose')" title="Rose Pink"></button>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-label">CART UI</div>
+            <div class="mode-toggle">
+                <button class="m-btn active" id="mode-sidebar" onclick="setCartMode('sidebar')">SIDE</button>
+                <button class="m-btn" id="mode-popup" onclick="setCartMode('popup')">POPUP</button>
+            </div>
+        </div>
+
         <div class="bottom-actions">
             <!-- Phase 3에서 모달 띄우기용 -->
             <button class="action-btn" onclick="openBillModal()">
@@ -754,42 +861,13 @@
             <h2 id="current-category">전체메뉴</h2>
         </div>
         <div class="menu-grid" id="menu-grid">
-            <!-- JS 동적 렌더링 (아래는 샘플 예시) -->
+            <!-- JS dynamic rendering -->
+        </div>
 
-            <div class="menu-card" onclick="addToCart(1, '매운 갈비찜', 28000)">
-                <div class="badges">
-                    <div class="badge best">BEST</div>
-                </div>
-                <div class="img-wrapper">
-                    <div class="img-placeholder">🍖</div>
-                </div>
-                <div class="menu-info">
-                    <div class="m-title">매운 특제 갈비찜</div>
-                    <div class="m-desc">스트레스가 확 풀리는 특제 양념 소스 바탕의 야들야들한 왕갈비찜</div>
-                    <div class="m-price">
-                        <span>28,000원</span>
-                        <div class="add-cart-icon">+</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 품절 예시 -->
-            <div class="menu-card sold-out">
-                <div class="badges">
-                    <div class="badge soldout">품절</div>
-                </div>
-                <div class="img-wrapper">
-                    <div class="img-placeholder">🍺</div>
-                </div>
-                <div class="menu-info">
-                    <div class="m-title">생맥주 500cc</div>
-                    <div class="m-desc">뼈속까지 시원한 얼음 생맥주</div>
-                    <div class="m-price">
-                        <span>4,500원</span>
-                    </div>
-                </div>
-            </div>
-
+        <!-- Floating Cart Button (Visible in Popup Mode) -->
+        <div class="floating-cart-btn" onclick="togglePopupCart()">
+            🛒
+            <span class="cart-badge" id="floating-cart-count">0</span>
         </div>
     </main>
 

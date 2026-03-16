@@ -104,6 +104,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	max-width: 80%;
+	width: 310px;
 	animation: fadeIn 0.3s ease;
 }
 
