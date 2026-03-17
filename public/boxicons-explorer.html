@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boxicons Explorer</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link href="./css/boxicons.css" rel="stylesheet">
+    <link href="./css/boxicons-explorer.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="explorer-container">
+        <header class="explorer-header" id="explorer-header">
+            <h1>아이콘 조회</h1>
+            <p>1,600개 이상의 아이콘을 한눈에 확인하고 클릭하여 복사하세요.</p>
+        </header>
+
+        <div class="controls-wrapper">
+            <div class="search-container">
+                <i class='bx bx-search'></i>
+                <input type="text" id="search-input" placeholder="아이콘 이름을 입력하세요 (예: home, user, heart)..."
+                    autocomplete="off">
+            </div>
+
+            <div class="filter-container">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="regular">Regular (bx-)</button>
+                <button class="filter-btn" data-filter="solid">Solid (bxs-)</button>
+                <button class="filter-btn" data-filter="logo">Logos (bxl-)</button>
+            </div>
+        </div>
+
+        <div class="stats-info" id="stats-info">
+            검색 결과: 0 / 1634
+        </div>
+
+        <div class="icon-grid" id="icon-grid">
+            <!-- Icons will be rendered here -->
+            <div class="empty-state">
+                <i class='bx bx-loader-alt bx-spin'></i>
+                <p>아이콘을 불러오는 중입니다...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <style>
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: 500;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+    <div id="toast" class="toast">
+        <i class='bx bx-check-circle' style="color: #10b981;"></i>
+        <span id="toast-msg">복사되었습니다!</span>
+    </div>
+
+    <script src="./js/boxicons-explorer.js"></script>
+</body>
+
+</html>

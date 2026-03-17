@@ -6,9 +6,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>퍼니뮤직 Dashboard</title>
 	<!-- Google Fonts -->
-	
+
 	<!-- Boxicons for modern icons -->
-	<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+	<link href='./css/boxicons.css' rel='stylesheet'>
 	<style>
 		:root {
 			/* Color Palette */
@@ -529,7 +529,7 @@
 			z-index: 1;
 		}
 	</style>
-	<link rel="stylesheet" href="/css/pretendard.css">
+	<link rel="stylesheet" href="./css/pretendard.css">
 </head>
 
 <body>
@@ -609,6 +609,10 @@
 						<i class='bx bx-calendar menu-item-icon'></i>
 						<span>테이블주문</span>
 					</a>
+					<a href="#" class="menu-item" onclick="loadPage('order.html', 'Table Order', this)">
+						<i class='bx bx-calendar menu-item-icon'></i>
+						<span>테이블주문(DB)</span>
+					</a>
 				</div>
 			</div>
 
@@ -647,13 +651,17 @@
 						<i class='bx bx-headphone menu-item-icon'></i>
 						<span>Funny Music</span>
 					</a>
+					<a href="#" class="menu-item" onclick="loadPage('karaoke.html', 'Music Select', this)">
+						<i class='bx bxs-playlist menu-item-icon'></i>
+						<span>노래 녹화</span>
+					</a>
 					<a href="#" class="menu-item" onclick="loadPage('music_select.html', 'Music Select', this)">
-						<i class='bx bx-list-music menu-item-icon'></i>
+						<i class='bx bx-music menu-item-icon'></i>
 						<span>노래방선곡</span>
 					</a>
 					<a href="#" class="menu-item" onclick="loadPage('lyrics.html', 'Lyrics Viewer', this)">
 						<i class='bx bx-text menu-item-icon'></i>
-						<span>노래목록</span>
+						<span>노래가사검색</span>
 					</a>
 				</div>
 			</div>
@@ -669,6 +677,19 @@
 					<a href="#" class="menu-item" onclick="loadPage('dashboard.html', 'Analytics Dashboard', this)">
 						<i class='bx bx-line-chart menu-item-icon'></i>
 						<span>대시보드</span>
+					</a>
+					<a href="#" class="menu-item"
+						onclick="loadPage('boxicons-explorer.html', 'Boxicons Explorer', this)">
+						<i class='bx bx-search-alt menu-item-icon'></i>
+						<span>아이콘 조회</span>
+					</a>
+					<a href="#" class="menu-item" onclick="loadPage('sprite-manager.html', 'Sprite Manager', this)">
+						<i class='bx bx-game menu-item-icon'></i>
+						<span>애니메이션 생성</span>
+					</a>
+					<a href="#" class="menu-item" onclick="loadPage('image-gallery.html', 'Image Gallery', this)">
+						<i class='bx bx-images menu-item-icon'></i>
+						<span>이미지 갤러리</span>
 					</a>
 					<a href="#" class="menu-item" onclick="loadPage('theme-selector.html', 'Theme Selector', this)">
 						<i class='bx bx-palette menu-item-icon'></i>

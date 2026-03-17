@@ -461,7 +461,7 @@ function initWebSocket() {
 
 // ── 타이머 / 스크린세이버 (Phase 5) ──
 let idleTimer = null;
-const IDLE_TIMEOUT = 1000 * 60 * 5; // 5분으로 변경 (인증 편의를 위해)
+const IDLE_TIMEOUT = 1000 * 60; // 60초 (운영 권장 수치)
 
 function initScreensaver() {
     const events = ['touchstart', 'click', 'mousemove', 'scroll', 'keypress'];

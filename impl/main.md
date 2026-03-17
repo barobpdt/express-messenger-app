@@ -16,6 +16,7 @@ The user wants to convert the current `index.html` (which simply redirects) into
         - **통신 / 메신저:** `messenger.html`, `webrtc.html`
         - **DB 클라이언트:** `pg-client.html`, `sqlite-client.html`
         - **업무 관리:** `todo.html`, `order-management.html`, `schedule-manager.html`
+---
 	- **파일 및 미디어:** `file-share.html`, `file-transfer.html`, `video-player.html`
         - **음악 / 노래방:** `funny_music.html`, `music_select.html`, `lyrics.html`
         - **기타 앱:** `dashboard.html`, `launcher.html`, `theme-selector.html`, `color-table.html`

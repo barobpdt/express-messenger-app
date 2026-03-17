@@ -1221,6 +1221,52 @@ setInterval(() => {
 	}
 }, 10 * 60 * 1000);
 
+app.get("/api/files-list", (req, res) => {
+	let { folder } = req.query;
+	if (folder == 'docs') {
+		folder = 'DOCS';
+	} else if (folder == 'images') {
+		folder = 'public/images';
+	} else if (folder == 'videos') {
+		folder = 'videos';
+	}
+	const dirPath = path.join(__dirname, folder);
+	// if (!fs.existsSync(dirPath)) return res.status(404).json({ error: "폴더를 찾을 수 없습니다." });
+	try {
+		const stats = fs.statSync(dirPath);
+		if (!stats.isDirectory()) return res.status(404).json({ error: "폴더를 찾을 수 없습니다." });
+		const files = fs.readdirSync(dirPath);
+		const fileInfos = files.map(file => {
+			const filePath = path.join(dirPath, file);
+			const fileStats = fs.statSync(filePath);
+			return {
+				name: file,
+				size: fileStats.size,
+				isDirectory: fileStats.isDirectory(),
+				mtime: fileStats.mtime,
+				extension: path.extname(file)
+			};
+		});
+		res.json({ success: true, files: fileInfos });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: "폴더를 찾을 수 없습니다." });
+	}
+});
+app.get("/api/files-text", (req, res) => {
+	let { folder, name } = req.query;
+	const dirPath = path.join(__dirname, folder);
+	try {
+		const filePath = path.join(dirPath, name);
+		if (!fs.existsSync(filePath)) return res.status(404).json({ error: "파일을 찾을 수 없습니다." });
+		const fileContent = fs.readFileSync(filePath, 'utf-8');
+		res.json({ success: true, content: fileContent });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: "파일을 찾을 수 없습니다." });
+	}
+});
+
 app.post("/api/files", upload.single("file"), (req, res) => {
 	if (!req.file) return res.status(400).json({ error: "파일이 없습니다." });
 	const fileId = req.file.filename;

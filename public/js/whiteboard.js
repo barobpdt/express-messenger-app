@@ -212,6 +212,15 @@ const wb = (function () {
 		byId('r-pres').classList.toggle('on', r === 'presenter');
 		byId('r-view').classList.toggle('on', r === 'viewer');
 	}
+	function startMdViewer() {
+		$('#app').addClass('show');
+		$('#mbadge').addClass('mbadge pres')
+		initCanvas();
+		initColors();
+		initDrag();
+		resizeWrap();
+		_initChat(S.room);
+	}
 
 	function startApp(offline) {
 		S.room = byId('room-in').value.trim() || 'ROOM01';
@@ -1205,5 +1214,5 @@ const wb = (function () {
 		}
 	}
 
-	return { S, setRole, startApp, loadFile, goPage, prevPage, nextPage, toggleWhiteboard, copyRoom, clearAll, toggleSidebar, setTool, setSize, clearPage, openEditor, closeEditor, applyEditor, onEditorInput, onEditorKeyDown, insertFmt, uploadImageFromInput, openImagePicker, onEditorPaste, onEditorDrop, exportPDF, autoSplit, toggleChat, sendChat, onChatKey }
+	return { S, setRole, startMdViewer, startApp, loadFile, goPage, prevPage, nextPage, toggleWhiteboard, copyRoom, clearAll, toggleSidebar, setTool, setSize, clearPage, openEditor, closeEditor, applyEditor, onEditorInput, onEditorKeyDown, insertFmt, uploadImageFromInput, openImagePicker, onEditorPaste, onEditorDrop, exportPDF, autoSplit, toggleChat, sendChat, onChatKey }
 })()

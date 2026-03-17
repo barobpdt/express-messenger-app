@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>마크다운 파일뷰어</title>
+	<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+	<link rel="stylesheet"
+		href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+	<script src="./js/common.js"></script>
+	<script src="./js/jquery.js"></script>
+	<link rel="stylesheet" href="./css/ppt_whiteboard.css">
+	<style>
+		#file-list {
+			flex: 1;
+			overflow-y: auto;
+			padding: 8px 6px;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+		}
+	</style>
+</head>
+
+<body>
+	<!-- ══ MAIN APP ══ -->
+	<div id="app">
+		<!-- Header -->
+		<div id="hdr">
+			<div class="title">마크다운 파일뷰어</div>
+			<div class="hsp"></div>
+			<button class="hbtn red" onclick="location.reload()">⚙</button>
+		</div>
+
+		<!-- Middle: Sidebar + Slide -->
+		<div id="middle">
+			<!-- User Sidebar -->
+			<div id="sidebar">
+				<div id="sidebar-hdr">
+					<span>파일정보</span>
+					<span class="cnt" id="file-cnt">0</span>
+				</div>
+				<div id="file-list"></div>
+			</div>
+
+			<!-- Slide Area -->
+			<div id="slide-area">
+				<div id="wrap">
+					<div id="placeholder">
+						<div class="tx">마크다운 파일을 불러오세요</div>
+						<div class="hi">헤더 "파일 열기" 또는 이곳에 .md 파일을 드래그&amp;드롭</div>
+					</div>
+					<div id="slide-content"></div>
+					<canvas id="cvs"></canvas>
+					<div class="ldot" id="ld"></div>
+					<div class="ldot" id="rld"></div>
+					<div id="ti"><textarea id="ta" rows="1" placeholder="텍스트 입력 후 Enter"></textarea></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Toolbar -->
+		<div id="tb">
+			<div class="nav-g">
+				<button class="nbtn" id="btn-prev" onclick="wb.prevPage()" disabled>◀</button>
+				<span class="pinfo" id="pinfo">0 / 0</span>
+				<button class="nbtn" id="btn-next" onclick="wb.nextPage()" disabled>▶</button>
+			</div>
+			<div class="sep"></div>
+			<div class="tool-g">
+				<button class="tbtn on" id="t-pen" onclick="wb.setTool('pen')" title="펜">✏️</button>
+				<button class="tbtn" id="t-hl" onclick="wb.setTool('hl')" title="형광펜">🖍</button>
+				<button class="tbtn" id="t-er" onclick="wb.setTool('er')" title="지우개">🧹</button>
+				<button class="tbtn" id="t-laser" onclick="wb.setTool('laser')" title="레이저포인터">🔴</button>
+				<button class="tbtn" id="t-text" onclick="wb.setTool('text')" title="텍스트">T</button>
+			</div>
+			<div class="sep"></div>
+			<div class="col-g" id="col-g"></div>
+			<div class="sep"></div>
+			<div class="sz-g">
+				<label>크기</label>
+				<input type="range" id="sz" min="1" max="30" value="4" oninput="wb.setSize(+this.value)">
+				<div class="szpv"><span id="szpv" style="width:8px;height:8px;"></span></div>
+			</div>
+			<div class="sep"></div>
+			<button class="abtn red" onclick="wb.clearPage()" title="현재 페이지 필기 지우기">🗑 현재</button>
+			<button class="abtn" onclick="wb.toggleWhiteboard()" id="wb-btn" title="화이트보드 모드">⬜ 칠판</button>
+			<button class="abtn" id="auto-split-btn" onclick="wb.autoSplit()" title="넘치는 슬라이드를 자동으로 분할합니다">✂️
+				자동분할</button>
+		</div>
+	</div>
+
+	<script src="./js/whiteboard.js"></script>
+
+
+	<!-- ══ CHAT PANEL ══ -->
+	<div id="chat-panel" class="hidden">
+		<div id="chat-hdr">
+			<span>💬</span>
+			<span class="chat-title">채팅</span>
+			<span class="chat-room" id="chat-room-label"></span>
+			<button id="chat-close" onclick="wb.toggleChat()">✕</button>
+		</div>
+		<div id="chat-msgs"></div>
+		<div id="chat-input-row">
+			<textarea id="chat-in" rows="1" placeholder="메시지 입력..." onkeydown="wb.onChatKey(event)"></textarea>
+			<button id="chat-send" onclick="wb.sendChat()">➤</button>
+		</div>
+	</div>
+
+	<!-- ══ MARKDOWN EDITOR MODAL ══ -->
+	<div id="editor-modal">
+		<div id="editor-hdr">
+			<span id="editor-title">✏️ 마크다운 에디터</span>
+			<div class="efmt-sep"></div>
+			<button class="efmt" onclick="wb.insertFmt('# ')">H1</button>
+			<button class="efmt" onclick="wb.insertFmt('## ')">H2</button>
+			<button class="efmt" onclick="wb.insertFmt('### ')">H3</button>
+			<div class="efmt-sep"></div>
+			<button class="efmt" onclick="wb.insertFmt('**','**')"><b>B</b></button>
+			<button class="efmt" onclick="wb.insertFmt('*','*')"><i>I</i></button>
+			<button class="efmt" onclick="wb.insertFmt('`','`')">Code</button>
+			<button class="efmt" onclick="wb.insertFmt('\n```\n','\n```')">≡ Block</button>
+			<div class="efmt-sep"></div>
+			<button class="efmt" onclick="wb.insertFmt('- ')">• 목록</button>
+			<button class="efmt" onclick="wb.insertFmt('1. ')">숫자</button>
+			<button class="efmt" onclick="wb.insertFmt('> ')">&ldquo; 인용</button>
+			<button class="efmt" onclick="wb.insertFmt('\n\n---\n\n')">— 슬라이드 구분</button>
+			<div class="efmt-sep"></div>
+			<button class="efmt" onclick="wb.openImagePicker()">🖼️ 이미지</button>
+			<input type="file" id="img-upload-input" accept="image/*" style="display:none"
+				onchange="wb.uploadImageFromInput(event)">
+			<div class="efmt-sep"></div>
+			<span id="ed-slide-cnt">슬라이드 0장</span>
+			<div style="flex:1"></div>
+			<button class="hbtn" onclick="wb.applyEditor()" title="Ctrl+Enter">✅ 적용</button>
+			<button class="hbtn" style="color:#f87171" onclick="wb.closeEditor()" title="Esc">✖ 닫기</button>
+		</div>
+		<div id="editor-body">
+			<div id="editor-pane">
+				<div class="ep-hdr">📝 모든 슬라이드 (---로 구분)</div>
+				<textarea id="md-editor" spellcheck="false" oninput="wb.onEditorInput()"
+					onkeydown="wb.onEditorKeyDown(event)" onpaste="wb.onEditorPaste(event)"
+					ondrop="wb.onEditorDrop(event)" ondragover="event.preventDefault()" placeholder="# 첫 번째 슬라이드
+내용을 입력하세요
+
+---
+
+# 두 번째 슬라이드
+슬라이드는 ---로 구분합니다\n문제시 **내용을 선택** 후 버튼 클릭
+
+Ctrl+Enter = 적용, Esc = 닫기"></textarea>
+			</div>
+			<div id="preview-pane">
+				<div class="ep-hdr">👁 슬라이드 미리보기</div>
+				<div id="md-preview"></div>
+			</div>
+		</div>
+	</div>
+	<style>
+		.fitem {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 6px 8px;
+			border-radius: 8px;
+			cursor: default;
+			transition: .15s;
+		}
+
+		.fitem.active {
+			background-color: #555;
+		}
+
+		.fitem:hover {
+			background: var(--bg3);
+		}
+
+		.fitem .avatar {
+			width: 30px;
+			height: 30px;
+			border-radius: 50%;
+			object-fit: cover;
+			flex-shrink: 0;
+			background: var(--primary);
+			color: #fff;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: .9rem;
+			font-weight: 700;
+		}
+
+		.finfo {
+			flex: 1;
+			overflow: hidden;
+		}
+	</style>
+
+	<script>
+		$(document).ready(function () {
+			wb.startMdViewer()
+			fetch('/api/files-list?folder=docs').then(res => res.json()).then(data => setMdFiles(data.files))
+		});
+		function setMdFiles(files) {
+			const getTime = s => {
+				const p = s.indexOf('T')
+				return p > 0 ? s.substring(0, p) : s
+			}
+			const list = files.filter(item => item.extension === '.md')
+			const fileListHtml = list.map(item => `<div class="fitem">
+			<div class="avatar" style="background:font-size:.85rem;">${item.extension.substring(1)}</div>
+			<div class="finfo">
+				<div class="uname">${item.name}</div>
+				<div class="ustatus"><span class="udot"></span>${getTime(item.mtime)}</div>
+			</div>
+			</div>`).join('')
+			$('#file-list').html(fileListHtml)
+			$('#file-cnt').text(list.length)
+			$('.fitem').on('click', function () {
+				const index = $(this).index()
+				const name = list[index].name
+				fetch(`/api/files-text?folder=DOCS&name=${name}`).then(res => res.json()).then(data => {
+					$('#md-editor').val(data.content)
+					wb.applyEditor()
+					wb.autoSplit()
+				})
+				$('.fitem').removeClass('active')
+				$(this).addClass('active')
+			})
+		}
+	</script>
+</body>
+
+</html>
