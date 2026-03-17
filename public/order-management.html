@@ -1222,12 +1222,50 @@
 			document.getElementById("menu-side-list").innerHTML = filtered.map(m => `
 	<div class="side-item">
     ${m.image ? `<img src="${m.image}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<div style="width:40px;height:40px;border-radius:8px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🍽️</div>`}
-	<div>
-		<div class="si-main">${m.name}</div>
+	<div style="flex:1; min-width:0;">
+		<div class="si-main" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.name}</div>
 		<div class="si-sub">${m.price.toLocaleString()}원 · ${categories.find(c => c.id === m.categoryId)?.name || ""}</div>
 	</div>
-	<button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="deleteMenu(${m.id})">삭제</button>
+	<div style="display:flex; gap:4px; margin-left:8px;">
+		<button class="btn btn-outline btn-sm" onclick="openEditMenu(${m.id})">수정</button>
+		<button class="btn btn-outline btn-sm" style="color:var(--red);border-color:rgba(239, 68, 68, 0.3);" onclick="deleteMenu(${m.id})">삭제</button>
+	</div>
 	</div>`).join("") || "<div class='empty'>메뉴 없음</div>";
+		}
+
+		function openEditMenu(id) {
+			const m = menus.find(x => x.id === id);
+			if (!m) return;
+			openModal("메뉴 수정",
+				`<div class="form-group"><label>카테고리</label>
+	<select id="f-mcat">${categories.map(c => `<option value="${c.id}" ${c.id === m.categoryId ? 'selected' : ''}>${c.name}</option>`).join("")}</select></div>
+	<div class="form-group"><label>메뉴명</label><input id="f-mname" value="${m.name}" placeholder="예: 소주" /></div>
+	<div class="form-group"><label>가격 (원)</label><input id="f-mprice" type="number" value="${m.price}" placeholder="예: 5000" /></div>
+	<div class="form-group"><label>설명 (선택)</label><input id="f-mdesc" value="${m.description || ''}" placeholder="설명" /></div>
+	<div class="form-group"><label>이미지 (선택)</label>
+		${m.image ? `<div style="margin-bottom:8px;"><img src="${m.image}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;"></div>` : ''}
+		<input type="file" id="f-mimg" accept="image/*" style="padding:5px;" />
+	</div>`,
+				async () => {
+					const categoryId = parseInt(document.getElementById("f-mcat").value);
+					const name = document.getElementById("f-mname").value.trim();
+					const price = parseInt(document.getElementById("f-mprice").value);
+					const description = document.getElementById("f-mdesc").value.trim();
+					const imgFile = document.getElementById("f-mimg").files[0];
+
+					let image = m.image; // Keep existing image if no new file is selected
+					if (imgFile) {
+						image = await new Promise((resolve) => {
+							const reader = new FileReader();
+							reader.onload = e => resolve(e.target.result);
+							reader.readAsDataURL(imgFile);
+						});
+					}
+
+					if (!name || isNaN(price)) return;
+					await patch(`/menu/${id}`, { categoryId, name, price, description, image });
+					menus = await get("/menu"); renderMenuSide(); closeModal();
+				});
 		}
 		async function loadMenu() { menus = await get("/menu"); renderMenuSide(); }
 		async function deleteMenu(id) { if (confirm("삭제하시겠습니까?")) { await del(`/menu/${id}`); await loadMenu(); } }
