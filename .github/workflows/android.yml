@@ -14,23 +14,31 @@ jobs:
         run: echo "Testing with Node 24 environment"
 
       - name: Sync Capacitor
-        run: |
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        run:
           npx cap copy android
           npx cap update android
 
       - name: Setup Java
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '21'
 
       - name: Build Android App
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         working-directory: ./android
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         uses: actions/upload-artifact@v4
         with:
           name: express-messenger-app-debug
