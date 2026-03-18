@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>페이지 테스트</title>
+	<script src="./js/common.js"></script>
+	<script src="./js/jquery.js"></script>
+	<link rel="stylesheet" href="./css/boxicons.css">
+	<link rel="stylesheet" href="./css/funny.css">
+	<link rel="stylesheet" href="./css/pretendard.css">
+</head>
+
+<body>
+	<!-- ══ MAIN APP ══ -->
+	<div class="app-container">
+		<!-- Header -->
+		<div class="funny-hdr">
+			<div class="title" style="width:180px; position:relative">마크다운 파일뷰어</div>
+			<button class="hbtn red" onclick="toggleSidebar()">⚙</button>
+			<div class="funny-space"></div>
+			<button class="bbtn btn-run">실행</button>
+			<button class="bbtn btn-secondary">취소</button>
+		</div>
+
+		<!-- Middle: Sidebar + Slide -->
+		<div class="funny-contents">
+			<!-- User Sidebar -->
+			<div class="funny-sidebar">
+				<div class="funny-sidebar-hdr">
+					<span>파일정보</span>
+					<span class="cnt">0</span>
+				</div>
+				<div class="funny-list-box"></div>
+			</div>
+
+			<!-- Slide Area -->
+			<div class="funny-slide-area">
+				<div class="funny-relative-wrap">
+					<div class="funny-placeholder">
+						<div class="tx">마크다운 파일을 불러오세요</div>
+						<div class="hi">헤더 "파일 열기" 또는 이곳에 .md 파일을 드래그&amp;드롭</div>
+					</div>
+					<div class="funny-slide-content"></div>
+					<canvas class="funny-content-box"></canvas>
+					<div class="funny-ldot"></div>
+					<div class="funny-rldot"></div>
+					<div class="funny-ti">
+						<textarea rows="1" placeholder="텍스트 입력 후 Enter" class="funny-ta"></textarea>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Toolbar -->
+		<div class="funny-tb">
+			<div class="funny-nav-group">
+				<button class="nbtn" id="btn-prev" disabled>◀</button>
+				<span
+					style="font-size: .82rem; color: var(--muted); white-space: nowrap; min-width: 60px; text-align: center;">0
+					/ 0</span>
+				<button class="nbtn" id="btn-next" disabled>▶</button>
+			</div>
+			<div class="funny-sep"></div>
+			<div class="funny-tool-group">
+				<button class="tbtn on" id="t-pen" title="펜">✏️</button>
+				<button class="tbtn" id="t-hl" title="형광펜">🖍</button>
+				<button class="tbtn" id="t-er" title="지우개">🧹</button>
+				<button class="tbtn" id="t-laser" title="레이저포인터">🔴</button>
+				<button class="tbtn" id="t-text" title="텍스트">T</button>
+			</div>
+			<div class="funny-sep"></div>
+			<div class="funny-col-group"></div>
+			<div class="funny-sep"></div>
+			<div class="funny-sz-group">
+				<label>크기</label>
+				<input type="range" id="sz" min="1" max="30" value="4">
+				<div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;">
+					<span id="szpv"
+						style="width:8px;height:8px;background: var(--text);border-radius: 50%;display: block;transition: .15s;"></span>
+				</div>
+			</div>
+			<div class="funny-sep"></div>
+			<button class="abtn red" title="현재 페이지 필기 지우기">🗑 현재</button>
+			<button class="abtn" id="wb-btn" title="화이트보드 모드">⬜ 칠판</button>
+			<button class="abtn" id="auto-split-btn" title="넘치는 슬라이드를 자동으로 분할합니다">✂️ 자동분할</button>
+		</div>
+	</div>
+	<!-- ══ CHAT PANEL ══ -->
+	<div id="chat-panel" class="hidden">
+		<div id="chat-hdr">
+			<span>💬</span>
+			<span class="chat-title">채팅</span>
+			<span class="chat-room" id="chat-room-label"></span>
+			<button id="chat-close" onclick="wb.toggleChat()">✕</button>
+		</div>
+		<div id="chat-msgs"></div>
+		<div id="chat-input-row">
+			<textarea id="chat-in" rows="1" placeholder="메시지 입력..." onkeydown="wb.onChatKey(event)"></textarea>
+			<button id="chat-send" onclick="wb.sendChat()">➤</button>
+		</div>
+	</div>
+
+
+	<script>
+		function toggleSidebar() {
+			$('.app-container').toggleClass('sb-hidden');
+			setTimeout(() => resizeContentRatio('.funny-slide-area', 28, 16 / 9), 200);
+		}
+		$(document).ready(function () {
+			resizeContentRatio('.funny-slide-area', 28, 16 / 9)
+			addSideToggleBtn('.funny-hdr .title', () => resizeContentRatio('.funny-slide-area', 28, 16 / 9))
+		});
+		$(window).on('resize', function () {
+			resizeContentRatio('.funny-slide-area', 28, 16 / 9)
+		})
+	</script>
+</body>
+
+</html>

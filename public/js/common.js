@@ -119,4 +119,101 @@ const loadStyle = (src) => {
 	const el = document.createElement('style');
 	el.textContent = src;
 	document.head.appendChild(el);
-} 
+}
+
+function showToastBox(message) {
+	if ($('#toast-box').length == 0) {
+		const toastBox = $('<div class="toast-box" id="toast-box"/>').appendTo(document.body)
+		$('<span id="toast-msg"/>').appendTo(toastBox)
+		loadStyle(`
+			.toast-box {
+				position: fixed;
+				bottom: 30px;
+				left: 50%;
+				transform: translateX(-50%) translateY(100px);
+				background: #1f2937;
+				color: white;
+				padding: 12px 24px;
+				border-radius: 30px;
+				font-weight: 500;
+				box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+				z-index: 1000;
+				transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}	
+			.toast-box.show {
+				transform: translateX(-50%) translateY(0);
+			}
+		`)
+	}
+
+	$('#toast-msg').text(message)
+	$('#toast-box').addClass('show')
+	setTimeout(() => $('#toast-box').removeClass('show'), 2500);
+}
+
+function resizeContentRatio(targetCode, padding, ratio) {
+	if (!targetCode) {
+		targetCode = '.funny-slide-area'
+	}
+	if (!padding) {
+		padding = 28
+	}
+	if (!ratio) {
+		ratio = 16 / 9
+	}
+	const area = $(targetCode);
+	const aW = area.width() - padding, aH = area.height() - padding;
+	let w = aW, h = aW / ratio;
+	if (h > aH) {
+		h = aH, w = aH * ratio;
+	}
+	$('.funny-relative-wrap').width(w)
+	$('.funny-relative-wrap').height(h)
+	// Scale font-size
+	$('.funny-slide-content').css('font-size', (w / 1280) + 'rem');
+	$('.funny-content-box').width(w);
+	$('.funny-content-box').height(h);
+}
+function addSideToggleBtn(target, cb) {
+	if (!target) {
+		target = document.body
+	}
+	if ($('.toggle-btn').length == 0) {
+		$('<button class="toggle-btn"><i class="bx bx-chevron-left"></i></button>').appendTo(getJq(target))
+		loadStyle(`
+			.toggle-btn {
+				position: fixed;
+				right: -15px;
+				top: 50%;
+				transform: translateY(-50%);
+				width: 30px;
+				height: 30px;
+				background-color: var(--primary);
+				color: white;
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+				border: 2px solid var(--bg-body);
+				z-index: 101;
+				transition: all 0.2s;
+				box-shadow: var(--shadow-sm);
+			}
+			.toggle-btn:hover {
+				background-color: var(--primary-dark);
+				transform: translateY(-50%) scale(1.1);
+			}
+			.app-container.sb-hidden .toggle-btn i {
+				transform: rotate(180deg);
+			}
+		`)
+	}
+	$('.toggle-btn').on('click', () => {
+		$('.app-container').toggleClass('sb-hidden')
+		if (typeof cb == 'function') cb()
+	})
+}

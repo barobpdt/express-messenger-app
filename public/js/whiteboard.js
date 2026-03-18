@@ -1,4 +1,7 @@
 const wb = (function () {
+	const setStatus = (msg) => {
+		byId('page-status').textContent = msg;
+	}
 	loadStyle(`
 .ed-slide table {border:1px solid #aaa} .ed-slide table td {border:1px solid #aaa}
 #chat-panel {
@@ -556,9 +559,9 @@ const wb = (function () {
 			S.slides = newSlides;
 			if (added > 0) {
 				wsSend({ type: 'ppt-slides', content: newSlides.join('\n\n---\n\n'), page: 0 });
-				alert(`✅ 자동 분할 완료! ${before}점 → ${newSlides.length}점 (${added}개 추가)`);
+				setStatus(`✅ 자동 분할 완료! ${before}점 → ${newSlides.length}점 (${added}개 추가)`);
 			} else {
-				alert('ℹ️ 모든 슬라이드가 적절한 크기입니다.');
+				setStatus('ℹ️ 모든 슬라이드가 적절한 크기입니다.');
 			}
 			goPage(0);
 			if (btn) { btn.disabled = false; btn.textContent = origText; }

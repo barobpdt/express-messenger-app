@@ -5,14 +5,13 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>마크다운 파일뷰어</title>
-	<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-	<link rel="stylesheet"
-		href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 	<script src="./js/common.js"></script>
 	<script src="./js/jquery.js"></script>
+	<script src="./js/marked.min.js"></script>
+	<script src="./js/highlight.min.js"></script>
+	<script src="./js/html2canvas.min.js"></script>
+	<script src="./js/jspdf.js"></script>
+	<link rel="stylesheet" href="./css/boxicons.css">
 	<link rel="stylesheet" href="./css/ppt_whiteboard.css">
 	<style>
 		#file-list {
@@ -87,10 +86,12 @@
 				<div class="szpv"><span id="szpv" style="width:8px;height:8px;"></span></div>
 			</div>
 			<div class="sep"></div>
-			<button class="abtn red" onclick="wb.clearPage()" title="현재 페이지 필기 지우기">🗑 현재</button>
+			<button class="abtn red" onclick="wb.clearPage()" title="현재 페이지 필기 지우기">🗑 지우기</button>
 			<button class="abtn" onclick="wb.toggleWhiteboard()" id="wb-btn" title="화이트보드 모드">⬜ 칠판</button>
 			<button class="abtn" id="auto-split-btn" onclick="wb.autoSplit()" title="넘치는 슬라이드를 자동으로 분할합니다">✂️
 				자동분할</button>
+			<div class="sep"></div>
+			<div id="page-status" style="margin-left:10px;">test</div>
 		</div>
 	</div>
 
