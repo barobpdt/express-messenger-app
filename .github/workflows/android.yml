@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Sync Capacitor
         env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
         run:
           npx cap copy android
           npx cap update android
