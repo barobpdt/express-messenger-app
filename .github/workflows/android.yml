@@ -6,12 +6,43 @@ on:
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
-    steps:
-      - name: Sync Capacitor
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-        run:
-          npx cap copy android
-          npx cap update android
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Sync Capacitor
+      run: |
+        npx cap copy android
+        npx cap update android
+
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: 'zulu'
+        java-version: '21'
+
+    - name: Build Android App
+      working-directory: ./android
+      run: |
+        chmod +x ./gradlew
+        ./gradlew assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: express-messenger-app-debug
+        path: android/app/build/outputs/apk/debug/app-debug.apk
