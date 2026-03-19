@@ -37,6 +37,8 @@
 	--bg: #0d1117;
 	--bg2: #161b22;
 	--bg3: #21262d;
+	--bg-header: rgba(15, 23, 42, 0.85);
+	--bg-titlebar: #1e293b;
 	--border: #30363d;
 	--text: #c9d1d9;
 	--muted: #8b949e;
@@ -83,6 +85,79 @@ body {
 	display: none;
 }
 
+/* ── 공통 레이아웃 ── */
+.hidden {
+	display: none;
+}
+.hbox {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	width: 100%;
+	justify-content: flex-end;
+}
+.vbox {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	justify-content: flex-start;
+	height: 100%;
+}
+.main-stage {
+	display: flex;
+	flex: 1;
+	height: calc(100vh - 60px);
+	overflow: hidden;
+}
+
+.sidebar {
+	background: var(--bg-panel);
+	border-right: 1px solid var(--border-color);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	position: relative;
+}
+
+.workspace {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	background: #1e1e1e;
+	/* Match monaco native bg */
+	overflow: hidden;
+}
+
+/* Panel Title Bars */
+.panel-header {
+	background: var(--bg-titlebar);
+	padding: 8px 16px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	user-select: none;
+}
+
+.sidebar-content {
+	padding: 12px;
+	overflow-y: auto;
+	flex: 1;
+}
+
+
+.content-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	border-bottom: 1px solid var(--border-color);
+	position: relative;
+}
 /* ── logo ── */
 .logo {
 	display: flex;
@@ -251,53 +326,119 @@ body {
 }
 
 /* ── Modal ── */
-.funny-modal {
+
+.modal-overlay {
 	position: fixed;
-	inset: 0;
-	background: rgba(0, 0, 0, .8);
-	z-index: 9999;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(11, 15, 25, 0.8);
+	backdrop-filter: blur(4px);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	backdrop-filter: blur(4px);
+	z-index: 1000;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s ease;
 }
 
-.fuuny-mbox {
+.modal-overlay.active {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.modal-content {
+	background: var(--bg-panel);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-lg);
+	width: 600px;
+	max-width: 90vw;
+	box-shadow: var(--shadow-md);
+	transform: translateY(20px);
+	transition: transform 0.2s ease;
+	display: flex;
+	flex-direction: column;
+	max-height: 80vh;
+}
+
+.modal-overlay.active .modal-content {
+	transform: translateY(0);
+}
+
+.modal-header {
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.modal-title {
+	font-size: 1.1rem;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.modal-close {
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 1.2rem;
+	transition: color 0.15s;
+}
+
+.modal-close:hover {
+	color: var(--text-main);
+}
+
+.modal-body {
+	padding: 16px 20px;
+	overflow-y: auto;
+	flex: 1;
+}
+
+/* ── form label ── */
+
+.mbox {
 	background: var(--bg2);
 	border: 1px solid var(--border);
 	border-radius: 16px;
 	padding: 32px;
-	width: 430px;
 	box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
 }
 
-.funny-mbox h2 {
+.mbox h2 {
 	font-size: 1.35rem;
 	margin-bottom: 6px;
 }
 
-.funny-mbox p {
+.mbox p {
 	color: var(--muted);
 	font-size: .85rem;
 	margin-bottom: 22px;
 }
 
-.funny-mrow {
+.mbox .mrow {
 	display: flex;
 	gap: 8px;
 	margin-bottom: 10px;
 	align-items: center;
 }
 
-.funny-mlabel {
+.mbox .mlabel {
 	font-size: .8rem;
 	color: var(--muted);
 	width: 72px;
-	text-align: right;
 	flex-shrink: 0;
+	padding: 5px 10px;
 }
 
-.funny-minput {
+.mbox .minput {
 	flex: 1;
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -308,39 +449,18 @@ body {
 	outline: none;
 }
 
-.funny-minput:focus {
+.mbox .minput:focus {
 	border-color: var(--primary);
 }
 
-.funny-role-g {
-	display: flex;
-	gap: 6px;
-}
 
-.funny-rbtn {
-	padding: 5px 14px;
-	border-radius: 6px;
-	border: 1px solid var(--border);
-	background: var(--bg3);
-	color: var(--muted);
-	cursor: pointer;
-	font-size: .85rem;
-	transition: .15s;
-}
-
-.funny-rbtn.on {
-	background: var(--primary);
-	border-color: var(--primary);
-	color: #fff;
-}
-
-.funny-mbtns {
+.mbtns {
 	display: flex;
 	gap: 8px;
 	margin-top: 20px;
 }
 
-.funny-mbtn {
+.mbtn {
 	flex: 1;
 	padding: 10px;
 	border-radius: 8px;
@@ -351,27 +471,45 @@ body {
 	transition: .15s;
 }
 
-.funny-mbtn.p {
+.mbtn.p {
 	background: var(--primary);
 	color: #fff;
 }
 
-.funny-mbtn.p:hover {
+.mbtn.p:hover {
 	filter: brightness(1.1);
 }
 
-.funny-mbtn.s {
+.mbtn.s {
 	background: var(--bg3);
 	color: var(--text);
 	border: 1px solid var(--border);
 }
 
-.funny-mbtn.s:hover {
+.mbtn.s:hover {
 	background: var(--border);
 }
 
+/* ── 라디오버튼 ── */
+.rbtn {
+	padding: 5px 14px;
+	border-radius: 6px;
+	border: 1px solid var(--border);
+	background: var(--bg3);
+	color: var(--muted);
+	cursor: pointer;
+	font-size: .85rem;
+	transition: .15s;
+}
 
-/* ── Header ── */
+.rbtn.on {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: #fff;
+}
+
+
+/* ── 공통 헤더 ── */
 .funny-hdr {
 	height: var(--hh);
 	background: var(--bg2);
@@ -410,18 +548,6 @@ body {
 .funny-rdot.on {
 	background: #22c55e;
 	animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-
-	0%,
-	100% {
-		opacity: 1
-	}
-
-	50% {
-		opacity: .5
-	}
 }
 
 .funny-mbadge {
@@ -1163,4 +1289,16 @@ body {
 
 .monaco-editor .cursor {
 	border-left: 2px solid #fff !important;
+}
+
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 1
+	}
+
+	50% {
+		opacity: .5
+	}
 }

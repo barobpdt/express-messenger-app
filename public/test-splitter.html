@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>페이지 분할 테스트</title>
+	<script src="./js/common.js"></script>
+	<script src="./js/jquery.js"></script>
+	<link rel="stylesheet" href="./css/boxicons.css">
+	<link rel="stylesheet" href="./css/funny.css">
+	<link rel="stylesheet" href="./css/pretendard.css">
+</head>
+
+<body>
+	<div id="funny-modal" class="modal-overlay active">
+		<div class="mbox">
+			<h2>📊 PPT & 전자칠판</h2>
+			<p>실시간 협업 발표 도구입니다. 역할과 방 코드를 설정하세요.</p>
+			<div class="mrow">
+				<span class="mlabel">역할</span>
+				<div class="role-group">
+					<button class="rbtn on" onclick="clickRadio(this)">📢 발표자</button>
+					<button class="rbtn" onclick="clickRadio(this)">👁 참가자</button>
+				</div>
+			</div>
+			<div class="mrow">
+				<span class="mlabel">닉네임</span>
+				<input class="minput" id="nick-in" placeholder="표시 이름 (선택)" maxlength="20">
+			</div>
+			<div class="mrow">
+				<span class="mlabel">방 코드</span>
+				<input class="minput" id="room-in" value="ROOM01" maxlength="12" placeholder="영문+숫자">
+			</div>
+			<div class="mrow">
+				<span class="mlabel">서버 URL</span>
+				<input class="minput" id="srv-in" placeholder="ws://... (비우면 현재 서버)">
+			</div>
+			<div class="mbtns">
+				<button class="mbtn p" onclick="wb.startApp(false)">🚀 접속</button>
+				<button class="mbtn s" onclick="wb.startApp(true)">💻 오프라인</button>
+			</div>
+		</div>
+	</div>
+	<!-- ══ MAIN APP ══ -->
+	<style>
+		.app-container .header {
+            height: 60px;
+            background: var(--bg-header);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 50;
+        }
+
+		#monaco-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            /* Fix cursor alignment by forcing consistent monospace rendering */
+            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+        }
+
+        /* Force monaco to respect the font */
+        .monaco-editor .view-lines {
+            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+        }
+	</style>
+	<div class="app-container">
+		<!-- Header -->
+		<header class="header">
+            <div class="logo">
+                <i class="fa-solid fa-layer-group logo-icon"></i>
+                <span class="logo-text">SQLite Studio</span>
+                <span class="logo-badge">
+					<i class="fa-solid fa-circle-check" style="margin-right:2px;"></i>
+                    Connected
+				</span>
+            </div>
+
+            <div class="hbox" style="margin-left:8px;">
+                <input type="text" id="db-path" placeholder="Path to Database (e.g. ./mydb.sqlite)"
+                    style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-nav); color: var(--text-main); font-size: 0.85rem; width: 250px;">
+                <button class="bbtn btn-secondary" onclick="connectDb()" title="Connect to Local SQLite File">
+                    <i class="fa-solid fa-link"></i> Connect
+                </button>
+                <div class="funny-space"></div>
+                <button class="bbtn btn-secondary" onclick="openHelpModal()" title="View Help & Shortcuts">
+                    <i class="fa-solid fa-circle-question"></i> Help
+                </button>
+                <button class="bbtn btn-secondary" onclick="resetEditor()" title="Clear editor content">
+                    <i class="fa-solid fa-eraser"></i> Clear
+                </button>
+                <button class="bbtn btn-run" id="btn-run"
+                    title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
+                    <i class="fa-solid fa-play"></i> Run Query <span
+                        style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
+                </button>
+            </div>
+        </header>
+
+		<!-- contents -->
+		<main class="main-stage">
+			<!-- Left Sidebar: Schema Tree -->
+			<aside id="sidebar" class="sidebar">
+				<div class="panel-header">
+					<i class="fa-solid fa-sitemap"></i> Database Explorer
+				</div>
+				<div class="sidebar-content">
+					<div id="schema-tree"></div>
+				</div>
+			</aside>
+
+			<!-- Right Area: Editor & Grid -->
+			<section id="workspace" class="workspace">
+				<!-- Query Editor Panel -->
+				<div id="editor-wrapper" class="content-wrapper">
+					<div class="panel-header" style="background: #1e1e1e; border-bottom: 1px solid #333;">
+						<i class="fa-solid fa-terminal"></i> Query Editor
+					</div>
+					<div id="monaco-container"></div>
+				</div>
+
+				<!-- Result Grid Panel -->
+				<div id="grid-wrapper" class="content-wrapper">
+					<div class="panel-header"
+						style="display: flex; justify-content: space-between; align-items: center; padding-right: 12px;">
+						<div>
+							<i class="fa-solid fa-table"></i> Query Results
+						</div>
+						<div style="display: flex; gap: 8px; align-items: center;">
+							<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;"
+								onclick="exportExcel()" title="Export results to Excel file">
+								<i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export
+							</button>
+							<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;"
+								onclick="openChartModal()" title="Visualize results with Chart.js">
+								<i class="fa-solid fa-chart-pie" style="color: #8b5cf6;"></i> Chart
+							</button>
+							<div class="query-metrics" id="query-metrics" style="margin-left: 8px;">
+								<i class="fa-solid fa-bolt"></i> <span>Success (4 rows affected) in 42ms</span>
+							</div>
+						</div>
+					</div>
+					<div id="result-grid"></div>
+				</div>
+			</section>
+		</main>
+
+		<!-- Toolbar -->
+		<div class="funny-tb" style="display: none;">
+			<div class="funny-nav-group">
+				<button class="nbtn" id="btn-prev" disabled>◀</button>
+				<span
+					style="font-size: .82rem; color: var(--muted); white-space: nowrap; min-width: 60px; text-align: center;">0
+					/ 0</span>
+				<button class="nbtn" id="btn-next" disabled>▶</button>
+			</div>
+			<div class="funny-sep"></div>
+			<div class="funny-tool-group">
+				<button class="tbtn on" id="t-pen" title="펜">✏️</button>
+				<button class="tbtn" id="t-hl" title="형광펜">🖍</button>
+				<button class="tbtn" id="t-er" title="지우개">🧹</button>
+				<button class="tbtn" id="t-laser" title="레이저포인터">🔴</button>
+				<button class="tbtn" id="t-text" title="텍스트">T</button>
+			</div>
+			<div class="funny-sep"></div>
+			<div class="funny-col-group"></div>
+			<div class="funny-sep"></div>
+			<div class="funny-sz-group">
+				<label>크기</label>
+				<input type="range" id="sz" min="1" max="30" value="4">
+				<div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;">
+					<span id="szpv"
+						style="width:8px;height:8px;background: var(--text);border-radius: 50%;display: block;transition: .15s;"></span>
+				</div>
+			</div>
+			<div class="funny-sep"></div>
+			<button class="abtn red" title="현재 페이지 필기 지우기">🗑 현재</button>
+			<button class="abtn" id="wb-btn" title="화이트보드 모드">⬜ 칠판</button>
+			<button class="abtn" id="auto-split-btn" title="넘치는 슬라이드를 자동으로 분할합니다">✂️ 자동분할</button>
+		</div>
+	</div>
+	
+
+	<script>
+		function clickRadio(btn) {
+			$('.rbtn').removeClass('on');
+			$(btn).addClass('on');
+		}
+		$(document).ready(function () {
+			
+		});
+	</script>
+</body>
+
+</html>
