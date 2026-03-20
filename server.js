@@ -12,6 +12,7 @@ import { getChoseong } from "es-hangul";
 import logger from "./config/logger.js";
 import orderRouter from "./routes/order.js";
 import spriteRouter from "./routes/sprite.js";
+import uploadRouter from "./routes/upload.js";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
@@ -31,9 +32,7 @@ import { Server } from 'socket.io';
 // npm install socket.io
 // const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_AVATAR_DIR = path.join(__dirname, "public/images/avatar");
 const UPLOAD_DIR = path.join(__dirname, "uploads");
-const UPLOAD_FILES_DIR = path.join(__dirname, "public/uploads/files");
 const FILE_TTL_MS = 60 * 60 * 1000; // 1시간
 
 const fileStore = new Map();
@@ -149,6 +148,62 @@ wss.on('connection', (ws) => {
 							setUserInfo(ws, username, { avatar: null, nickname: username })
 						});
 				}
+				return;
+			}
+
+			/* ── 태블릿 모니터링: 태블릿 등록 ── */
+			if (parsed.type === 'tablet-init') {
+				ws.isTablet = true;
+				ws.tableId = parsed.tableId;
+				ws.tabletLastSeen = Date.now();
+				logger.info(`태블릿 등록: 테이블 ${parsed.tableId}`);
+				// 관리자들에게 새 태블릿 접속 알림
+				wss.clients.forEach(client => {
+					if (client.readyState === 1 && client.isTabletAdmin) {
+						client.send(JSON.stringify({ type: 'tablet-connected', tableId: parsed.tableId, timestamp: parsed.timestamp, url: parsed.url }));
+					}
+				});
+				return;
+			}
+
+			/* ── 태블릿 모니터링: 관리자 등록 ── */
+			if (parsed.type === 'tablet-admin-init') {
+				ws.isTabletAdmin = true;
+				// 현재 접속 중인 태블릿 목록 전달
+				const tablets = [];
+				wss.clients.forEach(client => {
+					if (client.isTablet) tablets.push({ tableId: client.tableId, lastSeen: client.tabletLastSeen });
+				});
+				ws.send(JSON.stringify({ type: 'tablet-list', tablets }));
+				logger.info(`태블릿 관리자 접속`);
+				return;
+			}
+
+			/* ── 태블릿 모니터링: 오류/스크린샷 보고 → 관리자로 포워딩 ── */
+			if (parsed.type === 'tablet-error' || parsed.type === 'tablet-screenshot') {
+				if (ws.isTablet) ws.tabletLastSeen = Date.now();
+				wss.clients.forEach(client => {
+					if (client.readyState === 1 && client.isTabletAdmin) {
+						client.send(JSON.stringify(parsed));
+					}
+				});
+				return;
+			}
+
+			/* ── 태블릿 모니터링: 관리자 → 특정 태블릿 명령 전달 ── */
+			if (parsed.type === 'tablet-cmd') {
+				if (!ws.isTabletAdmin) return; // 관리자만 명령 가능
+				const targetTableId = parsed.tableId;
+				let sent = false;
+				wss.clients.forEach(client => {
+					if (client.readyState === 1 && client.isTablet &&
+						(targetTableId === 'all' || String(client.tableId) === String(targetTableId))) {
+						client.send(JSON.stringify(parsed));
+						sent = true;
+					}
+				});
+				// 결과를 관리자에게 에코
+				ws.send(JSON.stringify({ type: 'tablet-cmd-ack', tableId: targetTableId, cmd: parsed.cmd, sent, timestamp: Date.now() }));
 				return;
 			}
 
@@ -379,6 +434,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(express.static("public"));
 app.use("/api/sprite", spriteRouter);
+app.use("/api/upload", uploadRouter);
 
 // 헬스 체크
 app.get("/api/health", (req, res) => {
@@ -1160,43 +1216,7 @@ app.get('/api/videos/:filename', (req, res) => {
 	}
 });
 
-// avatar upload
-if (!fs.existsSync(UPLOAD_AVATAR_DIR)) fs.mkdirSync(UPLOAD_AVATAR_DIR, { recursive: true });
-if (!fs.existsSync(UPLOAD_FILES_DIR)) fs.mkdirSync(UPLOAD_FILES_DIR, { recursive: true });
 
-const uploadAvatar = multer({
-	storage: multer.diskStorage({
-		destination: (_, __, cb) => cb(null, UPLOAD_AVATAR_DIR),
-		filename: (req, file, cb) => {
-			const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-			cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
-		}
-	}),
-	limits: { fileSize: 10 * 1024 * 1024 }, // 최대 10MB
-});
-const uploadFile = multer({
-	storage: multer.diskStorage({
-		destination: (_, __, cb) => cb(null, UPLOAD_FILES_DIR),
-		filename: (req, file, cb) => {
-			const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-			cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
-		}
-	}),
-	limits: { fileSize: 10 * 1024 * 1024 }, // 최대 10MB
-});
-app.post("/api/upload/avatar", uploadAvatar.single("file"), (req, res) => {
-	if (!req.file) return res.status(400).json({ error: "파일이 없습니다." });
-	const fileId = req.file.filename;
-	const url = '/images/avatar/' + fileId
-	console.log('upload avatar=>', req.body.nickName, url)
-	res.status(201).json({ fileId, name: req.file.originalname, url });
-});
-app.post("/api/upload/file", uploadFile.single("file"), (req, res) => {
-	if (!req.file) return res.status(400).json({ error: "파일이 없습니다." });
-	const fileId = req.file.filename;
-	const url = '/uploads/files/' + fileId
-	res.status(201).json({ fileId, name: req.file.originalname, url });
-});
 
 
 // ─── 파일 공유 API (업로드 → 다운로드 링크) ──────────────────────────────────
@@ -1672,6 +1692,35 @@ app.post("/api/sqlite/execute", catchAsyncErrors(async (req, res) => {
 		res.status(400).json({ success: false, error: error.message, duration: Date.now() - startTime });
 	}
 }));
+
+app.post("/api/sqlite/update", catchAsyncErrors(async (req, res) => {
+	if (!activeSqliteDb) return res.status(400).json({ error: "No SQLite DB connected" });
+	const { table, pk, updates } = req.body;
+	if (!table || !pk || !updates || Object.keys(updates).length === 0) {
+		return res.status(400).json({ error: "Missing required update parameters (table, pk, updates)" });
+	}
+
+	const startTime = Date.now();
+	try {
+		const updateCols = Object.keys(updates);
+		const setClause = updateCols.map(col => `"${col}" = ?`).join(', ');
+		const setValues = Object.values(updates);
+
+		const pkCols = Object.keys(pk);
+		const whereClause = pkCols.map(col => `"${col}" = ?`).join(' AND ');
+		const whereValues = Object.values(pk);
+
+		const query = `UPDATE "${table}" SET ${setClause} WHERE ${whereClause}`;
+		const stmt = activeSqliteDb.prepare(query);
+		const info = stmt.run(...setValues, ...whereValues);
+
+		const duration = Date.now() - startTime;
+		res.json({ success: true, affectedRows: info.changes, duration });
+	} catch (error) {
+		res.status(400).json({ success: false, error: error.message, duration: Date.now() - startTime });
+	}
+}));
+
 
 // 주문 시스템 라우터
 app.use("/api/order", orderRouter);

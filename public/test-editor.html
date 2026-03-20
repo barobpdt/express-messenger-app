@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>페이지 분할 테스트</title>
+
+	<link rel="stylesheet" href="./css/pretendard.css">
+	<link rel="stylesheet" href="./css/funny.css">
+
+</head>
+
+
+<body>
+	<!-- Monaco Editor Loader -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+	<script src="./js/jquery.js"></script>
+	<script src="./js/common.js"></script>
+	<!-- ══ MAIN APP ══ -->
+	<style>
+		.app-container .header {
+			height: 60px;
+			background: var(--bg-header);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border-bottom: 1px solid var(--border-color);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 24px;
+			z-index: 50;
+		}
+
+		.monaco-container {
+			flex: 1;
+			width: 100%;
+			height: 100%;
+			/* Fix cursor alignment by forcing consistent monospace rendering */
+			font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+		}
+	</style>
+	<div class="app-container">
+		<!-- Header -->
+		<header class="header">
+			<div class="logo">
+				<i class="fa-solid fa-layer-group logo-icon"></i>
+				<span class="logo-text">SQLite Studio</span>
+				<span class="logo-badge">
+					<i class="fa-solid fa-circle-check" style="margin-right:2px;"></i>
+					Connected
+				</span>
+			</div>
+		</header>
+
+		<!-- contents -->
+		<main class="main-stage">
+			<div id="editor-wrapper" style="width: 100%; height: 100%;">
+				<div class="panel-header" style="background: #1e1e1e; border-bottom: 1px solid #333;">
+					<i class="fa-solid fa-terminal"></i> Query Editor
+				</div>
+				<div class="monaco-container"></div>
+			</div>
+		</main>
+	</div>
+
+	<script>
+		$(document).ready(function () {
+			const editor = new EditorModule(getEl('.monaco-container'), 'sqlEditor')
+			editor.init()
+			pageInfo.editor = editor
+			setTimeout(() => editor.setFocus(), 500)
+		})
+	</script>
+</body>
+
+</html>

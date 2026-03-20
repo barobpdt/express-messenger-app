@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Editor Playground</title>
+
+    <!-- External Dependencies -->
+    <script src="./js/common.js"></script>
+    <script src="./js/jquery.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.5/split.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="./css/pretendard.css">
+    <link rel="stylesheet" href="./css/funny.css">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-panel: #111827;
+            --primary: #8b5cf6;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow: hidden;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .playground-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .pg-header {
+            height: 60px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .pg-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .pg-brand i {
+            color: var(--primary);
+        }
+
+        .pg-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .pg-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .pg-sidebar {
+            width: 280px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .pg-editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        select,
+        input {
+            background: #1e293b;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #7c3aed;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .monaco-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .monaco-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+
+        .status-bar {
+            height: 30px;
+            background: #0f172a;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            justify-content: space-between;
+        }
+
+        /* Split Gutter Fix */
+        .gutter {
+            background-color: var(--bg-base);
+            background-repeat: no-repeat;
+            background-position: 50%;
+        }
+
+        .gutter.gutter-horizontal {
+            cursor: col-resize;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="2" height="20" fill="%23475569"><rect width="2" height="20"/></svg>');
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Monaco Loader -->
+
+
+    <div class="playground-container">
+        <header class="pg-header">
+            <div class="pg-brand">
+                <i class="fa-solid fa-code"></i>
+                <span>Monaco Playground</span>
+            </div>
+            <div class="pg-controls">
+                <button class="btn btn-outline" onclick="formatCode()"><i class="fa-solid fa-align-left"></i>
+                    Format</button>
+                <button class="btn btn-primary" onclick="showCode()"><i class="fa-solid fa-play"></i> Get Value</button>
+            </div>
+        </header>
+
+        <main class="pg-main">
+            <aside class="pg-sidebar" id="pg-sidebar">
+                <div class="control-group">
+                    <label>Language</label>
+                    <select id="lang-select" onchange="changeLanguage(this.value)">
+                        <option value="javascript">JavaScript</option>
+                        <option value="sql" selected>SQL</option>
+                        <option value="json">JSON</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="markdown">Markdown</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Theme</label>
+                    <select id="theme-select" onchange="changeTheme(this.value)">
+                        <option value="premium-dark">Premium Dark</option>
+                        <option value="vs-dark">VS Dark</option>
+                        <option value="vs">Light</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Font Size</label>
+                    <input type="number" id="font-size" value="14" min="10" max="30" onchange="updateOptions()">
+                </div>
+
+                <div style="flex: 1;"></div>
+
+                <div class="control-group">
+                    <button class="btn btn-outline" style="width: 100%;" onclick="resetEditor('testEditor')">
+                        <i class="fa-solid fa-rotate-right"></i> Reset Editor
+                    </button>
+                </div>
+            </aside>
+
+            <section class="pg-editor-area" id="pg-editor-area">
+                <div class="monaco-wrapper">
+                    <div class="monaco-container" id="monaco-target"></div>
+                </div>
+                <footer class="status-bar">
+                    <div id="cursor-pos">Ln 1, Col 1</div>
+                    <div id="lang-status">SQL</div>
+                </footer>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        let editor;
+        const editorCode = 'testEditor';
+
+        $(document).ready(function () {
+            // Initialize Split logic
+            Split(['#pg-sidebar', '#pg-editor-area'], {
+                sizes: [20, 80],
+                minSize: [200, 400],
+                gutterSize: 4,
+                snapOffset: 0
+            });
+
+            // Initialize Editor using common utility
+            initEditor(document.getElementById('monaco-target'), editorCode);
+
+            // Wait for monaco to be ready from external script
+            const checkReady = setInterval(() => {
+                if (pageInfo[editorCode]) {
+                    editor = pageInfo[editorCode];
+                    clearInterval(checkReady);
+                    setupEditorListeners();
+
+                    // Set default content for SQL
+                    editor.setValue("SELECT * FROM users WHERE status = 'active' ORDER BY id DESC;");
+                }
+            }, 100);
+        });
+
+        function setupEditorListeners() {
+            editor.onDidChangeCursorPosition((e) => {
+                document.getElementById('cursor-pos').innerText = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+            });
+        }
+
+        function changeLanguage(lang) {
+            if (!editor) return;
+            const model = editor.getModel();
+            monaco.editor.setModelLanguage(model, lang);
+            document.getElementById('lang-status').innerText = lang.toUpperCase();
+
+            // Provide some boilerplate
+            let code = "";
+            switch (lang) {
+                case 'javascript': code = "function hello() {\n\tconsole.log('Hello Monaco!');\n}"; break;
+                case 'json': code = '{\n\t"name": "Monaco",\n\t"version": "1.0"\n}'; break;
+                case 'html': code = '<!-- HTML Test -->\n<div class="box">Hello</div>'; break;
+                default: code = "";
+            }
+            if (code) editor.setValue(code);
+        }
+
+        function changeTheme(theme) {
+            monaco.editor.setTheme(theme);
+        }
+
+        function updateOptions() {
+            const fontSize = parseInt(document.getElementById('font-size').value);
+            editor.updateOptions({ fontSize });
+        }
+
+        function formatCode() {
+            editor.trigger('anyString', 'editor.action.formatDocument');
+        }
+
+        function showCode() {
+            const code = editor.getValue();
+            alert("Current Code:\n" + code);
+            console.log(code);
+        }
+    </script>
+</body>
+
+</html>

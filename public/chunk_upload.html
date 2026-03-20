@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대용량 파일 청크 업로드</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            padding: 2.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+            text-align: center;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.025em;
+        }
+
+        p.desc {
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 0.95rem;
+            margin-bottom: 2.5rem;
+            line-height: 1.5;
+        }
+
+        .upload-box {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem 1rem;
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .file-label:hover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.08);
+            transform: scale(1.02);
+        }
+
+        .file-label .icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+        }
+
+        .file-info {
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .btn-upload {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: white;
+            border: none;
+            padding: 1.125rem;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-upload:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-upload:active {
+            transform: translateY(0);
+        }
+
+        .btn-upload:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 2rem;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .progress-bar-bg {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            font-weight: 500;
+        }
+
+        .success-msg {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: rgba(34, 197, 94, 0.08);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 16px;
+            color: #4ade80;
+            font-size: 0.95rem;
+            text-align: center;
+            font-weight: 600;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .file-link {
+            color: var(--primary);
+            text-decoration: underline;
+            word-break: break-all;
+            margin-top: 0.5rem;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>대용량 파일 업로드</h2>
+    <p class="desc">파일을 청크 단위로 분할하여 안정적으로 업로드합니다. 중단 없는 대용량 전송을 경험하세요.</p>
+
+    <div class="upload-box">
+        <label for="fileInput" class="file-label" id="dropZone">
+            <span class="icon">🚀</span>
+            <span class="file-info" id="fileNameDisp">파일을 선택하거나 이곳에 놓으세요</span>
+            <input type="file" id="fileInput">
+        </label>
+        <button id="uploadBtn" class="btn-upload" disabled>업로드 시작</button>
+    </div>
+
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+        <div class="status">
+            <span id="progressText">0% 완료</span>
+            <span id="chunkInfo">준비 중...</span>
+        </div>
+    </div>
+
+    <div class="success-msg" id="successMsg">
+        업로드가 성공적으로 완료되었습니다!
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisp = document.getElementById('fileNameDisp');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const chunkInfo = document.getElementById('chunkInfo');
+    const successMsg = document.getElementById('successMsg');
+    const dropZone = document.getElementById('dropZone');
+
+    const CHUNK_SIZE = 1024 * 1024 * 2; // 2MB 단위 (가독성을 위한 설정)
+
+    fileInput.addEventListener('change', (e) => {
+        handleFileSelect(e.target.files[0]);
+    });
+
+    function handleFileSelect(file) {
+        if (file) {
+            fileNameDisp.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
+            uploadBtn.disabled = false;
+            successMsg.style.display = 'none';
+            progressContainer.style.display = 'none';
+        }
+    }
+
+    // 드래그 앤 드롭 구현
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--primary)';
+        dropZone.style.background = 'rgba(99, 102, 241, 0.08)';
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        dropZone.style.background = 'rgba(255, 255, 255, 0.02)';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        dropZone.style.background = 'rgba(255, 255, 255, 0.02)';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(file);
+        }
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        uploadBtn.disabled = true;
+        progressContainer.style.display = 'block';
+        successMsg.style.display = 'none';
+
+        const uploadId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+        console.log(`Starting upload: ${file.name}, ID: ${uploadId}, Total chunks: ${totalChunks}`);
+
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const formData = new FormData();
+            formData.append('chunk', chunk);
+            formData.append('uploadId', uploadId);
+            formData.append('chunkIndex', i);
+
+            try {
+                const response = await fetch('/api/upload/chunk', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('청크 업로드 실패');
+
+                const percent = Math.round(((i + 1) / totalChunks) * 90); 
+                progressBar.style.width = percent + '%';
+                progressText.textContent = percent + '% 완료';
+                chunkInfo.textContent = `${i + 1} / ${totalChunks} 청크 처리 중`;
+
+            } catch (error) {
+                alert('업로드 중 오류 발생: ' + error.message);
+                uploadBtn.disabled = false;
+                return;
+            }
+        }
+
+        // 병합 요청
+        chunkInfo.textContent = '파일 병합 중...';
+        try {
+            const mergeResponse = await fetch('/api/upload/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    uploadId,
+                    fileName: file.name,
+                    totalChunks
+                })
+            });
+
+            const result = await mergeResponse.json();
+            if (result.success) {
+                progressBar.style.width = '100%';
+                progressText.textContent = '100% 완료';
+                chunkInfo.textContent = '병합 완료';
+                successMsg.style.display = 'block';
+                successMsg.innerHTML = `업로드 성공!<br><a href="${result.filePath}" class="file-link" target="_blank">${file.name}</a>`;
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            alert('병합 중 오류 발생: ' + error.message);
+        } finally {
+            uploadBtn.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>

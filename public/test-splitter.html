@@ -7,21 +7,24 @@
 	<title>페이지 분할 테스트</title>
 	<script src="./js/common.js"></script>
 	<script src="./js/jquery.js"></script>
-	<link rel="stylesheet" href="./css/boxicons.css">
+	<script src="./js/Split.min.js"></script>
+	<!-- FontAwesome for Icons -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 	<link rel="stylesheet" href="./css/funny.css">
 	<link rel="stylesheet" href="./css/pretendard.css">
 </head>
 
+
 <body>
-	<div id="funny-modal" class="modal-overlay active">
+	<div id="funny-modal" class="modal-overlay">
 		<div class="mbox">
 			<h2>📊 PPT & 전자칠판</h2>
 			<p>실시간 협업 발표 도구입니다. 역할과 방 코드를 설정하세요.</p>
 			<div class="mrow">
 				<span class="mlabel">역할</span>
 				<div class="role-group">
-					<button class="rbtn on" onclick="clickRadio(this)">📢 발표자</button>
-					<button class="rbtn" onclick="clickRadio(this)">👁 참가자</button>
+					<button class="rbtn on">📢 발표자</button>
+					<button class="rbtn">👁 참가자</button>
 				</div>
 			</div>
 			<div class="mrow">
@@ -45,63 +48,58 @@
 	<!-- ══ MAIN APP ══ -->
 	<style>
 		.app-container .header {
-            height: 60px;
-            background: var(--bg-header);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 24px;
-            z-index: 50;
-        }
+			height: 60px;
+			background: var(--bg-header);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border-bottom: 1px solid var(--border-color);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 24px;
+			z-index: 50;
+		}
 
-		#monaco-container {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-            /* Fix cursor alignment by forcing consistent monospace rendering */
-            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
-        }
-
-        /* Force monaco to respect the font */
-        .monaco-editor .view-lines {
-            font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
-        }
+		.monaco-container {
+			flex: 1;
+			width: 100%;
+			height: 100%;
+			/* Fix cursor alignment by forcing consistent monospace rendering */
+			font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
+		}
 	</style>
 	<div class="app-container">
 		<!-- Header -->
 		<header class="header">
-            <div class="logo">
-                <i class="fa-solid fa-layer-group logo-icon"></i>
-                <span class="logo-text">SQLite Studio</span>
-                <span class="logo-badge">
+			<div class="logo">
+				<i class="fa-solid fa-layer-group logo-icon"></i>
+				<span class="logo-text">SQLite Studio</span>
+				<span class="logo-badge">
 					<i class="fa-solid fa-circle-check" style="margin-right:2px;"></i>
-                    Connected
+					Connected
 				</span>
-            </div>
+			</div>
 
-            <div class="hbox" style="margin-left:8px;">
-                <input type="text" id="db-path" placeholder="Path to Database (e.g. ./mydb.sqlite)"
-                    style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-nav); color: var(--text-main); font-size: 0.85rem; width: 250px;">
-                <button class="bbtn btn-secondary" onclick="connectDb()" title="Connect to Local SQLite File">
-                    <i class="fa-solid fa-link"></i> Connect
-                </button>
-                <div class="funny-space"></div>
-                <button class="bbtn btn-secondary" onclick="openHelpModal()" title="View Help & Shortcuts">
-                    <i class="fa-solid fa-circle-question"></i> Help
-                </button>
-                <button class="bbtn btn-secondary" onclick="resetEditor()" title="Clear editor content">
-                    <i class="fa-solid fa-eraser"></i> Clear
-                </button>
-                <button class="bbtn btn-run" id="btn-run"
-                    title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
-                    <i class="fa-solid fa-play"></i> Run Query <span
-                        style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
-                </button>
-            </div>
-        </header>
+			<div class="hbox" style="margin-left:8px;">
+				<input type="text" id="db-path" placeholder="Path to Database (e.g. ./mydb.sqlite)"
+					style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-nav); color: var(--text-main); font-size: 0.85rem; width: 250px;">
+				<button class="bbtn btn-secondary" onclick="connectDb()" title="Connect to Local SQLite File">
+					<i class="fa-solid fa-link"></i> Connect
+				</button>
+				<div class="funny-space"></div>
+				<button class="bbtn btn-secondary" onclick="openHelpModal()" title="View Help & Shortcuts">
+					<i class="fa-solid fa-circle-question"></i> Help
+				</button>
+				<button class="bbtn btn-secondary" onclick="resetEditor()" title="Clear editor content">
+					<i class="fa-solid fa-eraser"></i> Clear
+				</button>
+				<button class="bbtn btn-run" id="btn-run"
+					title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
+					<i class="fa-solid fa-play"></i> Run Query <span
+						style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
+				</button>
+			</div>
+		</header>
 
 		<!-- contents -->
 		<main class="main-stage">
@@ -118,15 +116,15 @@
 			<!-- Right Area: Editor & Grid -->
 			<section id="workspace" class="workspace">
 				<!-- Query Editor Panel -->
-				<div id="editor-wrapper" class="content-wrapper">
+				<div id="editor-wrapper">
 					<div class="panel-header" style="background: #1e1e1e; border-bottom: 1px solid #333;">
 						<i class="fa-solid fa-terminal"></i> Query Editor
 					</div>
-					<div id="monaco-container"></div>
+					<div class="monaco-container"></div>
 				</div>
 
 				<!-- Result Grid Panel -->
-				<div id="grid-wrapper" class="content-wrapper">
+				<div id="grid-wrapper">
 					<div class="panel-header"
 						style="display: flex; justify-content: space-between; align-items: center; padding-right: 12px;">
 						<div>
@@ -185,16 +183,54 @@
 			<button class="abtn" id="auto-split-btn" title="넘치는 슬라이드를 자동으로 분할합니다">✂️ 자동분할</button>
 		</div>
 	</div>
-	
+
+	<script src="./js/tabulator.min.js"></script>
+	<!-- Monaco Editor Loader -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+
 
 	<script>
-		function clickRadio(btn) {
-			$('.rbtn').removeClass('on');
-			$(btn).addClass('on');
+		function setEditorHiehgt(height) {
+			console.log(height, $('#editor-wrapper .panel-header').height())
+			$('.monaco-container').css('height', height - $('#editor-wrapper .panel-header').height() + 'px')
 		}
 		$(document).ready(function () {
-			
-		});
+			// 1. Initialize Layout Splitter
+			Split(['#sidebar', '#workspace'], {
+				sizes: [20, 80],
+				minSize: 220,
+				gutterSize: 6,
+				snapOffset: 0
+			})
+			Split(['#editor-wrapper', '#grid-wrapper'], {
+				direction: 'vertical',
+				sizes: [50, 50],
+				minSize: 150,
+				gutterSize: 6,
+				snapOffset: 0,
+				onDragEnd: function (sizes) {
+					const height = $('#editor-wrapper').height() * sizes[0] / 100
+					setEditorHiehgt(height)
+				}
+			})
+
+			const editor = new EditorModule(getEl('.monaco-container'), 'sqlEditor')
+			editor.init()
+			setTimeout(() => {
+				setEditorHiehgt($('#editor-wrapper').height() - 20)
+				// editor.setLayout()
+				editor.setFocus()
+			}, 500)
+			const chat = new ChatModule($('#grid-wrapper'))
+			chat.onMessage = onMessage.bind(chat)
+			chat.sendMessage({ type: 'init', username: 'isitna' })
+			pageInfo.chat = chat
+			pageInfo.editor = editor
+		})
+		function onMessage(msg) {
+			clog('@@ws message', msg, this)
+		}
+
 	</script>
 </body>
 

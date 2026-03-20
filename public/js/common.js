@@ -23,9 +23,10 @@ const getJq = el => isEl(el) ? $(el) :
 
 // Object.prototype.update = function (...args) { return Object.assign(this, ...args) }
 // Object.prototype.copy = function (...args) { return Object.assign({}, this, ...args) }
-Object.prototype.isset = function (name) { return this.hasOwnProperty(name) }
-Object.prototype.cmp = function (name, value) { return this.isset(name) && this[name] === value }
+// Object.prototype.isset = function (name) { return this.hasOwnProperty(name) }
+// Object.prototype.cmp = function (name, value) { return this.isset(name) && this[name] === value }
 
+/*
 String.prototype.lpad = function (padLength, padString) {
 	let arrTxt = this;
 	if (!padString) padString = '0';
@@ -40,7 +41,6 @@ String.prototype.rpad = function (padLength, padString) {
 		arrTxt += padString;
 	return arrTxt;
 }
-/*
 String.prototype.trim = function() { return this.replace(/^\s+|\s+$/g,"") }
 String.prototype.ltrim = function() { return this.replace(/^\s+/,"") }
 String.prototype.rtrim = function() { return this.replace(/\s+$/,"") }
@@ -120,7 +120,14 @@ const loadStyle = (src) => {
 	el.textContent = src;
 	document.head.appendChild(el);
 }
-
+function loadScript(src, callback) {
+	var script = document.createElement("script");
+	// script.async = false;
+	script.src = src;
+	if (callback) script.onload = callback;
+	var doc = document.head || document.body;
+	doc.appendChild(script);
+}
 function showToastBox(message) {
 	if ($('#toast-box').length == 0) {
 		const toastBox = $('<div class="toast-box" id="toast-box"/>').appendTo(document.body)
@@ -217,3 +224,661 @@ function addSideToggleBtn(target, cb) {
 		if (typeof cb == 'function') cb()
 	})
 }
+
+class ChatModule {
+	constructor(targetEl, url) {
+		if (!url) {
+			const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+			url = `${proto}//${location.host}`;
+		}
+		this.targetEl = targetEl
+		this.panel = null
+		this.input = null
+		this.sendBtn = null
+		this.closeBtn = null
+		this.chatBody = null
+		this.nickname = ''
+		this.role = 'user'
+		this.room = '룸정보없음'
+		this.ws = null
+		this.wsOk = false
+		this.url = url
+		this.pendingMessages = []
+		this.init(url)
+	}
+	init(url) {
+		const self = this
+		const ws = new WebSocket(url)
+		ws.onopen = () => self.openSocket()
+		ws.onmessage = (e) => self.recvMessage(JSON.parse(e.data))
+		ws.onclose = () => self.closeSocket()
+		ws.onerror = (e) => self.errorSocket(e)
+		this.ws = ws
+	}
+	openSocket() {
+		this.wsOk = true
+		clog('@@ws open')
+		// flush pending messages
+		while (this.pendingMessages.length > 0) {
+			const msg = this.pendingMessages.shift()
+			this.ws.send(JSON.stringify(msg))
+		}
+	}
+	recvMessage(msg) {
+		clog('@@ws message', msg)
+		if (this.onMessage) this.onMessage(msg)
+	}
+	closeSocket() {
+		this.wsOk = false
+		clog('@@ws close')
+	}
+	errorSocket(e) {
+		this.wsOk = false
+		clog('@@ws error', e)
+	}
+	makeChatPanel() {
+		const target = isEl(this.targetEl) ? this.targetEl : document.body
+		const self = this
+		this.panel = $(`<div class="chat-panel">
+			<div class="chat-hdr">
+				<div class="chat-title">채팅</div>
+				<div class="chat-room">${this.room}</div>
+				<button class="chat-close">×</button>
+			</div>
+			<div class="chat-msgs"></div>
+			<div class="chat-input-row">
+				<textarea class="chat-in" placeholder="메시지를 입력하세요..."></textarea>
+				<button class="chat-send">➤</button>
+			</div>
+		</div>`).appendTo(target)
+		this.input = $('.chat-panel .chat-in')
+		this.sendBtn = $('.chat-panel .chat-send')
+		this.closeBtn = $('.chat-panel .chat-close')
+		this.chatBody = $('.chat-panel .chat-msgs')
+		this.sendBtn.on('click', () => self.sendChat())
+		this.closeBtn.on('click', () => self.closeChatPanel())
+		this.input.on('keydown', (e) => {
+			if (e.key === 'Enter' && !e.shiftKey) {
+				e.preventDefault();
+				self.sendChat();
+			}
+		})
+		this.input.on('input', () => {
+			const input = self.input[0]
+			const val = input.value
+			if (val && val.indexOf('\n') !== -1) {
+				input.style.height = 'auto';
+				input.style.height = (input.scrollHeight) + 'px';
+			} else {
+				input.style.height = '34px';
+			}
+		})
+	}
+	openPopup(css) {
+		if (!this.panel) {
+			this.makeChatPanel()
+		}
+		if (css) {
+			this.panel.css(css)
+		}
+		this.panel.removeClass('hidden')
+	}
+	closePopup() {
+		if (!this.panel) return
+		this.panel.addClass('hidden')
+	}
+	sendChat(type) {
+		if (!this.input) return clog('@@sendChat : input is null')
+		const text = (this.input.val() || '').trim();
+		if (!text) return clog('@@sendChat : text is empty')
+		if (!type) type = 'text'
+		this.sendMessage({ type: 'ppt-chat', nickname: this.nickname, role: this.role, text });
+		this.input.val('')
+		this.input.css('height', '34px')
+	}
+	sendMessage(msg) {
+		if (this.wsOk) {
+			msg.time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+			this.ws.send(JSON.stringify(msg))
+		} else {
+			this.pendingMessages.push(msg)
+		}
+	}
+}
+
+class EditorModule {
+	constructor(target, editorCode) {
+		this.target = target
+		this.editorCode = editorCode
+		this.editor = null
+	}
+	init() {
+		require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
+		require(['vs/editor/editor.main'], () => {
+			clog('@@ editor module init ', this)
+			const editor = monaco.editor.create(this.target, {
+				value: '',
+				language: 'sql',
+				theme: 'vs-dark',
+				automaticLayout: true,
+				minimap: { enabled: false },
+				fontSize: 14,
+				fontFamily: "'JetBrains Mono', 'Consolas', 'Courier New', monospace",
+				fontLigatures: false, // Ligatures can sometimes mess up cursor alignment
+				lineHeight: 24,
+				padding: { top: 16, bottom: 16 },
+				scrollBeyondLastLine: false,
+				disableMonospaceOptimizations: true,
+				smoothScrolling: true,
+				cursorBlinking: "smooth",
+				cursorSmoothCaretAnimation: true,
+				renderWhitespace: "selection"
+			});
+
+			// Bind F5 and Ctrl+Enter to run query
+			editor.addCommand(monaco.KeyCode.F5, function () {
+				// executeQuery();
+			});
+			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
+				// executeQuery();
+			});
+			this.editor = editor;
+		});
+	}
+	setLayout() {
+		if (!this.editor) return;
+		this.editor.layout();
+	}
+	getValue() {
+		if (!this.editor) return '';
+		return this.editor.getValue();
+	}
+	setValue(value) {
+		if (!this.editor) return;
+		this.editor.setValue(value);
+	}
+	setFocus() {
+		if (!this.editor) return;
+		this.editor.focus();
+	}
+	resetEditor() {
+		if (!this.editor) return;
+		this.editor.setValue('');
+		this.editor.focus();
+	}
+	defineTheme() {
+		monaco.editor.defineTheme('premium-dark', {
+			base: 'vs-dark',
+			inherit: true,
+			rules: [],
+			colors: {
+				'editor.background': '#1e1e1e',
+				'editorLineNumber.foreground': '#475569',
+				'editorIndentGuide.background': '#334155',
+			}
+		});
+	}
+	registerCompletionItemProvider() {
+		monaco.languages.registerCompletionItemProvider('sql', {
+			triggerCharacters: [' ', '.'],
+			provideCompletionItems: function (model, position) {
+				var word = model.getWordUntilPosition(position);
+				var range = {
+					startLineNumber: position.lineNumber,
+					endLineNumber: position.lineNumber,
+					startColumn: word.startColumn,
+					endColumn: word.endColumn
+				};
+
+				// Suggest tables dynamically from schema
+				var suggestions = window.dbTables.map(tableName => {
+					return {
+						label: tableName,
+						kind: monaco.languages.CompletionItemKind.Struct,
+						insertText: tableName,
+						range: range,
+						detail: 'Table'
+					};
+				});
+				return { suggestions: suggestions };
+			}
+		});
+	}
+	changeLanguage(language) {
+		monaco.editor.setModelLanguage(this.editor.getModel(), language);
+	}
+	changeTheme(theme) {
+		monaco.editor.setTheme(theme);
+	}
+	updateOptions(options) {
+		this.editor.updateOptions(options);
+	}
+	setFontSize(fontSize) {
+		this.editor.updateOptions({ fontSize: fontSize });
+	}
+	setLineHeight(lineHeight) {
+		this.editor.updateOptions({ lineHeight: lineHeight });
+	}
+	setPadding(padding) {
+		this.editor.updateOptions({ padding: padding });
+	}
+	setScrollBeyondLastLine(scrollBeyondLastLine) {
+		this.editor.updateOptions({ scrollBeyondLastLine: scrollBeyondLastLine });
+	}
+	setDisableMonospaceOptimizations(disableMonospaceOptimizations) {
+		this.editor.updateOptions({ disableMonospaceOptimizations: disableMonospaceOptimizations });
+	}
+	setSmoothScrolling(smoothScrolling) {
+		this.editor.updateOptions({ smoothScrolling: smoothScrolling });
+	}
+	setCursorBlinking(cursorBlinking) {
+		this.editor.updateOptions({ cursorBlinking: cursorBlinking });
+	}
+	setCursorSmoothCaretAnimation(cursorSmoothCaretAnimation) {
+		this.editor.updateOptions({ cursorSmoothCaretAnimation: cursorSmoothCaretAnimation });
+	}
+	setRenderWhitespace(renderWhitespace) {
+		this.editor.updateOptions({ renderWhitespace: renderWhitespace });
+	}
+	addCommand(keyCode, command) {
+		this.editor.addCommand(keyCode, command);
+	}
+	getSelectValue() {
+		return this.editor.getModel().getValueInRange(this.editor.getSelection());
+	}
+	getCursorPosition() {
+		return this.editor.getPosition();
+	}
+	getOffsetAt(position) {
+		return this.editor.getModel().getOffsetAt(position);
+	}
+	getLineCount() {
+		return this.editor.getModel().getLineCount();
+	}
+	getLineContent(lineNumber) {
+		return this.editor.getModel().getLineContent(lineNumber);
+	}
+	getLineLength(lineNumber) {
+		return this.editor.getModel().getLineLength(lineNumber);
+	}
+	getLineFirstNonWhitespaceColumn(lineNumber) {
+		return this.editor.getModel().getLineFirstNonWhitespaceColumn(lineNumber);
+	}
+	getLineLastNonWhitespaceColumn(lineNumber) {
+		return this.editor.getModel().getLineLastNonWhitespaceColumn(lineNumber);
+	}
+	getLineMinColumn(lineNumber) {
+		return this.editor.getModel().getLineMinColumn(lineNumber);
+	}
+	getLineMaxColumn(lineNumber) {
+		return this.editor.getModel().getLineMaxColumn(lineNumber);
+	}
+	getLineRange(lineNumber) {
+		return this.editor.getModel().getLineRange(lineNumber);
+	}
+	getLineCount() {
+		return this.editor.getModel().getLineCount();
+	}
+	find(text) {
+		const matches = this.editor.getModel().findMatches(text, false, false, false, null, false);
+		return matches;
+	}
+	getCurrentQurey() {
+		const str = this.getSelectValue();
+		if (str) return str;
+		const position = this.getCursorPosition();
+		const text = this.getValue();
+		const offset = this.getOffsetAt(position);
+
+		let startSearchOffset = text.lastIndexOf(';', offset - 1);
+		let startOffset = startSearchOffset === -1 ? 0 : startSearchOffset + 1;
+
+		let endOffset = text.indexOf(';', offset);
+		if (endOffset === -1) endOffset = text.length;
+		return text.substring(startOffset, endOffset).trim();
+	}
+	formatCode() {
+		this.editor.trigger('anyString', 'editor.action.formatDocument');
+	}
+	onCursorChange(callback) {
+		this.editor.onDidChangeCursorPosition((e) => callback(e));
+	}
+	onContentChange(callback) {
+		this.editor.onDidChangeModelContent((e) => callback(e));
+	}
+	onSelectionChange(callback) {
+		this.editor.onDidChangeCursorSelection((e) => callback(e));
+	}
+	onCursorSelectionChange(callback) {
+		this.editor.onDidChangeCursorSelection((e) => callback(e));
+	}
+}
+
+class GridModule {
+	constructor(target, options) {
+		this.target = target
+		this.options = options
+		this.grid = null
+		loadCss('/css/tabulator.min.css')
+		this.init()
+	}
+	init() {
+		/*
+		this.grid = new gridjs.Grid(this.options).render(this.target)
+		this.grid.setColumns([{ title: "Error", field: "error_message" }]);
+		this.grid.setData([{ error_message: result.error }]);
+		*/
+		if (!this.options.placeholder) this.options.placeholder = "데이터가 존재하지 않습니다."
+		this.grid = new Tabulator(this.target, this.options)
+	}
+	setData(data) {
+		this.grid.setData(data)
+	}
+	setColumns(columns) {
+		this.grid.setColumns(columns)
+	}
+	getData() {
+		return this.grid.getData()
+	}
+	getColumns() {
+		return this.grid.getColumns()
+	}
+	getSelectedData() {
+		return this.grid.getSelectedData()
+	}
+	getSelectedRows() {
+		return this.grid.getSelectedRows()
+	}
+	makeColumns(columns, useSet = false) {
+		const colDefs = columns.map(item => {
+			if (typeof item == 'string') {
+				return { title: item, field: item };
+			}
+			const field = item.field || item.code
+			const colDef = { field, title: item.title || field };
+			// Add some default custom widths based on length
+			if (field === 'id') colDef.width = 80;
+			if (field === 'status') colDef.formatter = this.statusFormatter;
+			if (item.hidden) colDef.hidden = true;
+			if (item.width) colDef.width = item.width;
+			if (item.formatter) colDef.formatter = item.formatter;
+			if (item.align) colDef.align = item.align;
+			if (item.sort) {
+				colDef.sorter = 'string';
+				colDef.headerSort = true;
+			}
+			if (item.editable) {
+				colDef.editor = "input";
+				colDef.cellClick = this.cellClick.bind(this)
+			} else if (item.useYn) {
+				colDef.editor = "select";
+				colDef.editorParams = { values: { "Y": "사용", "N": "미사용" } }
+			}
+			return colDef;
+		})
+		if (useSet) {
+			// colDefs.unshift({formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", width:90})
+			this.grid.setColumns(colDefs)
+		}
+		return colDefs
+	}
+	cellClick(e, cell) {
+		console.log(cell)
+	}
+	statusFormatter(cell, formatterParams, onRendered) {
+		var value = cell.getValue();
+		if (value === "active") {
+			return `<span style="color: #10b981; font-weight: 600;"><i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
+		} else {
+			return `<span style="color: #94a3b8;"><i class="fa-regular fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
+		}
+	}
+	addStyle() {
+		loadStyle(`
+			.tabulator-row {
+				font-family: 'JetBrains Mono', monospace;
+				font-size: 0.85rem;
+			}
+
+			.tabulator .tabulator-header {
+				font-family: 'Inter', sans-serif;
+				font-weight: 600;
+				border-bottom: 2px solid var(--border-color) !important;
+			}	
+		`)
+	}
+}
+
+class UploadModule {
+	constructor() {
+		this.inputEl = null
+		this.chunkSize = 1024 * 1024 * 2
+		this.uploadCheckTimer = null
+		this.fileList = []
+		this.onUploadProgress = null
+		this.onUploadFinish = null
+	}
+
+	uploadStart() {
+		if (this.inputEl) {
+			//this.inputEl.remove()
+			this.inputEl.value = ''
+			return this.inputEl.click()
+		}
+		const form = document.createElement('form')
+		const input = document.createElement('input')
+		this.inputEl = input
+		form.style.display = 'none'
+		input.type = 'file'
+		input.multiple = true
+		form.appendChild(input)
+		document.body.appendChild(form)
+		input.click()
+		input.onchange = (e) => {
+			this.uploadFiles(e.target.files)
+		}
+	}
+	uploadFiles(files) {
+		this.fileList = Array.from(files).map(file => {
+			if (file.size < this.chunkSize) {
+				return {
+					file: file,
+					name: file.name,
+					size: file.size,
+					type: file.type,
+					status: 'pending'
+				}
+			}
+			const uploadId = Date.now() + '-' + Math.random().toString(36).substring(2, 9)
+			const totalChunks = Math.ceil(file.size / this.chunkSize)
+			return {
+				file: file,
+				name: file.name,
+				size: file.size,
+				type: file.type,
+				uploadId: uploadId,
+				totalChunks: totalChunks,
+				uploadSize: 0,
+				status: 'pending'
+			}
+		})
+		this.fileList.forEach(fileItem => {
+			if (fileItem.status === 'pending') {
+				this.uploadFile(fileItem)
+				if (!this.uploadCheckTimer) {
+					this.uploadCheckTimer = setInterval(() => this.checkUploadStatus(), 1000)
+				}
+			}
+		})
+	}
+	checkUploadStatus() {
+		let finishCount = 0
+		this.fileList.forEach(fileItem => {
+			if (fileItem.status === 'uploaded') {
+				if (fileItem.uploadId) {
+					fileItem.status = 'merging'
+					this.mergeChunks(fileItem)
+				} else {
+					fileItem.status = 'completed'
+				}
+			} else if (fileItem.status == 'completed' || fileItem.status == 'error') {
+				finishCount++
+			}
+		})
+		if (finishCount === this.fileList.length) {
+			clearInterval(this.uploadCheckTimer)
+			this.uploadCheckTimer = null
+			if (this.onUploadFinish) {
+				this.onUploadFinish(this.fileList)
+			}
+		}
+	}
+	uploadFile(fileItem) {
+		if (fileItem.uploadId) {
+			this.uploadLargeFile(fileItem)
+		} else {
+			this.uploadSmallFile(fileItem)
+		}
+	}
+	uploadSmallFile(fileItem) {
+		const formData = new FormData()
+		formData.append('file', fileItem.file)
+		if (this.onUploadProgress) {
+			this.onUploadProgress('start', fileItem)
+		}
+		fetch('/api/upload/file', {
+			method: 'POST',
+			body: formData
+		})
+			.then(response => response.json())
+			.then(data => {
+				console.log(data)
+				fileItem.status = 'uploaded'
+				fileItem.downloadUrl = data.url
+				if (this.onUploadProgress) {
+					this.onUploadProgress('uploaded', fileItem)
+				}
+			})
+			.catch(error => {
+				console.error('Error:', error)
+				fileItem.status = 'error'
+				if (this.onUploadProgress) {
+					this.onUploadProgress('error', fileItem)
+				}
+			})
+	}
+	uploadLargeFile(fileItem) {
+		if (this.onUploadProgress) {
+			this.onUploadProgress('start', fileItem)
+		}
+		for (let n = 0; n < fileItem.totalChunks; n++) {
+			const chunk = fileItem.file.slice(n * this.chunkSize, (n + 1) * this.chunkSize)
+			const formData = new FormData()
+			formData.append('chunk', chunk)
+			formData.append('uploadId', fileItem.uploadId)
+			formData.append('chunkIndex', n)
+			formData.append('totalChunks', fileItem.totalChunks)
+			fetch('/api/upload/chunk', {
+				method: 'POST',
+				body: formData
+			})
+				.then(response => response.json())
+				.then(data => {
+					console.log(data)
+					if (data.success) {
+						const idx = n + 1
+						if (idx == fileItem.totalChunks) {
+							fileItem.percent = 100
+							fileItem.status = 'uploaded'
+						} else {
+							const percent = Math.round((idx / fileItem.totalChunks) * 90);
+							fileItem.percent = percent
+							fileItem.status = 'uploading'
+						}
+						if (this.onUploadProgress) {
+							this.onUploadProgress('uploading', fileItem)
+						}
+					} else {
+						fileItem.status = 'error'
+						if (this.onUploadProgress) {
+							this.onUploadProgress('error', fileItem)
+						}
+					}
+				})
+				.catch(error => {
+					console.error('Error:', error)
+					fileItem.status = 'error'
+					if (this.onUploadProgress) {
+						this.onUploadProgress('error', fileItem)
+					}
+				})
+		}
+		/* file reader 이용
+		const uploadId = fileItem.uploadId
+		const totalChunks = fileItem.totalChunks
+		const chunkSize = this.chunkSize
+		const fileReader = new FileReader()
+		fileReader.onload = (e) => {
+			const chunk = e.target.result
+			const formData = new FormData()
+			formData.append('file', chunk)
+			formData.append('uploadId', uploadId)
+			formData.append('chunkIndex', chunkIndex)
+			formData.append('totalChunks', totalChunks)
+			fetch('/upload', {
+				method: 'POST',
+				body: formData
+			})
+			.then(response => response.json())
+			.then(data => {
+				console.log(data)
+			})
+			.catch(error => {
+				console.error('Error:', error)
+			})
+		}
+		fileReader.readAsArrayBuffer(file)
+		*/
+	}
+	mergeChunks(fileItem) {
+		if (this.onUploadProgress) {
+			this.onUploadProgress('merging', fileItem)
+		}
+		try {
+			fetch('/api/upload/merge', {
+				method: 'POST',
+				body: JSON.stringify({
+					uploadId: fileItem.uploadId,
+					fileName: fileItem.name,
+					totalChunks: fileItem.totalChunks
+				})
+			})
+				.then(response => response.json())
+				.then(data => {
+					console.log(data)
+					if (data.success) {
+						fileItem.status = 'completed'
+						fileItem.downloadUrl = data.url
+						if (this.onUploadProgress) {
+							this.onUploadProgress('completed', fileItem)
+						}
+					} else {
+						fileItem.status = 'error'
+						if (this.onUploadProgress) {
+							this.onUploadProgress('error', fileItem)
+						}
+					}
+				})
+				.catch(error => {
+					console.error('Error:', error)
+					fileItem.status = 'error'
+				})
+		} catch (error) {
+			alert('병합 중 오류 발생: ' + error.message);
+		} finally {
+			uploadBtn.disabled = false;
+		}
+	}
+
+}
+

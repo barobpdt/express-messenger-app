@@ -5,10 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SQLite Studio - Premium Web Client</title>
-
-    <!-- Google Fonts -->
-    
-
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -453,7 +449,7 @@
             /* green for YES */
         }
     </style>
-	<link rel="stylesheet" href="/css/pretendard.css">
+    <link rel="stylesheet" href="/css/pretendard.css">
 </head>
 
 <body>
@@ -948,7 +944,44 @@
             theme: "midnight",
             placeholder: "<div style='color: #64748b; font-size: 1rem;'><i class='fa-solid fa-inbox fa-2x mb-2'></i><br/>Execute a query to see results</div>",
             columns: [], // Dynamically generated on query run
-            data: []
+            data: [],
+            cellEdited: function (cell) {
+                const table = window.currentTable;
+                if (!table || !window.currentPKs || window.currentPKs.length === 0) return;
+
+                const rowData = cell.getRow().getData();
+                const field = cell.getField();
+                const value = cell.getValue();
+
+                const pkValues = {};
+                window.currentPKs.forEach(pk => {
+                    pkValues[pk] = rowData[pk];
+                });
+
+                const updates = {};
+                updates[field] = value;
+
+                fetch('/api/sqlite/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ table, pk: pkValues, updates })
+                })
+                    .then(res => res.json())
+                    .then(result => {
+                        const metrics = document.getElementById('query-metrics');
+                        if (result.success) {
+                            metrics.innerHTML = `<i class="fa-solid fa-check" style="color:#10b981;"></i> <span style="color:#10b981;">Row updated successfully (${result.duration}ms)</span>`;
+                        } else {
+                            metrics.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <span style="color:#ef4444;">Update failed: ${result.error}</span>`;
+                            cell.restoreOldValue();
+                        }
+                        metrics.classList.add('visible');
+                    })
+                    .catch(err => {
+                        console.error("Update error:", err);
+                        cell.restoreOldValue();
+                    });
+            }
         });
 
         // 4. Initialize Monaco Editor
@@ -1090,14 +1123,49 @@
                 // Extract data depending on DB driver (postgres JS usually returns an array, Neon returns object with rows)
                 let dataArr = Array.isArray(result.data) ? result.data : (result.data.rows || []);
 
+                // Editability Logic: Extract table name and primary keys
+                window.currentTable = null;
+                window.currentPKs = [];
+
+                const tableMatch = query.match(/FROM\s+["']?([a-zA-Z0-9_]+)["']?/i);
+                if (tableMatch && query.trim().toLowerCase().startsWith('select')) {
+                    window.currentTable = tableMatch[1];
+                }
+
                 // Remove formatting if tabulator already generated columns
                 if (dataArr.length > 0) {
                     const keys = Object.keys(dataArr[0]);
+
+                    // Fetch PKs separately if table is known
+                    if (window.currentTable) {
+                        try {
+                            const res = await fetch('/api/sqlite/execute', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ query: `PRAGMA table_info("${window.currentTable}")` })
+                            });
+                            const pragmaRes = await res.json();
+                            if (pragmaRes.success) {
+                                window.currentPKs = pragmaRes.data.filter(c => c.pk > 0).map(c => c.name);
+                            }
+                        } catch (e) { }
+                    }
+
                     const cols = keys.map(k => {
                         let colDef = { title: k, field: k };
                         // Add some default custom widths based on length
                         if (k === 'id') colDef.width = 80;
                         if (k === 'status') colDef.formatter = statusFormatter;
+
+                        if (window.currentTable) {
+                            colDef.editor = "input";
+                            if (window.currentPKs.includes(k)) {
+                                colDef.cellClick = function (e, cell) {
+                                    // Optional: visual cue that it's a PK
+                                };
+                            }
+                        }
+
                         return colDef;
                     });
 
