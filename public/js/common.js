@@ -128,6 +128,10 @@ function loadScript(src, callback) {
 	var doc = document.head || document.body;
 	doc.appendChild(script);
 }
+function closeModal() {
+	$('.modal-overlay').removeClass('active')
+}
+
 function showToastBox(message) {
 	if ($('#toast-box').length == 0) {
 		const toastBox = $('<div class="toast-box" id="toast-box"/>').appendTo(document.body)
@@ -556,7 +560,7 @@ class EditorModule {
 
 class GridModule {
 	constructor(target, options) {
-		this.target = target
+		this.target = getEl(target)
 		this.options = options
 		this.grid = null
 		loadCss('/css/tabulator.min.css')

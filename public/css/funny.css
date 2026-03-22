@@ -300,6 +300,30 @@ body {
 	z-index: 100;
 }
 
+/* ── table ── */
+.funny-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.85rem;
+	font-family: 'JetBrains Mono', monospace;
+}
+
+.funny-table th,
+.funny-table td {
+	text-align: left;
+	padding: 10px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.funny-table th {
+	color: var(--text-muted);
+	font-family: 'Inter', sans-serif;
+	font-weight: 600;
+	background: rgba(255, 255, 255, 0.02);
+	text-transform: uppercase;
+	font-size: 0.75rem;
+}
+
 /* ── Modal ── */
 
 .modal-overlay {

@@ -16,35 +16,7 @@
 
 
 <body>
-	<div id="funny-modal" class="modal-overlay">
-		<div class="mbox">
-			<h2>📊 PPT & 전자칠판</h2>
-			<p>실시간 협업 발표 도구입니다. 역할과 방 코드를 설정하세요.</p>
-			<div class="mrow">
-				<span class="mlabel">역할</span>
-				<div class="role-group">
-					<button class="rbtn on">📢 발표자</button>
-					<button class="rbtn">👁 참가자</button>
-				</div>
-			</div>
-			<div class="mrow">
-				<span class="mlabel">닉네임</span>
-				<input class="minput" id="nick-in" placeholder="표시 이름 (선택)" maxlength="20">
-			</div>
-			<div class="mrow">
-				<span class="mlabel">방 코드</span>
-				<input class="minput" id="room-in" value="ROOM01" maxlength="12" placeholder="영문+숫자">
-			</div>
-			<div class="mrow">
-				<span class="mlabel">서버 URL</span>
-				<input class="minput" id="srv-in" placeholder="ws://... (비우면 현재 서버)">
-			</div>
-			<div class="mbtns">
-				<button class="mbtn p" onclick="wb.startApp(false)">🚀 접속</button>
-				<button class="mbtn s" onclick="wb.startApp(true)">💻 오프라인</button>
-			</div>
-		</div>
-	</div>
+	 
 	<!-- ══ MAIN APP ══ -->
 	<style>
 		.app-container .header {
@@ -60,13 +32,7 @@
 			z-index: 50;
 		}
 
-		.monaco-container {
-			flex: 1;
-			width: 100%;
-			height: 100%;
-			/* Fix cursor alignment by forcing consistent monospace rendering */
-			font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace !important;
-		}
+		
 	</style>
 	<div class="app-container">
 		<!-- Header -->
@@ -81,22 +47,10 @@
 			</div>
 
 			<div class="hbox" style="margin-left:8px;">
-				<input type="text" id="db-path" placeholder="Path to Database (e.g. ./mydb.sqlite)"
-					style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-nav); color: var(--text-main); font-size: 0.85rem; width: 250px;">
-				<button class="bbtn btn-secondary" onclick="connectDb()" title="Connect to Local SQLite File">
-					<i class="fa-solid fa-link"></i> Connect
-				</button>
-				<div class="funny-space"></div>
-				<button class="bbtn btn-secondary" onclick="openHelpModal()" title="View Help & Shortcuts">
-					<i class="fa-solid fa-circle-question"></i> Help
-				</button>
-				<button class="bbtn btn-secondary" onclick="resetEditor()" title="Clear editor content">
-					<i class="fa-solid fa-eraser"></i> Clear
-				</button>
-				<button class="bbtn btn-run" id="btn-run"
-					title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
-					<i class="fa-solid fa-play"></i> Run Query <span
-						style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
+				<button class="bbtn btn-run" id="btn-run" title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
+					<i class="fa-solid fa-play"></i> 
+					Search 
+					<span style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
 				</button>
 			</div>
 		</header>
@@ -115,14 +69,6 @@
 
 			<!-- Right Area: Editor & Grid -->
 			<section id="workspace" class="workspace">
-				<!-- Query Editor Panel -->
-				<div id="editor-wrapper">
-					<div class="panel-header" style="background: #1e1e1e; border-bottom: 1px solid #333;">
-						<i class="fa-solid fa-terminal"></i> Query Editor
-					</div>
-					<div class="monaco-container"></div>
-				</div>
-
 				<!-- Result Grid Panel -->
 				<div id="grid-wrapper">
 					<div class="panel-header"
@@ -144,13 +90,13 @@
 							</div>
 						</div>
 					</div>
-					<div id="result-grid"></div>
+					<div id="grid-container"></div>
 				</div>
 			</section>
 		</main>
 
 		<!-- Toolbar -->
-		<div class="funny-tb" style="display: none;">
+		<div class="funny-tb">
 			<div class="funny-nav-group">
 				<button class="nbtn" id="btn-prev" disabled>◀</button>
 				<span
@@ -219,46 +165,27 @@
 
 
 	<script>
-		function setEditorHiehgt(height) {
-			console.log(height, $('#editor-wrapper .panel-header').height())
-			$('.monaco-container').css('height', height - $('#editor-wrapper .panel-header').height() + 'px')
-		}
 		$(document).ready(function () {
-			// 1. Initialize Layout Splitter
-			Split(['#sidebar', '#workspace'], {
-				sizes: [20, 80],
-				minSize: 220,
-				gutterSize: 6,
-				snapOffset: 0
+			pageInfo.grid = new GridModule('grid-container', {
+				columns: [
+					{ title: "ID", field: "id", width: 50 },
+					{ title: "Name", field: "name" },
+					{ title: "Age", field: "age", hozAlign: "center" },
+					{ title: "Email", field: "email" }
+				],
+				height: "100%",
+				coldefs: {
+					sorter: "string",
+					headerSort: false
+				},
+				layout: "fitColumns", // fitDataTable, fitDataFill, fitDataStretch, fitColumns
+				data: [
+					{ id: 1, name: "Alice", age: 30, email: "alice@example.com" },
+					{ id: 2, name: "Bob", age: 25, email: "bob@example.com" },
+					{ id: 3, name: "Charlie", age: 35, email: "charlie@example.com" }
+				]
 			})
-			Split(['#editor-wrapper', '#grid-wrapper'], {
-				direction: 'vertical',
-				sizes: [50, 50],
-				minSize: 150,
-				gutterSize: 6,
-				snapOffset: 0,
-				onDragEnd: function (sizes) {
-					const height = $('#editor-wrapper').height() * sizes[0] / 100
-					setEditorHiehgt(height)
-				}
-			})
-
-			const editor = new EditorModule(getEl('.monaco-container'), 'sqlEditor')
-			editor.init()
-			setTimeout(() => {
-				setEditorHiehgt($('#editor-wrapper').height() - 20)
-				// editor.setLayout()
-				editor.setFocus()
-			}, 500)
-			const chat = new ChatModule($('#grid-wrapper'))
-			chat.onMessage = onMessage.bind(chat)
-			chat.sendMessage({ type: 'init', username: 'isitna' })
-			pageInfo.chat = chat
-			pageInfo.editor = editor
 		})
-		function onMessage(msg) {
-			clog('@@ws message', msg, this)
-		}
 
 	</script>
 </body>
