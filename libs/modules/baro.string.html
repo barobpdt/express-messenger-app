@@ -1,0 +1,191 @@
+<script type="string_util">
+left(&str, sep) {
+	not(sep) sep=',';
+	return str.findPos(sep).trim();
+}
+right(&str, sep) {
+	not(sep) sep='.';
+	if( str.find(sep)) str.findLast(sep)
+	return str.trim();
+}
+escape(s) {
+	if(s.find('\r')) s=s.schema.replace('\r',"")
+	if(s.find('\n')) s=s.replace('\n',"\r\n")
+	if(s.find('\t')) s=s.replace('\t',"\t")
+	if(s.find('\"')) s=s.replace('\"','"')
+	return s;
+}
+format(&s, param) {
+	rst=''
+	fn=null
+	arr=args(1), map=null
+	if(typeof(param,'func')) {
+		args(fn, map, params)
+		if(typeof(params,'array')) arr=param
+	} else if(typeof(param,'array')) {
+		arr=param
+	} else if(typeof(param,'node')) {
+		map=param
+	}
+	not(fn)	fn=Cf.funcNode('parent')
+	while(s.valid()) {
+		left=s.findPos('#{')
+		rst.add(left)
+		not(s.valid()) break;
+		key=s.findPos('}').trim()
+		if(typeof(key,'num')) {
+			val=arr.get(key)
+		} else {
+			if( map && map.isset(key)) {
+				val=map.get(key)
+			} else {
+				val=fn.get(key)
+			}
+		}
+		rst.add(val)
+	}
+	return rst;
+}
+dateFormat(tm) {
+	if(typeof(tm,'string') ) {
+		if(tm.size().eq(8)) {
+			yy=tm.value(0,4), mm=tm.value(4,6), dd=tm.value(6);
+			return "${yy}-${mm}-${dd}";
+		}  
+	}
+	if( typeof(tm,'num') ) {
+		today=System.date('yyyy-MM-dd');
+		date=System.date(tm,'yyyy-MM-dd');
+		if( today.eq(date) ) {
+			return System.date(tm,'hh시 mm분');
+		} else {
+			return date;
+		}
+	} 
+	return '';
+}
+getTm(tm) {
+	today=System.date('yyyy-MM-dd');
+	not(tm) return today;
+	date=System.date(tm,'yyyy-MM-dd');
+	if( today.eq(date) ) {
+		return System.date(tm,'hh시 mm분');
+	} else {
+		return date;
+	}
+}
+priceComma( val ) {
+	if( typeof(val,'string')) {
+		won=val.trim();
+	}else if( typeof(val,'number') ) {
+		won="$val";
+	}
+	not( won.is('number') ) {
+		return won;
+	}
+	pv=null;
+	if(won.find('.')) {
+		pv=right(won,'.');
+		won=won.findPos('.').trim();
+	}
+	s='', sign='';
+	ch=won.ch();
+	if( ch.eq('-','+') ) {
+		sign=ch;
+		w=won.value(1);
+	} else {
+		w=won;
+	}
+	size=w.size();
+	sp= size % 3;
+	if( sp ) {
+		s.add( w.value(0,sp) );
+		size-=sp;
+	}
+	while( n=0, n<8, n++ ) {
+		if( size<=0 ) break;
+		if( sp ) s.add(',');
+		ep=sp+3;
+		s.add( w.value(sp,ep) );
+		sp=ep;
+		size-=3;
+	}
+	if(pv) s.add('.', pv);
+	return "${sign}${s}";
+}
+lineEndCheck(&s, sep) { 
+	not(sep) sep=',';
+	left=s.findPos("\n");
+	if(left.find(sep,1)) return false;
+	return true;
+} 
+lineBlankCheck(&s ) { 
+	not(typeof(s,'string')) return false;
+	c=s.ch(0);
+	if(c.eq("\r","\n")) return true;
+	sp=s.indexOf("\n") 
+	s.ch();
+	ep=s.cur();
+	if(sp!=-1) {
+		if(sp<ep) return true;
+	}
+	return false;
+} 
+lineCheck(&s, val) {
+	line=s.findPos("\n");
+	if(line.find(val)) return true;
+	return false;
+}
+indentCount(&s) {
+	sp=s.cur() s.ch();
+	cp=s.cur();
+	if(cp<sp) return 0;
+	return cp-sp;
+} 
+indentText( &s ) {
+	not( s ) return '';
+	sp=s.cur();
+	s.ch();
+	ep=s.cur();
+	return s.value(sp,ep,true);
+}
+
+lpad(val, num) {
+	not( num ) num=4;
+	if( typeof(val,'number') ) {
+		strVal="$val";
+	} else {
+		strVal=val.trim();
+	}
+	sz=strVal.size();
+	if( num.gt(sz) ) {
+		rst='';
+		dist=num-sz;
+		while( n=0, n<dist, n++ ) rst.add('0')
+		rst.add(strVal);
+		return rst;
+	} else {
+		return strVal;
+	}
+} 
+ 
+jsValue(src) {
+	if( typeof(src,"string")) {
+		if( typeof(src,"num") || src.eq("true","false","null")) return src;
+		return Cf.jsValue(src);
+	}
+	if( typeof(src,'number') ) {
+		return src;
+	}
+	if( typeof(src,'bool') ) {
+		return when(src, "true", "false");
+	}
+	if( typeof(src,'null') ) {
+		return "null";
+	}
+	not( src ) return '""';
+
+	return Cf.jsValue(src);
+}
+ 
+</script>

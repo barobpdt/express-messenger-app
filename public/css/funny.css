@@ -57,6 +57,25 @@ body {
 }
 
 /* ── 공통 레이아웃 ── */
+.full-el {
+	width: 100%;
+	height: 100%;
+}
+
+.full-modal {
+	position: fixed;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	right: 0;
+	background: rgba(0, 0, 0, .8);
+	z-index: 9999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(4px);
+}
+
 .hidden {
 	display: none;
 }

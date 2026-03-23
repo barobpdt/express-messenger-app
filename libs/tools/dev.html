@@ -1,0 +1,157 @@
+<script module="dev">
+	/* (사용예)
+		path='c:/bpdt/data/kiosk_class_func.js'
+		s=fileRead(path)
+		ss=@dev.makeSourceIndent(s)
+	*/
+	makeSourceIndent(&s) {
+		ss='', prev=''
+		while(s.valid(), n) {
+			left=s.findPos('{',0,1) not(s.ch()) break;
+			funcName=left			
+			if(left.find('.')) {
+				name=left.findPos('.').trim()
+				if( prev && prev.ne(name) ) { 
+					ss.add("\n")
+				}
+				prev=name
+			}
+			ss.add(funcName)
+			in=s.match(1)
+			if( firstIndentCheck(in) ) {
+				indent=""
+			} else {
+				indent="\t"
+			}
+			ss.add("{\n", insertIndentText(in,indent), "\n}")
+		}
+		return ss;
+		
+		firstIndentCheck = func(s) {
+			while( lineBlankCheck(s) ) {
+				s.findPos("\n")
+			}
+			line=s.findPos("\n")
+			indent=indentCount(line)
+			return indent.gt(0);
+		};
+	}
+	/*(사용예)
+		root=@dev.funcInfo()
+		grid.fields('func_type, module_nm, func_nm, func_param, source_path')
+		grid.rootNode(root) 
+	*/
+	@dev.funcInfo() {
+		userFuncInfo=object('@inc.userFunc')
+		root=object('dev.userFuncInfo').removeAll(true)
+		while(name, userFuncInfo.keys(), n) {
+			if(name.find(':')) {
+				func_type='module'
+				splitSep(name,':').inject(module_nm, func_nm)
+			} else {
+				func_type='user'
+				module_nm=''
+				func_nm=name
+			}
+			source_path=userFuncInfo.get(name)
+			cur=root.addNode().with(func_type, module_nm, func_nm, source_path)
+			srcFile=root.get(source_path)
+			not(srcFile) {			
+				srcFile=@dev.funcSource(source_path)
+				not(srcFile) continue;
+				root.set(source_path, srcFile)
+			}
+			src=@dev.funcSourceFind(srcFile, func_nm, module_nm)
+			if(src) {
+				cur.func_src=src
+				src.ref()
+				src.findPos('(',0,1)
+				cur.func_param=src.match().trim()
+			}
+		}
+		return root;
+	}
+	@dev.funcSource(source_path) {
+		if(source_path.find('::') ) {
+			sourceExt='html'
+			splitSep(source_path,'::').inject(code, name)
+			path=conf("path.$code")
+			not(path) return print("소스찾기오류 $code 설정 정보를 찾을수 없습니다");
+			pathSrc=pathJoin(path,"${name}.${sourceExt}")
+		} else {
+			path=conf("path.libs") not(path) path=System.path()
+			pathSrc=pathJoin(path,source_path)
+		}
+		not(isFile(pathSrc)) return print("소스찾기오류 $pathSrc 파일경로를 찾을수 없습니다");
+		return fileRead(pathSrc)
+	}
+	@dev.funcSourceFind(&src, funcName, module) {
+		sp=0,ep=0
+		if(module) {			
+			nm="@${module}.${funcName}"
+			if(src.find(nm)) {
+				s=src
+				while(s.valid()) {
+					s.findPos(nm,1)
+					sp=s.cur()
+					not(s.ch('(')) continue;
+					s.match()
+					c=s.ch()
+					if(c.eq('{')) {
+						s.match(1)
+						sp-=name.size()
+						ep=s.cur()
+						break;
+					}
+				}
+			}
+			if(sp<ep) {
+				return src.value(sp,ep,true)
+			}
+			s=src
+			while(s.valid()) {
+				s.findPos('<script') not(s.ch()) break;
+				prop=s.findPos('>')
+				val=propValue(prop,'module')
+				if(val!=module) continue;
+				ss=s.findPos('</script>')
+				while(ss.valid()) {
+					ss.findPos(funcName,1)
+					sp=ss.cur()
+					not(ss.ch('(')) continue;
+					ss.match()
+					c=ss.ch()
+					if(c.eq('{')) {
+						ss.match(1)
+						sp-=funcName.size()
+						ep=ss.cur()
+						break;
+					}
+				}
+				if(ep) break;
+			}
+			if(sp<ep) {
+				return src.value(sp,ep,true);
+			}
+			return print("module 함수찾기 오류 (모듈:$module, 함수명:$funcName)");
+		}
+		ss=src
+		while(ss.valid()) {			
+			ss.findPos(funcName,1)
+			sp=ss.cur()
+			not(ss.ch('(')) continue;
+			ss.match()
+			c=ss.ch()
+			if(c.eq('{')) {
+				ss.match(1)
+				sp-=funcName.size()
+				ep=ss.cur()
+				break;
+			}
+		}
+		if(sp<ep) {
+			return src.value(sp,ep,true)
+		}
+		return print("사용자 함수찾기 오류 (함수명:$funcName)")
+	}
+</script>

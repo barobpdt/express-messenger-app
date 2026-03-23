@@ -1,0 +1,207 @@
+<script type="common" note="공통 위젯함수">
+	initWidgetConfig() {
+		print("공통 위젯 설정초기화 시작")
+	}
+	drawCombo(dc, index, state, data) {
+		rc=dc.rect();
+		select=false;
+		if( state>1 ) {
+			select=state & 0x8000;
+			over=sate& 0x2000;
+		} else {
+			over=state;
+		}
+		if( index.eq(0) && combo.@title ) {
+			if( select ) {
+				dc.fill(rc,'#cadeef');
+			} else if( over ) {
+				dc.fill(rc,'#e0e0e0');
+			}
+			dc.font(10).text(rc.incrX(4), combo.@title);
+			dc.rectLine(rc,4,'#606060');
+			return;
+		}
+		if( combo.@title ) {
+			index-=1;
+		}
+		if( select ) {
+			dc.fill(rc,'#cadeef')
+			dc.rectLine(rc,4,'#a0a090')
+		} else if( over ) {
+			dc.fill(rc,'#e0e0e0')
+		}
+		return when(data, data.child(index));
+	}
+</script>
+
+<script module="page">
+	margin() {
+		box=this.child(0)
+		tag=box.tag
+		not(tag.eq('vbox','hbox','form')) return print("page margin 오류 레이아웃 미정의");
+		switch(args().size()) {
+		case 2:
+			args(1,a)
+			box.margin(a)
+		case 3:
+			args(1,a,b)
+			box.margin(a,b,a,b)
+		case 5:
+			args(1,a,b,c,d)
+			box.margin(a,b,c,d)
+		}
+	}
+	spacing(page, num) {
+		not(num) num=0
+		box=this.child(0)
+		tag=box.tag
+		not(tag.eq('vbox','hbox','form')) return print("page margin 오류 레이아웃 미정의");
+		box.spacing(num)
+	}	
+	positionSave() {
+		page=this
+		code=page.var(baseCode) not(code) return;
+		page.geo().inject(x,y,w,h);
+		y-=31;
+		conf("pagePosition.${code}", "$x,$y,$w,$h", true)
+	}
+	positionLoad(w,h) {
+		page=this
+		code=page.var(baseCode) not(code) return;
+		if(page.parentWidget()) {
+			return;
+		}
+		rcOpen=null
+		s=conf("pagePosition.${code}")
+		if(s) {
+			splitSep(s).inject(x,y,w,h)
+			rc=rc(x,y+30,w,h)
+			// 이전 저장 위치가 시스템 스크린 영역에 포함되는지 체크
+			while(n=0,System.info("screenCount")) {
+				rcScreen=System.info("screenRect",n);
+				if( rcScreen.contains(rc) ) {
+					rcOpen = rc
+					break;
+				}
+			}
+		} 
+		not(rcOpen ) {
+			not(w) w=800
+			not(h) h=600
+			rcOpen = System.info("screenRect").center(w,h)
+		}
+		page.move(rcOpen)
+		page.open();
+		page.active();
+	}
+</script>
+
+<script module="tree">
+	drawDefault(dc, node, index, state, over) { 
+		rc=this.drawSelect(dc, dc.rect(), state, over)
+		fa=this.fields()
+		field=fa.child(0).get('field')
+		node.rcIcon=rc.moveLeft(18,18,-2,0,true)
+		text=node.get(field)
+		// dc.textSize(text).inject(tw, th)
+		dc.text(rc, text)
+	}
+	drawSelect(dc, rc, state, over) {
+		if( state & STYLE.Selected ) {
+			rcBk=rc.x(0,true)
+			dc.fill( rcBk, '#c0c0a090' );
+			return rc;
+		}
+		dc.fill( rc.x(0,true) );
+		if( state & STYLE.MouseOver ) {
+			dc.rectLine(rc, 0, '#aaa', 1, 'dot')
+		} 
+		return rc;
+	}
+	drawTreeIcon(dc, rcIcon, state ) {
+		if( state & STYLE.Open ) {
+			dc.image( rcIcon.center(14,16).incrY(2), 'tree:plus' );
+		} else {
+			dc.image( rcIcon.center(14,16).incrY(2), 'tree:minus' );			
+		}
+	}
+</script>
+
+<script module="grid">	
+	drawState(dc, node, column, state, over) {
+		last=this.columnCount()-1;
+		rc=dc.rect();
+		clr=this.@bgColor not(clr) clr=color("#c96");
+		ty=when(last.eq(idx), 24, 234);
+		if( state & STYLE.Selected ) { 
+			dc.fill(rc, clr.darkColor(150) );
+			dc.rectLine(rc,3, clr.lightColor(120), 1 );
+			dc.pen(clr.lightColor(220));
+		} else if( over ) {
+			dc.fill(rc,'#def' );
+			dc.pen(clr.darkColor(150));
+			dc.rectLine(rc,ty);
+		} else {
+			dc.fill(rc,'#ffffff');
+			dc.rectLine(rc,ty,'#ddd');
+			dc.pen(clr.darkColor(200));
+		}
+		return rc.incrX(4);
+	}
+	
+	drawHeader(dc, text, index, order) {
+		rc=dc.rect(), fields=this.fields();
+		last=fields.childCount()-1;
+		if(last.eq(index)) {
+			dc.rectLine(rc, 4,'#a0a0a0');
+		} else {
+			dc.rectLine(rc, 34,'#a0a0a0');
+		}
+		if( index.eq(sortIndex) ) {
+			if(order) {
+				icon="vicon.bullet_arrow_up";
+			} else {
+				icon="vicon.bullet_arrow_down";
+			}
+			rcIcon=rc.rightCenter(16,16,-5);
+			dc.text(rc.incrX(10), text );
+			dc.image(rcIcon, icon);
+		} else {
+			dc.text(rc, text, 'center');
+		}
+	} 
+	fullWidth(param) {		
+		grid=this 
+		grid.size().inject(gw)
+		if( grid.scrollValue('v') ) gw-=28;
+		else gw-=2;
+		num=grid.fields().childCount() not(num) return;
+		if( typeof(param,'bool') ) {
+			if(param) {
+				while(w,recalc(gw,num),c) {
+					grid.headerWidth(c, w, 'interactive')
+				}
+			} else {
+				grid.headerWidth(recalc(gw,num) )
+			}
+		} else if( param.eq('resizeToContent') ) {
+			while(n=0,num) {
+				grid.headerWidth(n, 'resize')
+			}
+		} else if( param) {				
+			grid.headerWidth(recalc(gw,param))
+		} else {
+			ss=''
+			while(cur,grid.fields(),n) {
+				if(n) ss.add(',')
+				if(cur.width) {
+					ss.add(cur.width)
+				} else {
+					ss.add('*');
+				} 
+			}
+			a=recalc(gw, ss)
+			grid.headerWidth(a)
+		}
+	}
+</script>

@@ -1,0 +1,513 @@
+<conf name="python.RUN_PATH" first>
+	C:/bpdt/project/template/python_source
+</conf>
+<conf name="path.imageMagick" first>
+	C:/APP/ImageMagick
+</conf>
+
+<script eval >
+	startPythonCommand()
+</script>
+
+<script type="execSource">
+	@python.execSource(cmd, execSource,callback, duration) {
+		cmd.execSource=execSource
+		cmd.execDuration = duration
+		if( cmd.startSource ) {
+			cmd.startSource=''
+		}
+		not(typeof(callback,'func')) {
+			callback=@python.execSourceProc
+		}
+		addUserWorker('pythonCommand', cmd, callback)
+	}
+	@python.execSourceProc(cmd) {
+		// @python.runProc 에서 콜백실행
+		not( cmd.cmp('@workerStatus','run') ) {			
+			while(n=0,30) {
+				System.sleep(100)
+				// print(">>@python.execSourceProc workerStatus => $n", cmd.get('@workerStatus'));
+				if(cmd.cmp('@workerStatus','run') ) break;
+			}
+			not( cmd.cmp('@workerStatus','run') ) {
+				return print("@python.execSourceProc ${cmd.id} command 프로그램이 실행중이 아닙니다");
+			}
+		}
+		not(cmd.execSource) {
+			return print("@python.execSourceProc ${cmd.id} command 실행소스가 없습니다")
+		}
+		cmd.logTail.timeout()
+		if(cmd.execDuration) {
+			System.sleep(cmd.execDuration)
+		}
+		cmd.logAppend.append("@#>exec:${cmd.execSource}")
+		while(n=0,100) {
+			System.sleep(10)
+			result = cmd.logTail.timeout()
+			if(result) {
+				print(">> python execSource 결과 == $result")
+				break;
+			}
+		}
+		cmd.execSource=''
+		print("$n @python.execSourceProc end ###############")
+	}
+	closePythonCommand() {
+		cmd=Baro.process('runCommand')
+		cmd.logAppend.append('@#>quit:')
+		System.sleep(100)
+		cmd.stop()
+		/*
+		cmd=Baro.process('webCommand')
+		cmd.logAppend('@#>quit:')
+		System.sleep(100)
+		cmd.stop()
+		*/
+	}
+</script>
+
+<script type="public">
+	startPythonCommand(name, startSource) {
+		not(name) name='runCommand'
+		py=pathJoin(conf('python.path'), 'python.exe')
+		cmd=Baro.process(name)
+		cmd.startSource=startSource
+		line=@python.execLine(cmd, 'runCommand.py')
+		if(cmd.cmp('@workerStatus', 'run') ) {
+			print("$name command가 실행중입니다");
+		} else {
+			addCmdWorker(name, line, @python.runProc)
+		}
+		return cmd;
+	}
+	startPythonWebview() {
+		cmd=Baro.process('webCommand')
+		line=@python.execLine(cmd,'webCommand.py')
+		if(cmd.cmp('@workerStatus', 'run') ) {
+			print("webCommand가 실행중입니다");
+		} else {
+			addCmdWorker('webCommand', line, @python.webProc)
+		}
+	}
+	@python.execLine(cmd, filename) {	
+		py	= pathJoin(conf('python.path'), 'python.exe')
+		sourcePath	= pathJoin(conf('python.RUN_PATH'), filename)
+		not(isFile(sourcePath)) {
+			log("error::@python.getCommand 소스파일 경로가 없습니다 (경로:$sourcePath)")
+		}
+		filePathInfo(sourcePath).inject(folder, null, name)
+		command	= logAppend("${name}-command")
+		out		= logTail("${name}-out")		
+		cmd.workerMode="${name}Worker"
+		cmd.logTail = out
+		cmd.logAppend = command
+		return str('$py "$sourcePath" --command="${command.logFileName}" --out="${out.logFileName}"')
+	}
+ 
+	@python.install(command) {
+		not(command) {
+			return;
+		}
+		if(command.eq('list')) {
+			line = command
+		} else {
+			line = "install $command"
+		}
+		py=pathJoin(conf('python.path'), 'python.exe')
+		cmd=Baro.process('pythonInstall')
+		cmd.set('@commandName',command)
+		if(cmd.cmp('@workerStatus','run')) {
+			// print("@@ python.install 명령: $command 실행취소 [pythonInstall 프로세스가 실행중입니다]")
+			cmd.addArray('@installArray').add(command)
+			return;	
+		}
+		addCmdWorker('pythonInstall', "$py -m pip $line", func(&result) {
+			this.inject(id, @workerStatus, @command, @commandName, @installArray)
+			print(">> $id $commandName") 
+			not(workerStatus.eq('finish')) {
+				print(">> $id $commandName 실행중 $result")
+				return;
+			}
+			if(commandName.eq('list')) {
+				@python.parseInstallInfo(result)
+			}
+			if( isValid(installArray) ) {
+				info = object('python.installInfo')
+				name=installArray.pop()
+				while(isValid(name)) {
+					if(findField(info,'name',name)) {
+						name=installArray.pop()
+						continue;
+					}
+					@python.install(name)
+					break;
+				}
+				return;
+			}
+		});
+	}
+	@python.parseInstallInfo(&s) {
+		info = object('python.installInfo')
+		not(s) return info;
+		start=false
+		while(s.valid()) {
+			line=s.findPos("\n") not(line.ch()) break;
+			if(start) {
+				name=line.findPos(" \t\n",4)
+				version=line.trim()
+				info.addNode().with(name, version)
+				continue;
+			}
+			if(line.start('----')) {
+				start=true;
+			}
+		}
+		return info;
+	}
+	@python.runCommand(command) {
+		cmd=Baro.process('runCommand')
+		cmd.inject(logAppend, logTail)
+		if( logAppend && logTail ) {
+			logTail.timeout()
+			not(command.find(':')) {
+				command.add(':')
+			}
+			logAppend.append("@#>$command")
+		} else {
+			return print("@@ 파이션 실행 오류 $cmd 로그파일 미정의")
+		}
+	}
+	@python.webCommand(command) {
+		md=Baro.process('webCommand')
+		cmd.inject(logAppend, logTail)
+		if( logAppend && logTail ) {
+			logTail.timeout()
+			not(command.find(':')) {
+				command.add(':')
+			}
+			logAppend.append("@#>$command")
+		} else {
+			return print("@@ 파이션 웹뷰커멘드 오류 $cmd 로그파일 미정의")
+		}
+	} 
+	
+</script>
+
+<script type="protect">
+	@python.runProc(result, target) {
+		state=this.get('@workerStatus')
+		if(state.eq('run')) {
+			print("##@python.runProc result:$result", this.id, target, state, this.startSource)
+			if( this.startSource) {
+				@python.execSource(this,this.startSource,@python.execSourceProc,1000)
+			}
+		}
+	}
+
+	@python.webProc(result, target) {
+		print("##@python.webProc $result", target)
+	}
+</script>	
+
+
+<conf name="python.en2ko" type="pythonSource">
+choseong_list = [char for char in "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"]
+jungseong_list = [char for char in "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"]
+jongseong_list = [char for char in " ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ"]
+ko_dict = {'q':'ㅂ', 'Q':'ㅃ', 'w':'ㅈ', 'W':'ㅉ', 
+		'e':'ㄷ', 'E':'ㄸ', 'r':'ㄱ', 'R':'ㄲ', 't':'ㅅ', 
+		'T':'ㅆ', 'y':'ㅛ', 'u':'ㅕ', 'i':'ㅑ', 'o':'ㅐ', 
+		'p':'ㅔ', 'a':'ㅁ', 's':'ㄴ', 'd':'ㅇ', 'f':'ㄹ', 
+		'g':'ㅎ', 'h':'ㅗ', 'j':'ㅓ', 'k':'ㅏ', 'l':'ㅣ', 
+		'z':'ㅋ', 'x':'ㅌ', 'c':'ㅊ', 'v':'ㅍ', 'b':'ㅠ', 
+		'n':'ㅜ', 'm':'ㅡ', 'O':'ㅒ', 'P':'ㅖ', 'Y':'ㅛ', 
+		'U':'ㅕ', 'I':'ㅑ', 'H':'ㅗ', 'J':'ㅓ', 'K':'ㅏ', 
+		'L':'ㅣ', 'B':'ㅠ', 'N':'ㅜ', 'M':'ㅡ', 'A':'ㅁ',
+		'S':'ㄴ', 'D':'ㅇ', 'F':'ㄹ', 'G':'ㅎ', 'Z':'ㅋ',
+		'X':'ㅌ', 'C':'ㅊ', 'V':'ㅍ'}
+
+def en2ko(str):
+	ko_word = []
+	for c in str:
+		try:
+			ko_word.append(ko_dict[c])
+		except:
+			ko_word.append(c)
+	ko_word = list(''.join(ko_word)) # + ['\n']	
+	return en2koWord(ko_word)
+	
+def en2koWord(ko_word):
+	log(f'en2koWord:{ko_word}')
+	# seperate by one letter
+	words = []
+	start = 0
+	lenKo = len(ko_word)
+	if lenKo==1:
+		words.append(ko_word[0:lenKo])
+	else:
+		for i in range(1, lenKo):
+			if (i == lenKo-1):
+				words.append(ko_word[start:lenKo])
+			elif (ko_word[i] in choseong_list and ko_word[i+1] in jungseong_list) or (ko_word[i] not in choseong_list and ko_word[i] not in jungseong_list):
+				words.append(ko_word[start:i])
+				start = i
+			
+	if start > 0:
+		start = start-1
+	log(f'start:{start}, ing:{words[start]}, ingLen:{len(words[start])}')
+	
+	# convert dubble letter
+	for word in words:
+		if len(word) > 2 and word[0] in choseong_list and word[1] in jungseong_list:
+			if word[1] in jungseong_list and word[2] in jungseong_list:
+				b = word[1]
+				word[1] = make_jungseong_list(word[1:3])
+				if (b != word[1]):
+					word.pop(2)
+			if len(word) >= 4 and word[2] in jongseong_list and word[3] in jongseong_list:
+				b = word[2]
+				word[2] = make_jongseong_list(word[2:4])
+				if (b != word[2]):
+					word.pop(3)
+	
+	#combine each letter
+	output_list = []
+	for char in words:
+		jongseong_index = 0
+		if len(char) > 1 and char[0] in choseong_list and char[1] in jungseong_list:
+			choseong_index = choseong_list.index(char.pop(0))
+			jungseong_index = jungseong_list.index(char.pop(0))
+			if len(char) > 0 and char[0] in jongseong_list:
+				jongseong_index = jongseong_list.index(char.pop(0))
+			character_code = jongseong_index + 0xAC00 + (choseong_index * 21 * 28) + (jungseong_index * 28)
+			output_list.append(chr(character_code))
+		while char:
+			output_list.append(char.pop(0))
+
+	# print("{}\t|    (변환)    |\n{}".format(main_input, ''.join(output_list)))
+	# print('{} : {}'.format(len(main_input), time.time() - start_time))
+	return ''.join(output_list)
+
+def make_jongseong_list(char_list):
+	if char_list[0] == 'ㄱ' and char_list[1] == 'ㄱ':
+		return "ㄲ"
+	if char_list[0] == 'ㄱ' and char_list[1] == 'ㅅ':
+		return "ㄳ"
+	if char_list[0] == 'ㄴ' and char_list[1] == 'ㅈ':
+		return "ㄵ"
+	if char_list[0] == 'ㄴ' and char_list[1] == 'ㅎ':
+		return "ㄶ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㄱ':
+		return "ㄺ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㅁ':
+		return "ㄻ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㅂ':
+		return "ㄼ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㅅ':
+		return "ㄽ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㅌ':
+		return "ㄾ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㅍ':
+		return "ㄿ"
+	if char_list[0] == 'ㄹ' and char_list[1] == 'ㅎ':
+		return "ㅀ"
+	if char_list[0] == 'ㅂ' and char_list[1] == 'ㅅ':
+		return "ㅄ"
+	return char_list[0]
+
+def make_jungseong_list(char_list):
+	if char_list[0]=='ㅗ' and char_list[1] == 'ㅏ':
+		return "ㅘ"
+	if char_list[0]=='ㅗ' and char_list[1] == 'ㅐ':
+		return "ㅙ"
+	if char_list[0]=='ㅗ' and char_list[1] == 'ㅣ':
+		return "ㅚ"
+	if char_list[0]=='ㅜ' and char_list[1] == 'ㅓ':
+		return "ㅝ"
+	if char_list[0]=='ㅜ' and char_list[1] == 'ㅔ':
+		return "ㅞ"
+	if char_list[0]=='ㅜ' and char_list[1] == 'ㅣ':
+		return "ㅟ"
+	if char_list[0]=='ㅡ' and char_list[1] == 'ㅣ':
+		return "ㅢ"
+	return char_list[0]
+</conf>
+
+<conf name="python.command:chromeDriver">
+	from selenium import webdriver
+	from selenium.webdriver.chrome.options import Options
+	from selenium.webdriver.common.by import By
+	from selenium.webdriver.common.keys import Keys
+	from selenium.webdriver.common.action_chains import ActionChains
+	global driver
+	options = Options()
+	options.add_experimental_option("detach", True)
+	options.add_argument("--window-size = x,y")
+	options.add_argument('--disable-popup-blocking') 
+	driver = webdriver.Chrome(options=options)
+	driver.implicitly_wait(3)
+	driver.get(url='@[url]')
+</conf>
+
+<conf name="python.command:setUrl">
+	driver.get('@[url]')
+	log(f'chromeDriver: {driver.page_source}')
+</conf>
+
+<data name="run-error" skip>
+	Successfully installed pip-25.3		
+	no library called "cairo-2" was found
+	no library called "cairo" was found
+	no library called "libcairo-2" was found
+	cannot load library 'libcairo.so.2': error 0x7e.  Additionally, ctypes.util.find_library() did not manage to locate a library called 'libcairo.so.2'
+	cannot load library 'libcairo.2.dylib': error 0x7e.  Additionally, ctypes.util.find_library() did not manage to locate a library called 'libcairo.2.dylib'
+	cannot load library 'libcairo-2.dll': error 0x7e.  Additionally, ctypes.util.find_library() did not manage to locate a library called 'libcairo-2.dll'		
+	ERROR: Could not find a version that satisfies the requirement libcairo-2 (from versions: none)
+	No matching distribution found for libcairo-2
+</data>
+
+<data name="icon-save" skip>
+	webroot= conf('web.rootPath')
+	path=pathJoin(webroot,'assets/icons')
+	a=getFileList(path)
+	node=_node()
+	list=node.addArray('commandList')
+	while(c,a) {
+		c.inject(name, fullPath)
+		ext=right(name,'.')
+		fnm=left(name,'.')
+		if(ext=='svg') {
+			svg=fullPath
+			png="${path}/${fnm}.png"
+		}
+		command=str('${conf.path.imageMagick}/magick.exe -background none -density 1000 -size 30x30 "$svg" "$png"')
+		list.add(command)
+	}
+	addCmdWorker('baro', node)
+	return
+
+	~~  DB에 저장
+	db=Baro.db('icons')
+	node=_node('test')
+	node.var(nameFilter, '*.png')
+	a=getFileList(path,node)
+	sql="insert into icons (id, type, data, prop, tm) values(#{id}, #{type}, #{pngData}, #{prop}, #{tm})"
+	node.prop='ext'
+	node.type='ext'
+	node.tm=System.localtime()
+	while(c,a) {
+		node.id=left(c.name,'.')
+		node.pngData=Cf.toBinary(fileRead(c.fullPath))
+		db.exec(sql, node)
+	}
+	return
+</data>
+
+<script type="test" note="파이션 아이콘 처리">
+	/* 설정에 저장된 아이콘 정보를 읽어서 baro.icons 노드 생성*/
+	@python.makeIconNode() {
+		node=object('baro.icons')
+		s=conf('icons.lucideSvg')
+		s.ref()
+		while(s.valid()) {
+			not(s.ch()) break;
+			k=s.move()
+			c=s.ch()
+			not(c.eq('{')) break;
+			v=s.match()
+			node.set(k,v)
+		}
+		return node;
+	}
+	/* 자바스크립트 svg path 정보를 읽어서 설저저장 (설정명:icons.lucideSvg) */
+	@python.makeSvgIcons(&s) {
+		not(s) {
+			s=fileRead('c:/temp/icons.js')
+			s.ref()
+		}
+		cnt=0
+		tick=System.tick()
+		arr=_arr()
+		data=''
+		while(s.valid()) {
+			s.findPos('"path",')
+			not(s.ch()) break;
+			arr.reuse()
+			name=null
+			while(isNull(name)) {
+				s.findPos('d:')
+				c=s.ch()
+				arr.add(s.match())
+				s.findPos(']')
+				c=s.ch()
+				if(c.eq(']')) {			
+					s.findPos('const') not(s.ch()) break;
+					name=s.move()
+					break;
+				}
+			}
+			if(name) {		
+				ss=''
+				while(d, arr) {
+					ss.add(str('<path d="$d" />'), "\n")
+				}
+				data.add("$name {\n$ss}\n")
+			}
+			cnt++;
+		}
+		conf('icons.lucideSvg', data, true)
+		d=System.tick()-tick;
+		print("makeSvgIcons==$cnt", d, data.size())
+		return data;
+	}
+</script>
+
+
+<script eval skip>
+	// setUrl
+	url='https://www.freepik.com/search?format=search&img=1&last_filter=img&last_value=1&query=2d+sprites'
+	call( @python.runCommand, this, 'exec', 'command.setUrl')		
+	// quit all
+	call( @python.runCommand, this, "quit")
+	call( @python.webCommand, this, "quit")
+
+	// convert png
+	svg=pathJoin(path,'assets/icons/bmp.svg')
+	png=pathJoin(path,'assets/icons/bmp.png')
+	command = str('${conf.path.imageMagick}/magick.exe -background none -density 1000 -size 30x30 "$svg" "$png"')
+	addCmdWorker('magick' , command)
+	// insert png
+	this.pngData=Cf.toBinary(fileRead('test.png))
+	db.exec("insert into test (id, data, prop) values ('test',#{pngData},'222')", this)
+</script>
+
+<script test name="googledriver" note="구글크롬 드라이버 처리">
+	startGoogleDriver() {
+		url='https://www.google.com/'
+		startSource = getSource(conf('python.command:chromeDriver'))
+		startPythonCommand('googledriver', startSource)
+	}
+	@user.googleDriverUrl(url) {
+		src = getSource(conf('python.command:setUrl'))
+		cmd=Baro.process('googledriver')		
+		@python.execSource(cmd,src,@user.googleDriverProc)
+	}
+	@user.googleDriverProc(cmd) {
+		// @python.runProc 에서 콜백실행
+		not( cmd.cmp('@workerStatus','run') ) {
+			return print("@python.execSourceProc ${cmd.id} command 프로그램이 실행중이 아닙니다");
+		}
+		cmd.logTail.timeout()
+		cmd.logAppend.append("@#>exec:${cmd.execSource}")
+		while(n=0,200) {
+			System.sleep(500)
+			result = cmd.logTail.timeout()
+			if(result) {
+				print(">> python execSource 결과 == $result")
+				break;
+			}
+		}
+		cmd.execSource=''
+		print("$n @python.execSourceProc end ###############")
+	}
+</script>

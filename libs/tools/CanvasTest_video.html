@@ -1,0 +1,144 @@
+<page id="main" margin="0" initPage() {	
+	this.@canvas = widget('c')
+}>
+	<canvas id="c" module="canvas_form, canvas_video_toggle" initWidget() {
+		this.@videoCurrent = createWidget('video','video1',this,'video_imple')
+		this.@videoBackground = createWidget('video','video2',this,'video_imple')
+		this.@useTimer=true
+		this.@playIndex=0
+		this.addArray('@playList')
+		this.@videoBackground.hide()
+	}>
+	
+</page>
+
+<script eval>
+	p=page('CanvasTest_video:main')
+	p.size(1200,800)
+	p.open()
+	c=p.@canvas
+	c.addMovie('D:/mp4/sample03.mp4')
+	c.addMovie('D:/mp4/sample01.mp4')
+	c.addMovie('D:/mp4/sample02.mp4')
+	c.startVideoPlay()
+	print("CanvasTest eval>>")
+	
+</script>
+
+<script module="canvas_video_toggle">	
+	updateCanvas() {
+		vbox(this.@rectCanvas, '30,*,40').inject(rcTop, rcBody, rcBottom)
+		not(this.@form) {
+			this.@form = initForm(conf('form.test_video'))
+		}
+		this.@rcTitle=rcTop
+		this.@videoCurrent.move(rcBody)
+		this.@videoBackground.move(rcBody)
+		this.updateForm(this.@form, rcBottom)
+	} 
+	timerCallback() {
+		if( this.@nextPlayerTick ) {
+			dist=System.tick() - this.@nextPlayerTick
+			if( dist>1000) {			
+				this.@nextPlayerTick=0			
+				this.loadBackground()
+			}
+		}
+	}
+	nextMovieFile() {
+		size=this.@playList.size()		
+		idx=this.@playIndex+1
+		if( idx >= size ) {
+			idx=0
+		}
+		next=this.@playList.get(idx)
+		this.@playIndex=idx
+		return next;
+	}
+	startVideoPlay() {
+		not( this.@playList.size() ) {
+			print("재생목록이 없습니다")
+			return;
+		}		
+		name=this.@playList.get(0)
+		this.@videoCurrent.start(name)
+		this.@nextPlayerTick=System.tick()		
+	}
+	addMovie(fileName) {
+		this.@playList.add(fileName)
+	}
+	loadBackground() {
+		next=this.nextMovieFile()
+		this.@videoBackground.hide()
+		this.@videoBackground.start(next)
+	}
+	togglePlayer() {
+		cur=this.@videoCurrent
+		cur.hide()
+		this.@videoCurrent=this.@videoBackground
+		this.@videoBackground=cur		
+		this.@videoCurrent.show()
+		this.@videoCurrent.play()
+		this.@nextPlayerTick=System.tick()
+		print("toggle id:${this.@videoCurrent.id}, background:${this.@videoBackground.id}")
+	}
+	drawBackground(dc) {
+		bgColor=this.@baseColor.lightColor(100)
+		textColor=this.@baseColor.darkColor(100)
+		dc.save().font("size:12, color:${bgColor.lightColor(180)}, weight:bold")
+		dc.fill(this.@rcTitle, bgColor)
+		dc.text(this.@rcTitle.incrX(10).move(1,1), '비디오 플래이어 테스트')
+		dc.font("color:$textColor")
+		dc.text(this.@rcTitle.incrX(10), '비디오 플래이어 테스트')
+		dc.restore()
+	}
+</script>
+<script module="video_imple">
+	onMessage(line) {
+		not(line) return;
+		// print("onMessage =>$line")
+		line.ref()
+		type=line.move()
+		if(line.ch('=')) {
+			val=line.incr().trim()
+			switch(type) {
+			case ANS_LENGTH:
+				this.@streamLength=val.toDouble()
+			case ANS_TIME_POSITION:
+				this.@currentPos=val.toDouble()
+			case ANS_PERCENT_POSITION:
+				this.@currentPercent=val.toInt()
+			default:
+			}
+		}		
+	}
+	onError(err) {
+		print("@@ video player error: $err")
+	}
+	onStateChange(type) {
+		print("state change ${this.id} $type")
+		switch(type) {
+		case play:
+			not(this.is('visible')) {
+				this.command('seek 0 1')
+				this.pause()
+			}
+		case notStarted:
+			canvas=this.parentWidget()
+			canvas.togglePlayer()
+		default:
+		} 
+	}
+	onDraw(dc) {
+		dc.fill('#aaa')
+	}
+
+</script>
+
+
+<conf name="form.test_video">
+	formItems: [
+		{tag:btn, code:play, text:플래이 시작}
+		{tag:space}
+	]
+</conf>

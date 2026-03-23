@@ -1,0 +1,400 @@
+<script note="앱공통 유틸리티 함수">
+initApp() {
+	System.watcherClipboard(@app.clipboard)
+}
+
+parseClipboardUrls(&s) {
+	while(s.valid()) {
+		line=s.findPos("\n") not(line.ch()) continue;
+		if( line.start('file:///', true) ) {
+			fullpath=line.trim()
+			if(isFolder(fullpath)) {
+			
+			} else {
+				filePathInfo(fullpath).inject(folder, filename, name)
+				ext=filename
+			}
+		}
+	}
+}
+startMessageServer(port) {
+	not(port) port=8094
+	server=object('baro.server') addModule(server,'message_server')
+	server.start(port)
+	return server;
+}
+
+startMessageClient(userId, host, port, callback) {
+	not(userId) userId="guest_${System.tick()}"
+	not(host) host='localhost'
+	not(port) port=8094
+	client=object("baro.client_$userId") addModule(client,'message_client',userId, callback)
+	// client.@loginOkCallback=callback
+	client.setConnectInfo(host, port)
+	return client;
+}
+
+@app.clipboard(type, data, text) {
+	cmd=Baro.process('pythonWebview')
+	not(cmd.cmp('@jobStatus','run')) {
+		print("webview 실행중이 아닙니다")
+		return;
+	}	
+	// print("$type : data=$data", text)	
+	if(type=='urls') {
+		parseClipboardUrls(data)
+	}	
+}
+@app.nodeRun(type, command) {
+	cmd=Baro.process('logParse')
+	log=logAppend('logParse')
+	line="@#>${type}:${command}"
+	if(cmd.cmp('@jobStatus', 'run')) {
+		log.append(line)
+	} else {
+		tailName=log.member(logFileName)
+		logName=cmd.@logTail.member(logFileName)
+		cmd.addArray('@nodeCommends').add(line)
+		addCmdJob(cmd, "cd ${conf('path.express')}/scripts")
+		addCmdJob(cmd, #[node log-parse.js "${tailName}" --log "${logName}"])
+	}
+	
+}
+@app.jobRun(cmd) {
+	switch(cmd.id) {
+	case logParse:
+		if( isValid(cmd.@nodeCommands)) {
+			line=cmd.@nodeCommands.pop()
+			logAppend('logParse').append(line)
+			return;
+		}
+		data=cmd.@logTail.timeout()
+		@app.logParse(data)
+	default:
+	}
+}
+@app.logParse(&s) {	
+	s.findPos('@#>') not(s.ch()) return;
+	while(s.valid()) {
+		left=s.findPos('@#>') not(left.ch()) continue;
+		type=left.findPos(':').trim()
+		src=left.trim()
+		switch(type) {
+		case 'upload-start': runWebviewScript('uploadStart', src)
+		case 'upload-progress': runWebviewScript('uploadProgress', src)
+		case 'upload-result': runWebviewScript('uploadResult', src)
+		case 'upload-error': runWebviewScript('uploadError', src)
+		case 'zip-result': runWebviewScript('zipResult', src)
+		case 'zip-error': runWebviewScript('zipError', src)
+		default: runWebviewScript('messengerLog', "$type:$src")
+		}
+	}
+}
+runWebviewScript(fnm, src, checkJson) {
+	webview=Baro.process('pythonWebview')
+	if(checkJson) {
+		param=src
+	} else {
+		param="`$src`"
+	}
+	webview.@logAppend("@#>runScript:${fnm}(${param})\n")
+}
+</script>
+
+<script note="파이션 유틸리티 함수">
+	pythonCommandError(cmd, &err) {
+		if(err.start('@#> execException:',true)) {
+			msg=err.trim()
+			print("@@ 파이션 명령줄 실행 오류 ", cmd.id, msg)
+		}
+	}
+	pythonCommandStart(callback) {
+		py=pathJoin(conf('python.path'), 'python.exe')
+		sourcePath	= pathJoin(conf('python.RUN_PATH'), 'runCommand.py')
+		not(isFile(sourcePath)) {
+			log("error::@python.getCommand 소스파일 경로가 없습니다 (경로:$sourcePath)")
+		}
+		cmd=Baro.process('pythonCommand')
+		logObj	= logAppend("pythonCommand-log")
+		outObj	= logTail("pythonCommand-out")
+		not( cmd.@jobMode ) {
+			cmd.@jobMode='PythonCommand'		
+			cmd.@workerStatus='stay'
+			cmd.@logAppend = logObj
+			cmd.@logTail = outObj
+			cmd.addArray('@cmdJobList')
+			cmd.addArray('@commandList')
+		}		
+		logFileName=logObj.get('logFileName')
+		outFileName=outObj.get('logFileName')
+		line=f["$py" "$sourcePath" --command="$logFileName" --out="$outFileName"]
+		print("python command start : $line")
+		addCmdJob(cmd, line, callback)
+	}
+	
+	pythonCommand(command, callbackFinish, maxCount) {
+		not(command) return print("@@pythonCommand 명령라인이 없습니다")
+		print(">> parseCommand 시작:$command")
+		cmd=Baro.process('pythonCommand')
+		not(cmd.@commandInfo) {
+			cmd.addNode('@commandInfo')
+		}
+		ca=~(cmd.@jobMode)
+		cb=cmd.@jobStatus.eq('finish')
+		if( ca || cb ) {
+			cmd.@firstCall=true
+			cmd.@jobStatus='ready'
+			cmd.@commandInfo.with(command, callbackFinish)
+			pythonCommandStart(function(result,endCheck) {
+				if(endCheck) return;
+				cmd=this
+				cmd.@commandInfo.inject(command, callbackFinish)
+				if(cmd.@firstCall && command ) {
+					print(">> python command runCommand.py 실행결과: $result")
+					pythonCommand(command, callbackFinish)
+				}
+			})
+			return;
+		}
+		not(maxCount) {
+			cmd.@maxWaitCount = maxCount
+		}
+		
+		callback = function() {
+			cmd=this
+			result=""
+			maxCount=cmd.@maxWaitCount
+			not(maxCount) maxCount=16
+			print("pythonCommand 현재명령 작업시작 >> ${getLine(cmd.@currentCommand)} maxCount==$maxCount")
+			while(n=0,maxCount) {
+				if(cmd.@jobStatus.eq('finish')) {
+					print("@@ python command 실행이 종료되었거나 오류가 발생했습니다 status:${cmd.@jobStatus}")
+					return;
+				}
+				if(cmd.@firstCall) {					
+					System.sleep(500)
+					result=cmd.@logTail.timeout()
+					not(result) continue;					
+					print("xxxxxxxxx first call xxxxxxxx", result, cmd.@commandInfo)
+					cmd.@commandInfo.inject(command)
+					cmd.@commandInfo.reuse()
+					if( command ) {
+						cmd.@logAppend.append("@#>$command")
+						if(command.start('quit:')) return;
+					} else {
+						return print("@@pythonCommand 현재명령 command 내용이 없습니다", cmd)
+					}
+					cmd.@firstCall=false
+					continue;
+				}
+				System.sleep(250)
+				result=cmd.@logTail.timeout()
+				if(result) {
+					if(result.find('@#> execException:')) {
+						pythonCommandError(cmd, result);
+					}
+					if(cmd.@callbackFinish) {
+						cmd.@callbackFinish(result)
+					} else {
+						print(">>pythonCommand 실행결과:$result", n)
+					}
+					break;
+				}
+				mod=n%10
+				if(mod==9) print(">> python command count:$n")
+			}
+			cmd.@currentCommand=''
+			not(result) {
+				if(cmd.@callbackFinish) {
+					cmd.@callbackFinish(result)
+				} else {
+					print(">>pythonCommand 실행결과가 없습니다", n)
+				}
+			}
+		};
+		cmd.@callbackWorker = callback
+		cmd.@callbackFinish = callbackFinish
+		cmd.@currentCommand=command
+		not(cmd.@firstCall) {
+			cmd.@logTail.timeout()
+			cmd.@logAppend.append("@#>$command")
+		}
+		// cmd.@commandList.add(command)
+		// print("python command size:", cmd.@commandList.size())
+		addUserWorker('pythonCommand', cmd )
+	}
+	pythonRun(command, callback) {
+		py=pathJoin(conf('python.path'), 'python.exe')
+		not(isFile(py)) {
+			return print("파이션 설치 경로 미설정 (경로:$py)");
+		}
+		not(callback) callback=function(s) { print("python version:$s") }
+		runCommand("$py $command", callback)
+	}
+	pythonVersion(callback) {
+		py=pathJoin(conf('python.path'), 'python.exe')
+		not(isFile(py)) {
+			return print("파이션 설치 경로 미설정 (경로:$py)");
+		}
+		not(callback) callback=function(s) { print("python version:$s") }
+		runCommand("$py --version", callback)
+	}
+	pythonInstallStart(moduleName, startCheck) {
+		if(args().size()==0) {
+			// 매개변수 없이 호출하면 등록된 모듈정보 실행 (예) pythonInstallStart()
+			startCheck=true
+		}
+		cmd=Baro.process('moduleInstall')
+		not(cmd.@cmdJobList) {
+			addCmdJob(cmd)
+			cmd.addArray('@installModuleList')
+			cmd.logCallback=@python.installCallback
+		}
+		py=pathJoin(conf('python.path'), 'python.exe')
+		not(isFile(py)) {
+			return print("파이션 설치 경로 미설정 (경로:$py)");
+		}
+		
+		if( moduleName ) {
+			info = object('python.installInfo')
+			cur=findField(info,'name',moduleName)
+			if(cur) {
+				print("$moduleName 파이션 모듈이 이미 설치되었습니다", cur)
+				return;
+			}
+			if(cmd.@installModuleList.find(moduleName)) {
+				print("파이션 설치 $moduleName 이미 추가되었습니다(경로:$py)")
+				return;
+			}
+			cmd.@installModuleList.add(moduleName)
+			print("파이션 설치 모듈정보 ", cmd.@installModuleList)
+		}
+		if( startCheck) {
+			moduleName=cmd.@installModuleList.pop()
+			not(moduleName) {
+				return print("설치 모듈정보가 없습니다 (pythonInstallAdd 함수로 파이션 설치 모듈을 등록하세요)");
+			}
+			cmd.@currentModuleName = moduleName
+			if(moduleName.eq('list')) {
+				cmd.@cmdJobList.add("$py -m pip $moduleName")
+			} else if(moduleName.eq('upgrade')) {
+				cmd.@cmdJobList.add("$py -m pip install --upgrade pip")
+			} else {
+				cmd.@cmdJobList.add("$py -m pip install $moduleName")
+			}
+		}
+		return cmd;
+	}
+	@python.installCallback(result, param) {
+		cmd=this
+		if(cmd.@currentModuleName=='list') {
+			@python.setInstallList(result)
+		} else {
+			print('파이션 설치정보 : ', result);
+			if(cmd.@installModuleList.size()) {
+				pythonInstallStart()
+			}
+		}
+	}
+	@python.setInstallList(&s) {
+		info = object('python.installInfo')
+		not(s) return info;
+		start=false
+		while(s.valid()) {
+			line=s.findPos("\n") not(line.ch()) break;
+			if(start) {
+				name=line.findPos(" \t\n",4)
+				version=line.trim()
+				info.addNode().with(name, version)
+				continue;
+			}
+			if(line.start('----')) {
+				start=true;
+			}
+		}
+		return info;
+	}
+	closePort(port) {
+		not(port) port=80
+		runCommand("netstat -ano | findstr $port", function(s,endCheck) {
+			not(endCheck) return;
+			while(s.valid()) {		
+					s.findPos('TCP')
+					not(s.ch()) break;
+					line = s.findPos("\n")			
+					line.findPos(":$port")
+					c=line.ch(0)
+					print(">> line:$line [$c]")
+					not(typeof(c,'num')) {
+						line.findPos('LISTENING')
+						pid=line.trim()
+						if(pid) {
+							if(typeof(callback,'func')) {
+								callback(pid)
+							} else if(callback) {
+								runCommand("taskkill /PID $pid /F" )
+							}
+							return;
+						}
+					}
+				}
+		})
+	}
+</script>
+
+<script note="FM API호출">
+	@fm.artistApply(name, target) {
+		not(name) return print("@@@fm.artistSearch 오류 가수명을 입력하세요")
+		not(target) {
+			target=object('web.req').addNode()
+		}
+		target.url="https://lrclib.net/api/search?q=${name}&search_fields=artist_name"
+		target.type='apply'
+		addApiJob('artist_name', target, @callback.songs)
+	}
+	@callback.songs(&result, target) {
+		not(result.find('#@>finish:')) return;
+		result.findPos('#@>finish:')
+		result.findPos('result=')
+		success=result.match()
+		result.findPos('url=')
+		url=result.match()
+		fnm=target.downloadFilename
+		print("API JOB finish >>", url, success, fnm, target.type)
+		if(target.type=='save') {
+			apiResult=fileRead(fnm)
+			print("db save apiResult==$apiResult")
+			return;
+		}
+		if(target.type=='songs') {
+			target.apiResult=fileRead(fnm)
+			return;
+		}
+		if(target.type=='apply') {
+			data=fileRead(fnm)
+			target.parseJson(data)
+			while(cur, target) {
+				sub=object('web.req').addNode()
+				data=sub.addNode()
+				data.artist=cur.artistName
+				data.title=cur.name
+				data.lyrics=escapeString(cur.plainLyrics)			
+				sub.type='save'
+				sub.header='Content-Type:application/json'
+				sub.url='http://localhost:8081/api/songs/save'
+				sub.method='POST'
+				sub.data=json(data)
+				addApiJob('artist_name',sub, @callback.songs)
+			}
+			if(typeof(target.widget,'widget')) {
+				cnt=target.size()
+				if(cnt) {
+					target.widget.alert("원격DB에 ${cnt}건 노래가 저장되었습니다")
+				} else {
+					target.widget.alert("저장할 데이터가 없습니다")
+				}
+			}
+			return;
+		}
+	}
+</script>

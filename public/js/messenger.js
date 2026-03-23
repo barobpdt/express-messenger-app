@@ -4,6 +4,7 @@ const userInfo = {
 	nickname: localStorage.getItem('messengerNickname') || null,
 	profile_check: false
 }
+// <meta name="viewport" content="width=device-width, initial-scale=1.0">
 let backendOrigin = localStorage.getItem('backendOrigin') || '';
 let ws;
 // ─── 로그인 로직 ───
@@ -606,13 +607,13 @@ function sendMessage() {
 		}
 		if (cmd === '/go') {
 			if (param == 'ai') {
-				openSubpage('/go-ai.html?opener=messenger&user='+userInfo.username)
+				openSubpage('/go-ai.html?opener=messenger&user=' + userInfo.username)
 			}
 			if (param == 'baduk') {
-				openSubpage('/go-ai.html?opener=messenger&user='+userInfo.username)
+				openSubpage('/go-ai.html?opener=messenger&user=' + userInfo.username)
 			}
 			if (param == 'game') {
-				openSubpage('/multiplayer-game/index.html?opener=messenger&user='+userInfo.username)
+				openSubpage('/multiplayer-game/index.html?opener=messenger&user=' + userInfo.username)
 			}
 		}
 

@@ -1,0 +1,1360 @@
+<script type="service" note="어플리케이션 시작 초기화 함수">
+
+closeApp() {
+	if(checkFunc('closePythonCommand')) {
+		closePythonCommand()
+		System.sleep(100)
+	}
+	Baro.process('common').close()
+	Cf.debug(false)
+	stopGlobalTimer(true)
+	System.sleep(200)
+	Cf.exit()
+}
+
+includeService(serviceMode, fullPath ) {
+	ext=right(fullPath,'.')
+	if(ext.eq('html','xml') ) {
+		if(typeof(serviceMode,'node')) {
+			service=serviceMode.serviceName
+		} else {
+			service=serviceMode
+		}
+		include("$service#$fullPath")
+	} else if(ext.eq('js')) {
+		include("common#$fullPath")
+	} else {
+		print("@@ include service $fullPath 파일무시")
+	}
+}
+initModules() {
+	serviceNode=getServiceNode('baro', 'modules')
+	path = conf('path.modules')
+	not(isFolder(path)) {
+		print("initModules : $modulePath 모듈경로 미정의")
+		return;
+	}
+	regServiceFolder(serviceNode, path )
+}
+regServiceFile(serviceMode, fullPath) {
+	serviceNode=getServiceNode(serviceMode) 
+	addWatchFile(serviceNode, fullPath, function(serviceNode, fullpath) {
+		return includeService(serviceNode, fullpath)
+	})
+}
+
+regServiceFolder(serviceMode, path) {
+	serviceNode=getServiceNode(serviceMode)
+	not(typeof(serviceNode,'node')) {
+		return print("@@ 서비스 등록 오류 [$serviceMode]에 등록된 정보가 없습니다 (경로: $path)") 
+	}
+	service=serviceNode.serviceName
+	not(service) {
+		return print("@@ 서비스 등록 오류 서비스명 미정의 (노드: $serviceNode)")
+	}
+ 
+	while(cur, getFileList(path)) {
+		cur.inject(name, fullPath)
+		includeService(serviceNode, fullPath)
+		regServiceFile(serviceNode, fullPath)	
+	}
+}
+
+</script>
+
+<script type="fav" note="자주사용하는 함수">
+	selectColor() {
+		return Cf.getColor()
+	}
+	selectFolder(title, path) {
+		return Cf.selectFolder(title,path,true)		
+	}
+	selectFile(title, path, filter) {
+		not(filter) filter='*.*'
+		return Cf.selectFile(title,path,filter)
+	}
+	runApp(program) {
+		not(program) program='notepad'
+		System.execApp(program)
+	}
+	fileUUID(path) {
+		return System.inode(path)
+	}
+	roundValue(s,num) {
+		if(typeof(s,'number')) {
+			a=Math.round(s,2)
+			s="$a"
+		}
+		not(s.find('.')) return s;
+		not(num) num=2
+		s.ref()
+		a=s.findPos('.').trim()
+		b=s.move()
+		c=b.value(0,num)
+		print(">>",a,b,c)
+		return "${a}.${c}";
+	}
+	today(addTime) {
+		return System.date(when(addTime,'yyyy-MM-dd hh:mm:ss','yyyy-MM-dd'));
+	}
+	beep() {
+		System.beep()
+	}
+	copyText(text) {
+		System.copyText(text)
+	}
+	copyClipboard(type) {
+		System.copyClipboard(type)
+	}
+	getClipbard(type) {
+		return System.clipboard(type)
+	}
+	getCursorPosition() {
+		return SYstem.cursorPos()
+	}
+	watcherClipboard(param) {
+		if(typeof(param,'bool')) {
+			System.watcherClipboard(param)
+		} else {
+			args(target, callback)
+			if(typeof(callback,'func')) {
+				System.watcherClipboard(true, target, callback)
+			}
+		}
+	}
+	
+	getWidgetNode(tag, id, target, newCheck) {
+		not(id) {
+			idx=global().incrNum('@widgetCreateIndex')
+			id="${tag}_${idx}"
+		}		
+		not(target) target=Cf.funcNode().get('@this')
+		base=null
+		if(typeof(target,'node')) {
+			splitSep(target.@baseCode,':').inject(base,pid)
+		}
+		not(base) base='common'
+		print("xxxx getWidgetNode xxxxx", base, newCheck, tag)
+		if(newCheck) {
+			if(Cf.getObject(tag, "$base:$id")) {
+				print("@@ getWidgetNode 아이디 중복 새로운 아이디 생성합니다")
+				while(n=1, 64) {
+					newId="$id_$n"
+					if( Cf.getObject(tag, "$base:$newId") ) continue;
+					id=newId
+					break;
+				}
+				print("@@ getWidgetNode 새로운 아이디 $newId")
+			}
+		}
+		return object("${tag}.${base}:${id}")
+	}
+	createWidget(tag, id, target, module, newCheck) {
+		not(tag) return print("@@ createWidget $tag 미정의")
+		widget = getWidgetNode(tag,id,target,newCheck)
+		if(typeof(widget,'widget')) return widget;
+		widget.tag=tag
+		widget.id=id
+		Cf.createWidget(widget)
+		if(tag.eq('page','canvas')) {
+			widget.@skipFuncUpdate=true
+			addModule(widget,tag,true)
+		}			
+		if(typeof(module,'string')) {
+			addModule(widget,module)
+		}
+		base=null
+		if( typeof(target,'widget') ) {
+			widget.flags("child")
+			widget.parentWidget(target)
+			widget.show()
+			splitSep(target.@baseCode,':').inject(base, targetId)
+		}
+		not(base) base='common'
+		widget.@baseCode ="${base}:${id}"
+		return widget;
+	}
+</script>
+
+<script type="common" note="공통유틸리티 함수">
+// 주어진 경로 폴더리스트 리턴
+getFolderList(path, node, depthNumber, pathLength) {
+	asize=args().size()
+	if(asize==1 && typeof(path,'node') ) {
+		node=path
+		path=node.fullPath
+	}
+	not(node) {
+		node=_node()
+	}
+	not(path) return print("@@ getFolderList 경로 미설정 노드:$node")
+	not(pathLength) {
+		root=findParentNode(node,'@rootPath')
+		if(root) {
+			pathLength= root.@rootPath.size()
+		} else {
+			node.@rootPath = path
+			pathLength= path.size()
+		}
+	}
+	not(depthNumber) depthNumber=1
+	depthNumber--;
+	fileObject = Baro.file('baro')
+	fileObject.list(path, func(info) {
+		while(info.next()) {			
+			info.inject(type,fullPath,name,modifyDt)
+			if(type.eq('folder')) {
+				relativeName = fullPath.value(pathLength+1)
+				cur=node.addNode().with(type, relativeName, name, fullPath, modifyDt)
+				if(depthNumber>0 ) {
+					cur.childLoad = true
+					getFolderList(fullPath, cur, depthNumber, pathLength)
+				} else {
+					cur.childLoad = false
+				}
+			}
+		}
+	});
+	node.childLoad = true
+	return node;
+}
+// 주어진 경로 파일리스트 리턴
+getFileList(path, node, arr, depth ) {
+	not(node) node=_node()
+	if(typeof(arr,'array')) {
+		checkChild= true
+	} else {
+		checkChild = false
+		arr=_arr()
+	}
+	relativePath = node.relativeName
+	not(path) {
+		not(relativePath) return print("@@ getFileList 경로가 없거나 부모노드 경로가 없습니다")
+		root=findParentNode(node,'@rootPath')
+		not(root) return print("@@ getFileList 최상위 노드 경로가 없습니다")
+		path=pathJoin(root.@rootPath, relativePath)
+		print("path == $path ")
+	}
+	not(depth) {
+		fileObject = Baro.file('baro')
+		node.inject(@fileSort, @fileFilter, @nameFilter)
+		if(fileSort) {
+			// name, time, size, type, case
+			fileObject.@sort = fileSort
+		}
+		if(fileFilter) {
+			// folder, files, hidden
+			fileObject.@filter = fileFilter
+		}
+		if(nameFilter) {
+			// *.svg
+			fileObject.@nameFilter = nameFilter
+		}
+		depth=0
+	}
+	depth+=1;
+	fileObject.list(path, func(info) {
+		while(info.next()) {			
+			info.inject(type,fullPath,name,modifyDt)
+			if(type.eq('file')) {				
+				cur=node.addNode().with(type, name, fullPath, size, modifyDt)
+				if( relativePath ) {
+					cur.relativeName = pathJoin(relativePath, name)
+				}
+				arr.add(cur)
+			} else if(checkChild) {
+				getFileList(fullPath,node,arr,depth)
+			}
+		}
+	});
+	return arr;
+}
+
+// 객체의 태그명 체크
+checkTag(obj, type) {
+	not(typeof(obj,'node')) return false;
+	if(obj.tag.eq(type)) return true;	
+	return false;
+}
+// aaa-bbb-ccc => aaaBbbCcc 로변환
+typeName(&s) {
+	ss='', upper=false
+	while(n=0, s.size()) {
+		c=s.ch(n) not(c) break;
+		if(c.eq('-')) {
+			upper=true
+			continue;
+		}
+		if(upper || n.eq(0)) {	
+			ss.add(c.upper())
+			upper=false
+		} else {
+			ss.add(c)
+		}
+	}
+	return ss;
+}
+/*
+	json 형태 속성의 끝위치 찾음 타입은 부모함수 @endPosType 에 적용
+	예) { info: a() + b() , title: hello } 경우 info 항목의 끝위치를 a()+b() 까지 찾음 
+*/ 
+varEndPos(&s) {
+	fn=Cf.funcNode('parent')
+	type=''
+	while(s.valid()) {
+		c=s.ch() not(c) break;
+		if(c.eq()) break;
+		if(c.eq(',')) break;
+		if(c.is('oper')) {
+			type='oper'
+			s.incr()
+			continue;
+		}
+		c=s.next().ch()
+		while(c.eq('.')) {
+			type='sub'
+			c=s.next().ch()
+		}
+		if(c.eq('(')) {
+			type='func'
+			s.match()
+		}
+	}
+	fn.set('@endPosType', type)
+	return s.cur();
+}
+// 모든라인의 인덴트를 없앤다
+trimLine(&s) {
+	nl=conf('cf.newline')
+	ss=''
+	while(s.valid(),n) {
+		not(s.ch()) break;
+		line=s.findPos("\n").trim() not(line)continue;
+		if(n) ss.add(nl)
+		ss.add(line)
+	}
+	return ss;
+}
+// 모든라인 처음 인덴트 위치만큼 삭제
+removeIndentText(&s) {
+	ss='', firstIndent='', indentSize=-1;
+	nl=conf('cf.newline')
+	while(s.valid()) {
+		if(lineBlankCheck(s)) {
+			s.findPos("\n")
+			continue;
+		}
+		line=s.findPos("\n")
+		if(indentSize.eq(-1)) {
+			firstIndent=indentText(line)
+			indentSize=firstIndent.size()
+			ss.add(line.trim())
+		} else {
+			ss.add(nl)
+			if(firstIndent) {
+				if(line.start(firstIndent,true)) {
+					ss.add(line.trim('right'))
+				} else {
+					ss.add(line.trim())
+				}
+			} else {
+				ss.add(line.trim('right'))
+			}
+		}
+	}
+	return ss;
+}
+// 모든라인 인덴트를 추가
+insertIndentText(&s,indent) {
+	if(indent.ch()) return print("@@ insertIndentText 인덴트 추가는 공백만 가능합니다");
+	ss='',	nl=conf('cf.newline'), linenum=0;
+	while(s.valid()) {
+		if(lineBlankCheck(s)) {
+			s.findPos("\n")
+			continue;
+		}
+		if(linenum++) ss.add(nl)
+		line=s.findPos("\n").trim('right')
+		ss.add(indent, line)
+	}
+	return ss;
+}
+// 마지막 0 문자 제거 예) 23.12000 => 23.12 
+trimZero(s) {
+	not(s) return;
+	last=s.size()-1;
+	while(n=last, 0) {
+		c=s.ch(n)
+		if(c.eq('0')) {
+			continue;
+		}
+		if(n.eq(last)) return s;
+		last=n+1
+		break;
+	}
+	return s.trim(0,last,true);
+}
+lightColor(c,num) {
+	if(typeof(c,'string')) c=color(c)
+	not(num) num=100
+	not(typeof(c,'color')) return randomColor().lightColor(num);
+	return c.lightColor(num);
+}
+darkColor(c,num) {
+	if(typeof(c,'string')) c=color(c)
+	not(num) num=100
+	not(typeof(c,'color')) return randomColor().darkColor(num);
+	return c.darkColor(num);
+}
+randomColor() {
+	hue=System.rand(360).toInt(); 
+	return Baro.color('hsl', hue, 100, 100);
+}
+randomIcon() {
+	num=System.rand(360).toInt()
+	Baro.db('icons').fetch("select type, id from icons where type='vicon' limit $num,1"  ).inject( type, id);
+	return "$type:$id";
+}
+
+</script>
+
+<script type="data" note="데이터관리">
+json(node, childPrefix, useIndent) {
+	obj = object("baro.json")
+	not(obj.@useModule ) {
+		addModule(obj,'json',childPrefix)
+	}
+	not(node) {
+		return obj;
+	}
+	if(typeof(childPrefix,'bool')) {
+		not(childPrefix) obj.member(childPrefix, '')
+	} 
+	else if(childPrefix) {
+		obj.member(childPrefix, childPrefix)
+	}  
+	obj.member(useIndent, useIndent)
+	return obj.jsonValue(node)
+}
+/* 웹호출 결과 출력 (api 호출) */
+webResult(url, method, data, headerJson) {
+	web=webObject()
+	not(method) method='GET'
+	if(method=='POST') {
+		web.set('data',data)
+	}		
+	if(headerJson && typeof(headerJson,'string')) {
+		header=web.addNode('@header').reuse()
+		header.parseJson(headerJson)
+	}
+	web.call(url,method, func(type,data) {
+		if(type=='error') return log('error::webResult 오류 객체:#{0} 메시지#{1}', this, data);
+		if(type=='read') this.appendText('@webResult', data)
+	})
+	return web.ref('@webResult')
+} 
+</script>
+
+
+<script type="worker" note="작업관리">
+runCommand( &str, callback ) {
+	count = getLineCount(str) 
+	param=null
+	if(count==0) return print("@@ runCommand 명령라인이 없습니다");
+	if(count==1) { 
+		line=str.trim()
+		addCmdJob('common', line, callback)
+	} else {
+		while(str.valid()) {
+			line=str.findPos("\n").trim() not(line) continue;
+			addCmdJob('common', line, callback)
+		}
+	}
+	return param;
+}
+
+/* 웹요청처리를 위한 호출 정보생성 */
+webRequestInfo(web, url, method, data, headerInfo) {
+	not(method) method='GET'
+	web.with(url,method,data)
+	if( headerInfo ) {
+		headerNode=web.addNode('@header', true)	
+		if(typeof(headerInfo,'node')) {
+			while(key,headerInfo.keys()) {
+				headerNode.set(key, headerInfo.get(key))
+			}
+		}
+		else if(typeof(headerInfo,'string')) {
+			headerNode.parseJson(headerInfo)
+		}
+	}
+	return web;
+}
+
+/* API 결과처리 작업등록 */
+addApiJob(id, targetNode, logCallback ) {
+	not(typeof(targetNode,'node')) {
+		return print("@@addApiJob 대상노드 미정의");
+	}	
+	timerInfo = global('@timerInfo')
+	timerInfo.@useJob=true
+	timerInfo.@lock=true
+	web=webObject(id)
+	if(typeof(logCallback,'func')) {
+		web.logCallback=logCallback
+	} else {
+		not(web.logCallback) {
+			web.logCallback=func(result,info) { print("##API 작업콜백 ${this.url}  result::$result") };
+		}
+	}
+	not(web.@jobMode) {
+		web.@jobMode = 'API'
+		web.@logTail = logTail("api_$id")
+		web.@logAppend = logAppend("api_$id")
+		web.addArray('@webJobList')
+		event(web,'@callback',@baro.webJobProc)
+	}	
+	// requestInfo: url, method, data, headerJson
+	web.@webJobList.add(targetNode)
+	not(timerInfo.@jobList.find(web)) {
+		timerInfo.@jobList.add(web)
+	}
+	timerInfo.@lock=false
+	return web;
+}
+
+/* 다운로드처리 작업등록 */
+addWebDownloadJob(id, targetNode, logCallback ) {
+	not(typeof(targetNode,'node')) {
+		return print("@@addWebDownloadJob 대상노드 미정의");
+	}
+	timerInfo = global('@timerInfo')
+	timerInfo.@useJob = true
+	timerInfo.@lock=true
+	webId="download_$id"
+	web=webObject(webId)
+	if(typeof(logCallback,'func')) {
+		web.logCallback=logCallback
+	} else {
+		not(web.logCallback) {
+			web.logCallback=func(result,info) { print("##웹다운로드 콜백 URL: ${this.url}  RESULT: :$result") };
+		}
+	}
+	not(web.@jobMode) {
+		web.@jobMode = 'DOWNLOAD'
+		web.@logTail = logTail(webId)
+		web.@logAppend = logAppend(webId)
+		web.addArray('@webJobList')
+		event(web,'@callback',@baro.webJobProc)
+	}
+	// requestInfo: url, method, data, headerJson
+	web.@webJobList.add(targetNode)
+	not(timerInfo.@jobList.find(web)) {
+		timerInfo.@jobList.add(web)
+	}
+	timerInfo.@lock=false
+	return web;
+}
+
+/* cmd 결과처리 작업등록 */
+callCmdJob(id, command, check) {
+	cmd=Baro.process(id)
+	not(cmd.@cmdJobList) {
+		addCmdJob(cmd)
+	}
+	if( check ) {
+		if(cmd.@jobStatus.eq('ready','finish')) {
+			cmd.@cmdJobList.add(command)
+			return true;
+		}
+		if(cmd.@jobStatus.eq('run')) {
+			print(">> $id cmd 작업이 실행중입니다")
+		} else {
+			print(">> $id cmd 작업이 대기중이거나 중지되었습니다 (상태:${cmd.@jobStatus})")
+		}
+	} else {
+		cmd.@cmdJobList.add(command)
+		return true;
+	}
+	return false;
+}
+
+removeCmdJob(id) {
+	cmd=Baro.process(id)
+	timerInfo = global('@timerInfo')
+	not(timerInfo.@jobList.find(cmd)) {
+		print(">> removeCmdJob $id 작업노드가 없습니다")
+		return false;
+	}
+	timerInfo.@jobList.remove(cmd)
+	
+	cmd.@logAppend.close()
+	cmd.@logTail.close()
+	cmd.@cmdJobList.reuse()
+	cmd.@jobStatus='close'
+	if(cmd.run()) {
+		cmd.close()
+	}
+	print(">> remove cmd job $id 작업이 제거되었습니다")
+	return true;
+}
+addCmdJob(id, command, logCallback) {	
+	timerInfo = global('@timerInfo')
+	timerInfo.@useJob=true
+	timerInfo.@lock=true
+	if(checkTag(id,'process')) {
+		cmd=id
+		id=cmd.id
+	} else {
+		not(typeof(id,'string')) return print("@@ addCmdJob cmd 프로세스 ID 오류", id);
+		cmd=Baro.process(id)
+	}
+	not(cmd.@jobMode) {
+		cmd.@jobMode='CMD'
+		cmd.@jobStatus='start'
+		cmd.@logTail = logTail("cmd_$id")
+		cmd.@logAppend = logAppend("cmd_$id")
+		cmd.addArray('@cmdJobList')
+	}
+	if( typeof(logCallback,'func')) {
+		cmd.logCallback=logCallback
+	} else {
+		not(cmd.logCallback) {
+			cmd.logCallback = func(result, info) { print("##cmd 작업콜백 RESULT: :$result") };
+		}
+	}
+	if( isValid(command) ) {	
+		if(typeof(command,'node')) {
+			if(cmd.@cmdJobList.find(command)) {
+				print(">> 커멘드 중복된 작업 정보입니다 (노드:$command)")
+			} else {
+				if( typeof(logCallback,'func')) {
+					not(command.logCallback) command.logCallback=logCallback
+				}
+				cmd.@cmdJobList.add(command)
+			}
+		} else {
+			cmd.@cmdJobList.add(command)			
+		}
+	}
+	not(timerInfo.@jobList.find(cmd)) {
+		timerInfo.@jobList.add(cmd)
+	}	
+	timerInfo.@lock=false
+	return cmd;
+}
+
+@baro.webJobProc(type,&data,bytes) {
+	if(type=='progress') {
+		n=this.incrNum('@progressCnt')
+		m=n%10;
+		if(m==1) {
+			this.@logAppend.append(f[#@>progress: id="" ${this.url} ${bytes}])
+		}
+		return;
+	}
+	if(type=='error') {
+		this.@error = data
+	}
+	if(type=='finish') {
+		this.inject(url, @targetNode, @error)
+		result=when(error, "error[$error]", "ok")
+		this.@logAppend.append(
+			f[#@>finish:result="$result" url="$url" target={$targetNode}]
+		)
+		this.@progressCnt = 0
+		this.@jobStatus = 'finish'
+		this.logCallback(this.@logTail.timeout(), targetNode)
+	}
+}
+
+@baro.cmdJobProc(type,&data) {
+	if(type=='read') {
+		this.appendText('@cmdResult', data)
+		this.@logAppend.write(data)
+		logCallback=this.logCallback
+		c=data.ch(-1)
+		if(c=='>') {
+			// cmd 명령 종료
+			this.@jobStatus='finish'
+			this.@logAppend.append(
+				f[@#>finish: id="${this.id}" command="${this.@command}"]
+			)
+			logData=this.ref('@cmdResult')
+			jobInfo=this.@jobInfo
+			if( jobInfo ) {
+				if( jobInfo.logCallback) {
+					logCallback=jobInfo.logCallback
+				}
+				call(logCallback, this, logData, jobInfo)
+			} else {
+				call(this.logCallback, this, logData, true)
+			}
+			this.@cmdResult = ''
+		} else {
+			// cmd 명령 진행중
+			call(logCallback,this,data, false)
+		}
+		return;
+	}
+	if(type=='error') {
+		this.@logAppend.apeend(
+			f[#@>error: error="$data" id="${this.id}" command="${this.@command}"]
+		)
+		this.@jobStatus='error'
+		this.@error = data
+	}
+}
+
+/* 사용자 워커등록 */
+addUserWorker(id, targetNode, callbackWorker ) {
+	not(typeof(targetNode,'node')) {
+		return print("@@addWebDownloadWorker 대상노드 미정의");
+	}
+	worker=Baro.worker(id)
+	not(worker.@callback) {
+		worker.start(function(target) { if(target) target.@callbackWorker() });
+	}
+	if(typeof(callbackWorker,'func')) {
+		targetNode.@callbackWorker=callbackWorker
+	} else {
+		not(targetNode.@callbackWorker) {
+			targetNode.@callbackWorker=func(node) { print("##userWorker callback  node::$node") };
+		}
+	}
+	not( targetNode.@worker ) {
+		targetNode.@worker=worker
+	}
+	worker.push(targetNode)
+	return worker;
+}
+</script>
+
+<script type="source" note="소스관리">
+// 전역 타이머에서 등록파일 소스변경여부 체크
+addWatchFile(serviceMode, fullpath, callback) {
+	serviceNode=getServiceNode(serviceMode, true)	
+	not(typeof(serviceNode,'node')) {
+		return print("@@ 파일감시 경로추가 오류 [$serviceMode]에 등록된 정보가 없습니다 (경로: $path)") 
+	}
+	not(typeof(callback,'func')) {
+		callback=func(serviceNode, fullpath) { 
+			print("@watch 파일변경 $fullpath (서비스:${serviceNode.serviceName})") 
+		}
+	}
+	timerInfo = global('@timerInfo')
+	timerInfo.@useWatchFile = true	
+	filePathInfo(fullpath).inject(folder, filename, name)
+	modifyTime=fileTime(fullpath)
+	cur=timerInfo.@watchFileInfo.addNode(fullpath)
+	cur.with(serviceNode,fullpath,filename,name,modifyTime,callback)
+	return cur;
+}
+// 소스 문자열중 @[code] 형태 문자열 치환
+getSource(&s,node,fn) {
+	arr=args(1)
+	not(typeof(node,'node')) {
+		node=this
+		not(node) node=_node()
+	}
+	not(fn) {
+		fn=Cf.funcNode('parent')
+	}
+	fnCur=Cf.funcNode()
+	fnCur.set('endPos', 0)
+	ss=''
+	while(s.valid()) {
+		left = s.findPos('@[',0,1)
+		ss.add(left)
+		c=s.incr().ch()
+		not(c.eq('[')) break;
+		key=s.match(1).trim()
+		if(typeof(key,'bool')) break;
+		if(typeof(key,'num')) {
+			ss.add(arr.get(key))
+		} else {
+			if(isVar(key)) {
+				ss.add(getValue(key,node,fn))
+			} else {
+				ss.add(eval(key, fn))
+			}
+		}
+	}
+	return ss;
+	
+	isVar = func(&s) {
+		c=s.next().ch() 
+		while(c.eq('.')) c=s.next().ch()
+		fnCur.set('endPos', s.cur())
+		not(c) return true;	
+		if(startWith(s,'&&','||','?')) return true;
+		return when(c,false,true);
+	};	
+	getValue=func(&s,node,fn) {
+		not(typeof(s,'string')) return;
+		if( s.start('conf.',true)) {
+			return conf(s)
+		}
+		sp=s.cur()
+		key=s.trim(sp,endPos,true)
+		val=getVarValue(key,fn,node)		
+		s.pos(endPos)
+		
+		if(startWith(s,'&&','||','?')) {
+			c=s.ch()
+			// @[aaa? (문자열1): (문자열2)] aaa값이 있다면 문자열1, 없다면 문자열2 으로 치환
+			if(c.eq('?')) {
+				c=s.incr().ch()
+				if(c.eq('(')) {
+					src=s.match(1)
+				} else {
+					src=s.findPos(':',1,1)
+				}
+				if(val) {
+					val=getSource(src,node,fn)
+				} else {
+					c=s.ch()
+					if(c.eq(':')) {
+						c=s.incr().ch()
+						if(c.eq('(')) {
+							src=s.match(1)
+						} else {
+							src=s
+						}
+						val=getSource(src,node,fn)
+					} else {
+						val=''
+					}
+				}
+			} 
+			// 예) @[aaa && bbb] 경우 aaa값이 있다면 bbb값으로 치환
+			else if(s.start('&&',true)) {
+				if(val) {
+					val=getSource(s,node,fn)
+				} else {
+					val=''
+				}
+			} 
+			// 예) @[aaa || bbb] 경우 aaa값이 없다면 bbb값으로 치환	
+			else if(s.start('||',true)) {
+				if(isNull(val)) {
+					val=getSource(s,node,fn)
+				}
+			}
+		}
+		return val;
+	};
+}
+
+serviceModuleInfo(service, moduleName) {
+	root = getServiceNode(service)
+	not(typeof(root,'node')) {
+		return print("@@ serviceModuleInfo [$service] 서비스 모듈정보가 없습니다")
+	}
+	base=root.get(moduleName)
+	not(typeof(base,'node')) {
+		return print("@@ serviceModuleInfo [$service] 서비스에 [$moduleName] 모듈이 없습니다")
+	}
+	script = base.script
+	not(typeof(script,'node')) {
+		return print("@@ serviceModuleInfo [$service] 서비스 [$moduleName] 모듈에 등록된 스크립트가 없습니다")
+	}
+	ka=script.keys()
+	getSubNode = func(code) {
+		cur=findField(script,'code',code)
+		not(cur) cur=script.addNode().with(code)
+		return cur;
+	};	
+	while(k,ka) {
+		if(k.find('#')) {
+			splitSep(k,'#').inject(code,kind)
+			val=script.get(k)
+			getSubNode(code).set(kind,val)
+		} else {
+			parseScriptFunction(getSubNode(k), script.get(k))
+		}
+	}
+	return base;
+}
+
+parseScriptFunction(node, &src) {
+	while(src.valid()) {
+		c=src.ch() not(c) break;
+		if(c.eq(',',';')) {
+			src.incr()
+			continue;
+		}
+		type='func'
+		sp=src.cur()
+		if(c.eq('@')) {
+			type='module'
+			src.incr()
+		}
+		c=src.next().ch()
+		if(c.eq('.')) {
+			c=src.incr().next().ch()
+		}
+		if(c.eq('(')) {
+			ep=src.cur()
+			name=src.trim(sp,ep,true)
+			params = src.match()
+			node.addNode().with(type,name,params)
+			if(src.ch('{')) {
+				src.match(1)
+			}
+		} else {
+			log("@@ parseScriptFunction 함수시작오류 라인:", getLine(src))
+			break;
+		}
+	}
+}
+
+</script>
+
+
+<script type="global_timer" note="전역타이머 관리">
+/* 전역 타이머 실행 */
+startGlobalTimer() {
+	timerInfo = global('@timerInfo')
+	not(timerInfo.@startTick) {
+		timerInfo.@startTick = System.tick()
+		timerInfo.addNode('@watchFileInfo')
+		timerInfo.addArray('@jobList')
+	}
+	global=global()
+	if( global.@timerDelay ) {
+		return print('global timer가 실행중입니다' )
+	}
+	event(global,'onTimeout',@baro.procGlobalTimer)
+	// 500ms 마다 타이머 실행
+	System.globalTimer(500)
+	print("global timer 시작", timerInfo)
+}
+/* 전역 타이머 중지 */
+stopGlobalTimer(closeCheck) {
+	global=global()
+	global.@timerDelay = 0
+	System.globalTimer(false)
+	print("global timer 중지됨")
+	if( closeCheck ) {
+		timerInfo=global('@timerInfo')
+		if( isObject(global.@watcherFiles) ) {
+			while(cur, global.@watcherFiles) {
+				cur.@callback = null
+			}
+		}
+		while(job, timerInfo.@jobList ) {
+			if( checkTag(job,'process')) {
+				job.@jobStatus='stop'
+				job.@jobList.reuse()
+				job.@logTail.closeLog(true)
+				job.@logAppend.closeLog(true)
+				job.close()
+			}
+			else if( checkTag(job,'web')) {
+				job.stop()
+			}
+		}
+	}
+}
+/* 전역 타이머처리 콜백함수 */	
+@baro.procGlobalTimer() {
+	timerInfo = this.@timerInfo
+	if(timerInfo.@lock) {
+		if( timerInfo.@lockCheckTick ) {
+			timerInfo.@lockCheckTick=0
+			timerInfo.@lock=false
+		} else {
+			timerInfo.@lockCheckTick=System.tick()
+		}
+		return;
+	}
+	// 파일변경체크 사용
+	if( timerInfo.@useWatchFile) {
+		while(cur, timerInfo.@watchFileInfo ) {
+			cur.inject(serviceNode,fullpath, modifyTime, callback)
+			// 현재파일 시간과 등록된 시간이 다르다면 파일 변경처리
+			if(fileTime(fullpath) != modifyTime) {
+				log("$fullpath 파일 변경됨")
+				callback(serviceNode,fullpath)
+				cur.modifyTime=fileTime(fullpath)
+				return;
+			} 
+		}
+	}
+	// 작업관리 사용
+	if( timerInfo.@useJob) {
+		while(cur, timerInfo.@jobList ) {
+			runGlobalJob(cur)
+		}
+	}
+}
+/*
+	thread 에서 cmd 또는 web 요청이 실행하지 않고 타이머에 작업을 넘기후 
+	타이머에서 runGlobalJob 실행
+*/
+runGlobalJob(node) {
+	not(typeof(node,'node')) {
+		return log("error::runGlobalJOB 작업 대상노드가 없습니다");
+	}
+	// 상태가 없다면 대기상태로 설정
+	not(node.@jobStatus) node.@jobStatus='stay'
+
+	// 1. cmd 실행의경우
+	if( checkTag(node,'process')) {
+		cmd=node
+		not( cmd.run()) {
+			cmd.@jobStatus= 'ready'
+			cmd.run('cmd', @baro.cmdJobProc)
+			return;
+		}
+		if( cmd.@jobStatus.eq('run') ) {
+			if( typeof(@app.jobRun,'function')) {
+				@app.jobRun(cmd)
+			}
+			if( cmd.@prevTick ) {
+				dist = System.tick() - cmd.@prevTick
+			} else {
+				dist = System.tick() - cmd.@cmdStartTick
+			}
+			if( dist>60000 ) {
+				// print(">> ${cmd.@command} 실행중 ...")
+				cmd.@prevTick = System.tick()
+			}
+			return;
+		}
+		if( cmd.@jobStatus.eq('ready','finish')) {
+			if( notValid(cmd.@cmdJobList) ) {
+				return;
+			}
+			info=cmd.@cmdJobList.pop()
+			if(typeof(info,'node')) {				
+				command=info.@command
+				cmd.@jobInfo = info
+			} else {
+				command=info
+				cmd.@jobInfo = null
+			}
+			if( command) {
+				cmd.@jobStatus = 'run'
+				cmd.@cmdStartTick = System.tick()
+				cmd.@command = command
+				cmd.write(command)
+				print(">> cmd job : $command")
+			}
+		}
+		return;
+	} 
+	// 2. 웹요청 경우
+	if(checkTag(node,'web')) {
+		web=node
+		if( web.is('run')) {
+			web.@jobStatus = 'run'
+			return;
+		} 
+		targetNode=web.@webJobList.pop()
+		if(targetNode) {
+			targetNode.inject(url, method, data, header)
+			targetNode.@requestStartTick=System.tick()
+			not( targetNode.downloadFilename) {
+				targetNode.downloadFilename=@baro.jobFilename(web)
+			}
+			web.data=''				
+			webRequestInfo(web, url, method, data, header)
+			web.@webStartTick = System.tick()
+			web.@jobStatus = 'ready'
+			web.@targetNode=targetNode
+			web.download(url, targetNode.downloadFilename)
+		}
+	}	
+}
+</script>
+
+<script type="server" note="서버관리">
+initWebsocket() {
+	obj = object("baro.websocketServer")
+	if(obj.@useModule) return obj;
+	addModule(obj,'websocket', 8092)
+	return obj;
+}
+initWas(port,path,devMode) {
+	obj = object("baro.was")
+	if(obj.@useModule) return obj;
+	addModule(obj,'was',devMode)
+	not(port) port=80
+	not(path) path=conf('web.rootPath')
+	obj.start(port,path)
+	return obj;
+}
+</script>
+
+<script type="baro" note="모듈 공통유틸리티">
+@baro.jobFilename(obj) {
+	not(typeof(obj,'node')) {
+		return log("error::workerDownPath 객체오류");
+	}
+	obj.inject(tag,id)
+	// path='C:/temp/worker'
+	path=pathJoin(System.path(),'data/worker')
+	not(isFolder(path)) Baro.file().mkdir(path)
+	not(tag) tag='object'
+	not(id) id='common'
+	idx=obj.incrNum('@downloadIndex')
+	return pathJoin(path, "${tag}-${id}-${idx}.data");
+}
+/* ==============================================================
+*
+* 모듈 공통함수
+*
+==============================================================*/
+@baro.isSingleTag(tag,&s) {
+	left=s.findPos('>')
+	c=left.ch(-1)
+	if(c.eq('/')) return true;
+	return false;
+}
+@baro.isHtmlTag(key) {
+	tag=key.lower()
+	if(tag.start('h')) {
+		c=key.value(1)
+		if(typeof(c,'num')) return true;
+	} else if(tag.eq('div','form','span','p','img','button','input','video','a','nav','header')) {
+		return true;
+	}
+	return false;
+}
+@baro.isFunc(&s) {
+	s.ch() not(c) return;
+	if(c.eq('@')) s.incr()
+	c=s.next().ch()
+	while(c.eq('-','.')) c=s.incr().next().ch()
+	return when(c.eq('('), true)
+}
+@baro.getClassName(pageNode, &s) {
+	ss="#${pageNode.pageId} "
+	if( s.find(' ') ) {
+		while(s.valid(),n) {
+			left = s.findPos(' ').trim() not(left) break;
+			ss.add('.',left)
+		}		
+	} else {
+		ss.add(".$s")
+	}
+	return ss;
+}
+@baro.colorMap(id) {
+	not(id) id='colorArray'
+	map=object('data.colorMap')	
+	arr = map.addArray(id)
+	if(isValid(arr)) return arr;
+	db=Baro.db('data_map')
+	not(db.open()) db.open('data_map.db')
+	sp=Math.random(0,10).toInt();
+	sp*=4;
+	sql="select idx, color from color_map order by like_num desc limit $sp, 4"
+	root = db.fetchAll(sql)
+	while(cur, root) {			
+		arr.add(cur.color)
+	}
+	return arr
+}
+// 파이션 설치경로 설정
+@baro.setPythonPath() { ;
+	runCommand('echo %userprofile%', func(&result, endCheck) {
+		not( endCheck) return;
+		not( result.start('echo %userprofile%', true) ) return;
+		not( result.ch()) return;
+		userprofilePath=result.findPos("\n").trim()
+		if(line) {
+			conf('cf.userprofile', userprofilePath.replace('\','/'), true)	
+		}
+		pythonPath=pathJoin(basePath,'AppData/Local/Programs/Python')		
+		node=getFolderList(pythonPath)
+		if(node && node.childCount() ) {
+			cur=node.child(0)
+			path=getNodePath(cur)
+			if(path) pythonPath=path
+		}
+		not(pythonPath ) return print("@@ baro.setPythonPath 파이션경로를 찾을수 없습니다")
+		conf('python.path', pythonPath, true)
+		log('파이션경로가 설정되었습니다 파이션경로: $pythonPath')
+	});
+}
+
+</script>
+
+<script type="base_type" note="공통타입 정보">
+color(param) {		
+	switch(args().size()) {
+	case 1:
+		if(typeof(param,'array')) {
+			param.inject(r,g,b,a) 
+			if(a) {
+				return Baro.color(r,g,b,a);
+			} else {
+				return Baro.color(r,g,b);
+			}
+		}
+		if(param.ch('#')) {
+			return Baro.color(param.trim()); 
+		} 
+		args(&s);
+		type=s.findPos("(").trim();
+		if(s.valid()) {
+			r=0,g=0,b=0,a=255;
+			ss=s.findPos(")");
+			while(ss.valid(), idx) {
+				left=ss.findPos(",");
+				if(left.find('%')) {
+					v=left.findPos("%").trim();
+				} else {
+					v=left.trim();
+				}
+				not(typeof(v,'num')) v=0;
+				switch(idx) {
+				case 0: r=v.toInt();
+				case 1: g=v.toInt();
+				case 2: b=v.toInt();
+				case 3: a=v*256.0;
+				}
+			}
+			c=Baro.color(type,r,g,b,a);
+		} else {
+			c=Baro.color('hsv',type, 100, 50)
+		}
+		return c;
+	case 3:
+		args(r,g,b)
+		return Baro.color(r,g,b);
+	case 4:
+		args(r,g,b,a)
+		return Baro.color(r,g,b,a);
+	default:
+	}
+}
+size(param) {
+	if(typeof(param,'array')) return param.size();
+	result=null;
+	if(typeof(param,'rect')) {
+		result=param.size();
+	} else if(typeof(param,'widget')) {
+		result=param.rect().size();
+	} else if(typeof(param,'node')) {
+		if(param.@rect ) {
+			result=param.@rect.size();
+		} else {
+			return param.childCount();
+		}
+	} else {
+		if(typeof(param,'string')) {
+			return param.size();
+		} else if(typeof(param,'num')) {
+			return param;
+		}
+	}
+	if(args().size()==2) {
+		result.inject(width);
+		return width;
+	}
+	return result;
+}
+pt(param) {	
+	if( typeof(param,'point') ) {
+		args(pt, pos);
+		pt.inject(x,y);
+		if( typeof(pos,'point') ) {
+			args(2, chk);
+			param.inject(x,y);
+			pos.inject(dx, dy);
+		} else {
+			args(1, dx, dy, chk);
+		}		
+		if(chk) {
+			x-=dx, y-=dy;
+		} else {
+			x+=dx, y+=dx;
+		}
+		return Baro.point(x, y);
+	}
+	sz=args().size();
+	not(sz) return Baro.pt(0,0);	
+	ty=typeof(param);
+	if( sz.eq(1) ) {
+		if( ty.eq('rect','point','rectf','pointf') ) {			
+			param.inject(x,y);
+		} else if( ty.eq('node(draw)') ) {
+			param.rect().inject(x,y);
+		}
+	} else if( ty.eq('rect','rectf','node(draw)') ) {
+		x=0, y=0;
+		if(ty.eq('node(draw)') ) {
+			args(dc,ty);
+			rc=dc.rect();
+		} else {
+			args(rc, ty);
+		}
+		switch(ty) {
+		case lt: rc.inject(x,y)
+		case lb: rc.lb().inject(x,y)
+		case rt: rc.rt().inject(x,y)
+		case rb: rc.rb().inject(x,y)
+		case tc: rc.tc().inject(x,y)
+		case bc: rc.bc().inject(x,y)
+		case center: rc.center().inject(x,y);
+		default: rc.inject(x,y);
+		}
+		if(sz>2) {
+			args(2,dx, dy);
+			if( typeof(dx,'num') ) x+=dx;
+			if( typeof(dy,'num') ) y+=dy;
+		}
+	} else if(typeof(param,'num') ) {
+		args(x,y);
+		not(typeof(y,'num') ) y=0;	
+	}
+	return Baro.pt(x,y);
+}   
+rc(param) {
+	x=0,y=0,w=1,h=1;
+	switch(args().size()) {
+	case 0:
+		rc=this.rect()
+		if(typeof(rc,'rect')) {
+			rc.inject(x,y,w,h);
+		}
+	case 1:
+		if( typeof(param,'node') ) {
+			rc=param.rect()
+			if(typeof(rc,'rect')) {
+				rc.inject(x,y,w,h);
+			}
+		} else if( typeof(param,'image') ) {
+			param.imageSize().inject(w,h);
+		}
+	case 2:
+		args(w,h);
+	case 3:
+		if(typeof(param,'num') ) {
+			args(x,y,size);
+			size.inject(w,h);
+		} else if(typeof(param,'point')) {
+			args(point, w,h);
+			point.inject(x,y);
+		}
+	case 4: 
+		if(typeof(param,'point')) {
+			args(pos, w, h, ty)
+			pos.inject(x,y)
+			if(ty.eq('center')) {
+				hw=w/2, hh=h/2;
+				x-=hw, y-=hh;
+			} 
+		} else {
+			args(x,y,w,h)
+		}
+	default:
+	}
+	return Baro.rc(x,y,w,h);
+} 
+
+</script>

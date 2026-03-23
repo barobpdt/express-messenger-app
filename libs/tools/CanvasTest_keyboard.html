@@ -1,0 +1,33 @@
+<page margin=0 id="main" onInit() {
+	print("keyboard test page")
+	this.@canvas=widget('c')
+}>
+	<canvas id="c" module="canvas_mdc" updateCanvas() {
+		print("=========== canvas keyboard rect start ===========")
+		rect = this.rect()
+		vbox(rect, '50,*').inject(rcInput, rcBody)
+		keyboard = this.getMdc('keyboard','mdc_keyboard')
+		input = this.getMdc('input', 'mdc_inputResult')
+		keyboard.getAvailSize().inject(keyboardWidth, keyboardHeight)		
+		keyboard.setInputMdc(input)
+		global('mdcMap').set('keyboard',keyboard)
+		global('mdcMap').set('input',input)
+		this.addMdc(input, rcInput.center(500,45) )
+		this.addMdc(keyboard,rect.bottomCenter(keyboardWidth, keyboardHeight, 0, -4))
+		print("canvas update rect end ===========")
+	}>
+</page>
+
+<script include>
+	include('@mdc#mdc_common')
+	include('@mdc#mdc_keyboard')
+	include('@mdc#mdc_inputResult')
+</script>
+
+<script eval>
+	// conf('path.mdc','C:/bpdt/project/template/baro_config/mdc', true)
+	page=page('CanvasTest_keyboard:main')
+	page.size(1024,800)
+	page.open()
+	print("eval>> ", page)
+</script>

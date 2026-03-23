@@ -1,0 +1,434 @@
+<script>	
+	apiController(req, param, service, uri) {
+		buffer=null;
+		if(req.getValue('boundary') ) {
+			was().parseReqParam( req, param, req.getValue('boundary') );
+		} else {
+			buffer=req.readBuffer();
+			if(buffer) {
+				type=req.getValue('Content-Type');
+				if(type.eq('application/data')) {
+					print("type == application/data")
+				} else if(type.eq('application/xml')) {
+					parseXml(buffer);
+				} else {
+					param.parseJson(buffer);
+				}
+			}
+		}
+		uri.ref()
+		webRoot = conf('web.rootPath')
+		if( isApiRootInfo(service) ) {
+			if(service.eq(uri)) {
+				print("xxx isApiRootInfo called xxx", service, uri)
+				uri=''
+			}
+			fileName = "$webRoot/api/api.js"
+			name=service			
+			objectId = 'api'
+		} else {
+			fileName = "$webRoot/api/${service}.js"	
+			name=uri.findPos('/').trim();
+			if( uri.find('/') ) {
+				if(isFile(fileName) ) {
+					objectId=service
+				} else {
+					fileName="$webRoot/api/$service/${name}.js"
+					not(isFile(fileName)) {
+						return req.send(f[{"error":"api호출 오류 ${fileName} 파일이 없습니다"}])
+					}
+					objectId = "$service/$name"
+					name = uri.findPos('/').trim()
+					not(name) {
+						return req.send(f[{"error":"api호출 오류 ${fileName} 파일 $name 함수가 없습니다"}])
+					}
+				}
+			} else {
+				if(isFile(fileName) ) {
+					objectId=service
+				} else {					
+					return req.send(f[{"error":"api호출 오류 ${fileName} 파일이 없습니다"}])
+				}
+			}
+		}
+		serviceNode=Cf.getObject("api", objectId, true)
+		serviceNode.@moduleName="webapi_$objectId"
+		lastTm = serviceNode.get('lastModifyTm')		
+		modifyTm = fileTime(fileName)
+		if( lastTm!=modifyTm ) {
+			fsrc = fileRead(fileName)
+			apiSourceApply(serviceNode, fsrc)
+			serviceNode.set('lastModifyTm', modifyTm)
+		}
+		Cf.error(true)
+		fc=serviceNode.val(name)
+		if(typeof(fc,'func')) {
+			result = fc(req, param,uri,buffer)
+			not(result) result = param
+		} else {
+			result = "$objectId 서비스에 $name 함수미정의"
+		}
+		if( param.var(sendCheck)) return;
+		if( typeof(result,'node')) {
+			req.send(json(result) )
+		} else {
+			req.send(result)
+		}
+	}
+	isApiRootInfo(&service) {
+		fileName = pathJoin(conf('web.rootPath'), '/api/api.js')
+		not(isFile(fileName)) {
+			print("@@ $fileName API소스 파일이 없습니다")
+			return;
+		}
+		node = Cf.getObject('api','api')
+		checkSource=false
+		if(node) {
+			lastTm = node.get('lastModifyTm')		
+			modifyTm = fileTime(fileName)
+			if(lastTm!=modifyTm ) {
+				node.set('lastModifyTm', modifyTm)
+				checkSource=true
+			}
+		}
+		else {
+			node = Cf.getObject('api','api', true)
+			node.@moduleName="webapi_api"
+			checkSource=true
+		}
+		if(checkSource) {
+			fsrc = fileRead(fileName)
+			apiSourceApply(node, fsrc)	
+			node.set('lastModifyTm', fileTime(fileName))
+		}
+		fcNm = service.trim()
+		fc=node.get(fcNm)
+		return typeof(fc,'func');
+	}
+	apiSourceApply(node, &s) {
+		parseApi = func(&s) {
+			if(s.find('<api')) {
+				ss=''
+				while(s.valid() ) {
+					s.findPos('<api') not(s.ch()) break;
+					aa=s.findPos('</api>')
+					aa.findPos('>')
+					ss.add(aa)
+				}
+				applyFunc(ss, node.@moduleName)
+			} else {
+				applyFunc(s, node.@moduleName)
+			}
+			addModule(node, node.@moduleName)
+		};
+		if(s.find('<func')) {
+			ss='', fsrc=''
+			while(s.valid()) {
+				left = s.findPos('<func',0,1)
+				fsrc.add(left)
+				not(s.ch()) break;				
+				a=s.match('<func','</func>')
+				if(typeof(a,'bool')) {
+					s.findPos('</func>')
+					continue;
+				}
+				prop=a.findPos('>')
+				mode=propValue(prop,'mode')
+				if(mode.eq('const','skip')) {
+					print("@@ apiSource mode==$mode")
+					if( mode.eq('const') ) {
+						if(node.lastModifyTm) continue;
+					} else {
+						continue;
+					}
+				}
+				ss.add(a)
+			}
+			Cf.sourceApply("<func>$ss</func>")
+			parseApi(fsrc)
+		} else {
+			parseApi(s)
+		}
+	}
+	 
+	webFileFilter(req, page) {
+		param=req.param();
+		if(page) {
+			req.sendPage(page, true);
+		} else {
+			req.send("webFileFilter page:${this}\nREQUEST: ${req.get()}\nPARAM: ${param}");
+		}
+		return true;
+	}
+	jsonData(node, fields, listCode) {
+		fa=null
+		not(listCode ) listCode='children'
+		not(fields) fields=node.var(fields)
+		if(fields) {
+			if( typeof(fields,'array') ) {
+				fa=fields;
+			} else {
+				fa=fields.split(',');
+			}
+		}
+		not(typeof(fa,'array')) {
+			cur = node.child(0)
+			if(cur) {
+				fa=_arr()
+				while(key, cur.keys()) {
+					if(key.ch('@')) continue;
+					fa.add(key)
+				}
+			}
+		}
+		num=0, rst='{'
+		while( key, node.keys() ) {
+			if( key.ch('@') ) continue;
+			val=node.get(key);
+			if( typeof(val,'node','array')) continue;
+			if(num) rst.add(',')
+			if( val.eq('true','false') ) {
+				rst.add(Cf.jsValue(key), ':', val )
+			} else {
+				rst.add(Cf.jsValue(key), ':', Cf.jsValue(val) )
+			}
+			num++;
+		}
+		if(num) rst.add(',')
+		rst.add(' "',listCode,'":[')
+		while( cur, node, idx ) {
+			if( idx ) rst.add(',')
+			rst.add("{")
+			while( key, fa, col ) {
+				if( col ) rst.add(",")
+				val = cur.get(key)
+				if( val.eq('true','false') ) {
+					rst.add(Cf.jsValue(key), ':', val )
+				} else {
+					rst.add(Cf.jsValue(key), ':', Cf.jsValue(val) )
+				}
+			}
+			rst.add("}")
+		}
+		rst.add("]}")
+		return rst;
+	}
+	
+</script>
+
+<script module="was">	
+	init(mode) {
+		this.@was=Baro.was()
+		this.@devMode = mode
+		this.@status = 'stay'
+		this.@watcher = null
+	}
+	start(port, path) {
+		not(port) port=80;
+		not(path) path=pathJoin(System.path(),"web");
+		not(conf('web.rootPath')) conf('web.rootPath',path,true)
+		this.@was.start(port,path);
+		this.@status = 'start'
+	}
+	startRouter() {
+		this.makeRouterMap();
+		if( this.@devMode ) {
+			this.watcherStart()
+		}
+	}
+	close() { 
+		this.@status = 'close'
+		this.@was.shutdown()
+	} 
+	webRootPath() {
+		return conf('web.rootPath');
+	}
+	clientArray() {
+		return this.@was.clientArray(true);
+	}
+	 
+	parseReqParam( req, param, bound ) {
+		buf=req.readBuffer();
+		contentLength=req.getValue("Content-Length");
+		not(bound) bound=req.getValue('boundary');
+		boundCheck=Cf.val('--',bound);
+		print(">> multipartParse boundCheck: $boundCheck", contentLength, buf.size() );
+		buf.findPos(boundCheck);
+		while( buf.valid(), n, 0 ) {
+			left=buf.findPos(boundCheck);
+			header=left.findPos("\r\n\r\n");
+			not(header.ch()) break; 
+			node=this.multipartHeader(header);
+			node.inject(name, filename);
+			not( name ) continue;
+			contentType=node.get("Content-Type");
+			print("this.parseReqParam node=>$node");
+			if(filename) {
+				param[$name]=filename;
+				data=left.findLast("\r\n");
+				uploadPath=Cf.val(System.path(), "/data/temp/$filename");
+				print(">> upload $name=$filename PATH:$uploadPath", contentType, data.size() );
+				writeFile(uploadPath, data);
+				param.var(uploadFilePath, uploadPath);
+			} else {
+				param[$name]=left.trim();
+			} 
+		}
+		return param;
+	}
+
+	multipartHeader(&s) {
+		node=_node();
+		while( s.valid(), n, 0 ) {
+			not( s.ch() ) break;
+			line=s.findPos("\n");
+			type=line.findPos(":").trim();
+			not( type ) break;
+			kind=line.findPos(";").trim();
+			node.set(type, kind );
+			not( line.ch() ) continue;
+			while( line.valid() ) {
+				key=line.findPos("=").trim();
+				c=line.ch();
+				if( c.eq() ) {
+					val=line.match();
+				} else {
+					val=line.findPos(";").trim();
+				}
+				node.set(key, val);
+				if( line.ch(';') ) line.incr();
+			}
+		}
+		return node;
+	}
+	uploadSave(data) {
+		use(param) not(param) return print("upload save error : param not define");
+		param.inject(fnm, fkey, uploadPath);
+		num=lpad(param.fidx), size=data.size();
+		not( uploadPath ) {
+			uploadPath="data/upload";
+		}
+		path=wasRoot();
+		fileName=Cf.val(path,'/',uploadPath,'/', fkey,'#',num,'-',fnm);
+		Baro.file("upload").writeAll(fileName, data );
+		print(">> upload idx:$num  size:$size", fileName);
+	}
+	uploadFileCopy(uploadKey, savePath, fileName) {
+		fo=Baro.file('upload');
+		not(fo.isFolder(savePath)) fo.mkdir(savePath, true);
+		destFullName="$savePath/$fileName";
+		if(fo.isFile(destFullName)) fo.delete(destFullName);
+		foDest=Baro.file("dest");
+		not(foDest.open(destFullName, "append")) return print("업로드 파일복사 오류 키:$uploadKey 파일명:$destFullName");
+		uploadPath=Cf.val(System.path(), "/data/temp/$filename");
+		fo.var(sort,'type,name')
+		fo.var(nameFilter, "${uploadKey}-*.*");
+		fo.list(uploadPath, function(info) {
+			while(info.next()) {
+				info.inject(type, name, fullPath);
+				foDest.append( fullPath, true );
+			}
+		})
+		foDest.close();	
+	}
+	
+	makeRouterMap(path, pathLen) {
+		fo=Baro.file()
+		map=Baro.was().urlMap()
+		not(path ) {
+			path=pathJoin(webRoot(),'router')
+		}
+		not(pathLen) {
+			global("routerPath",path)
+			pathLen=path.size()
+		}
+		self=this
+		print("route path==$path")
+		fo.list(path, function(info) {
+			while(info.next()) {
+				info.inject(type, name, fullPath, modifyDt) 
+				if( type=='folder') {
+					if(name.ch('.')) continue;
+					if(name.eq('assets','images','css','js','test','temp') ) continue;
+					self.makeRouterMap(fullPath, pathLen)
+					continue;
+				}
+				fnm=fullPath.value(pathLen)
+				relative=fnm.findLast('.').trim()
+				not(self.modifyCheck(fullPath, relative, modifyDt)) {
+					continue
+				}
+				if(relative=='/main') {
+					uri="/"
+				} else {
+					uri=relative
+				}
+			
+				name=relative.value(1)
+				if(name.find('/')) {
+					name=name.replace('/','#')
+				}
+				chk=call(#[
+					@RoutePage.${name}(req,param,&uri) {
+						fullPath='${fullPath}'
+						req.send(fileRead(fullPath));
+					}
+				]);
+				if(chk ) {
+					map[$uri]=call("@RoutePage.${name}")
+				}
+			}
+		})
+	}
+	
+	modifyCheck(fullPath, relative, modifyDt) {
+		not(fullPath) return false;
+		not(relative) relative=fullPath
+		map = object('@comm.fileCheckMap')
+		cur=map.get(relative)
+		not(cur) {
+			cur=map.addNode(relative);
+			cur.with(fullPath, relative, modifyDt)
+			print("modify check new item => ", cur)
+			return true;
+		}
+		if(modifyDt.eq(cur.modifyDt)) return false
+		return true;
+	}
+	watcherStart() {
+		if( this.member(watcher) ) {
+			print("웹라우팅 폴더감시가 이미 실행중입니다")
+			return;
+		}
+		path=conf("was.routerPath")
+		not(path) {
+			path = this.webRootPath()
+			path.add('/router')
+			conf("was.routerPath", path, true)
+		}
+		@watcher=System.watcherFile(path, this, this.watcherProc)
+	}
+	watcherProc(act,name) { 
+		n=watcher.get(name)
+		if(n>0) {
+			dist=System.tick()-n
+			if(dist<500) return;
+		}
+		watcher.set(name, System.tick());
+		if(act==1) {
+			path=global("routerPath")
+			print("$name 파일 생성 웹페이지맵 새로고침")
+			this.makeRouterMap(path);
+		} else {
+			print("파일변경 $act $name");
+		}
+	}
+</script>
+ 
+<conf name="web.accessControl">
+	Access-Control-Allow-Origin: http://localhost:8080
+	Access-Control-Allow-Credentials: true
+	Access-Control-Max-Age: 86400
+	Access-Control-Allow-Headers: Accept, Content-Type, X-PINGOTHER
+	Access-Control-Allow-Method: GET, POST, PUT, OPTIONS
+</conf>

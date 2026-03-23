@@ -1,0 +1,218 @@
+import sys
+import argparse
+import os
+import time
+from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtWebEngineWidgets import *
+from PyQt6.QtWebEngineCore import *
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtCore import Qt, QTimer, QTime, QUrl, QEvent, QObject, pyqtSlot
+from PyQt6.QtWebChannel import QWebChannel
+import win32.win32gui as win32gui
+
+'''
+pythonRun('-m pip install PyQt6 PyQt6-WebEngine')
+pywin32 306
+'''
+
+parser = argparse.ArgumentParser(description='프로그램 확장기능 처리')
+class CustomAction(argparse.Action):
+	def __call__(self, parser, namespace, values, option_string=None):
+		setattr(namespace, self.dest, " ".join(values))
+
+# 입력받을 인자값 등록
+parser.add_argument('--command', action=CustomAction, nargs='+', required=True, help='로그파일')
+parser.add_argument('--out', action=CustomAction, nargs='+', required=True, help='출력파일')
+parser.add_argument('--url')
+args = parser.parse_args()
+
+fpOut=open(args.out, 'a', encoding='utf8')
+
+def logAppend (msg):
+	fpOut.write(f"@#> {msg}\n")
+	fpOut.flush()
+
+def handle_result(result):
+	logAppend(f"runScript: {result}")
+
+class Bridge(QObject):
+	def __init__(self, webview):
+		super().__init__()
+		self.webview = webview
+
+	@pyqtSlot(str)
+	def logAppend(self, msg):
+		if msg=='pageActive':
+			win32gui.SetForegroundWindow(self.webview.parent_hwnd)
+		logAppend(f'bridge:{msg}')
+
+class MyWebView(QWebEngineView):
+	# Store external windows.
+	# external_windows = []
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.acceptDrops = True
+		self.urlChanged.connect(self.onUrlChange)
+		self.fp=open(args.command, 'r', encoding='utf8')
+		# self.fa=open(args.out, 'a', encoding='utf8')
+		self.lastPos=self.fp.seek(0, os.SEEK_END)
+		self.tm=time.time()		
+		self.nextCommand = ''
+		self.parent_hwnd = None
+		self.timer = QTimer(self)
+		self.timer.setInterval(100)
+		self.timer.timeout.connect(self.timeout)
+		self.timer.start()
+		self.setGeometry(0, 0, 800, 600)
+		self.timerCount=0
+		logAppend(f'webview:init {args.command}')
+		try:
+			self.channel = QWebChannel(self)
+			self.bridge = Bridge(self)
+			self.channel.registerObject("bridge", self.bridge)
+			self.page().setWebChannel(self.channel)
+			# self.setBackgroundColor(QtCore.Qt.transparent)
+			# self.setAcceptDrops(True)
+			# self.setMouseTracking(True)
+			self.settings().setAttribute(QWebEngineSettings.FullScreenSupportEnabled, True)
+			# self.focusProxy().setMouseTracking(True)
+			self.focusProxy().installEventFilter(self)
+			profile = self.page().profile()
+			# profile.setHttpCacheType(QWebEngineProfile.NoCache)
+			profile.clearHttpCache()
+		except Exception as e:
+			print(f" error: {e}")
+	
+	def onUrlChange(self, url):
+		logAppend(f'urlChange: {url.toString()}')
+		# self.back()
+
+	def dragEnterEvent(self, event: QDragEnterEvent):
+		if event.mimeData().hasUrls():
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dropEvent(self, event: QDropEvent):
+		files = [u.toLocalFile() for u in event.mimeData().urls()]
+		event.accept()
+
+	def acceptNavigationRequest(self, url,  type, isMainFrame):
+		if type == QWebEnginePage.NavigationTypeLinkClicked:
+			logAppend(f"linkClick:{url}")
+			'''
+			w = QWebEngineView()
+			w.setUrl(url)
+			w.show()
+			self.external_windows.append(w)
+			'''
+			return False
+		return super().acceptNavigationRequest(url,  _type, isMainFrame)
+
+	def timeout(self):
+		# sender = self.sender()
+		# currentTime = QTime.currentTime().toString("hh:mm:ss")
+		if self.timerCount<10:
+			if self.timerCount==5:
+				urlDefault='http://localhost:8081/messenger.html'
+				if args.url:
+					urlDefault=args.url
+				self.setUrl(QUrl(urlDefault))
+			logAppend(f'start:webview')
+		self.timerCount+=1
+		fsize=os.stat(args.command).st_size
+		checkCommand = True
+		if self.nextCommand:
+			data = self.nextCommand
+		elif fsize>self.lastPos :
+			data = self.fp.read().strip()
+		else:
+			checkCommand = False
+		if checkCommand:
+			dist=time.time()-self.tm
+			pos=data.find("@#>")
+			# logAppend(f"line:{data} dist={dist}")
+			params=None
+			val = ''
+			ftype = ''
+			if pos!=-1 :
+				ep=data.find("@#>", pos+3)
+				if ep!=-1:
+					line = data[pos+3:ep]
+					self.nextCommand = data[ep:].strip()
+				else:
+					line = data[pos+3:]
+					self.nextCommand = ''
+				end=line.find(":", pos)
+				if end!=-1 :
+					ftype = line[0:end].strip()
+					params = line[end+1:]
+			# pos
+			# logAppend(f">> {ftype} {params}")
+			if params!=None :
+				if ftype=='quit':
+					self.fp.close()
+					fpOut.close()
+					sys.exit()
+				elif ftype=='geo':
+					arr = [val.strip() for val in params.split(',')]
+					# self.setWindowFlags(Qt.WindowType.SplashScreen)
+					# self.move(0,0)
+					# self.resize(int(arr[2]), int(arr[3]))
+					self.setGeometry(int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3]))
+					self.show()
+				elif ftype=='echo':
+					logAppend(f"echo = {params}")
+				elif ftype=='start':
+					logAppend(f"webview:start")
+				elif ftype=='clearCache':
+					profile = self.page().profile()
+					# profile.setHttpCacheType(QWebEngineProfile.NoCache)
+					profile.clearHttpCache()
+					profile.cookieStore().deleteAllCookies()
+					self.reload()
+					logAppend(f"clearCache:{params}")
+				elif ftype=='runScript':
+					self.page().runJavaScript(params, handle_result)
+				elif ftype=='zoom':
+					self.setZoomFactor(float(params))
+				elif ftype=='pageActive':
+					win32gui.SetForegroundWindow(self.parent_hwnd)
+				elif ftype=='setParent':
+					# self.setWindowFlag(Qt.WindowStaysOnTopHint)
+					parent = int(params)
+					win32gui.SetParent(self.winId(), parent)
+					self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
+					self.show()
+					# win32gui.ShowWindow(child_hwnd, win32con.SW_SHOW)
+					win32gui.SetForegroundWindow(parent)
+					self.parent_hwnd = parent
+				elif ftype=='hide':
+					self.hide()
+				elif ftype=='show':
+					self.show()
+				elif ftype=='url':
+					url=params.strip()
+					self.setUrl(QUrl(url))
+				else:
+					logAppend(f"{ftype}:not defined")
+			## if params
+			self.lastPos=fsize
+			logAppend(f"result:{ftype}")
+		# end if print(f"currentTime=={currentTime}")
+
+	def eventFilter(self, source, event):
+		if source is self.focusProxy() and event.type() == QEvent.Type.MouseButtonPress:
+			logAppend(f"mouseFocus: {event.position().x()}, {event.position().y()}")
+		return super().eventFilter(source, event)
+
+def main():
+	logAppend('webview:start')
+	app = QApplication(sys.argv)
+	webview = MyWebView()
+	webview.show()
+	sys.exit(app.exec())
+	logAppend('app:quit')
+
+if __name__ == '__main__':
+	main()

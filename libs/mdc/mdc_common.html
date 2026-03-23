@@ -1,0 +1,197 @@
+<script module="mdc" note="memory draw context 모듈함수">
+	init() {
+		print("mdc 초기화 시작")
+		this.@startTick=System.tick()
+	}
+	updateMdc(rectDraw) {
+		dist=System.tick()-this.@startTick
+		if(dist<5000) {
+			print("@@ mdc 객체에서 updateMdc 함수 중복정의 하세요 (그리기영역:$reactDraw)")
+		}
+	}
+	draw(dc) {
+		not(typeof(this.@rectDraw,'rect')) {
+			return log("rectDraw 캔바스상 영역 미정의", this.id);
+		}
+		dc.image(this.@rectDraw, this)
+	}
+	canvasSize() {
+		return this.@canvas.rect().size();
+	}
+	canvasUpdate() {
+		this.@canvas.update()
+	}
+	addOverlay(cause, rectOverlay) {
+		this.@cause=cause
+		this.@rectOverlay=rectOverlay
+		this.@canvas.addOverlay(this)
+	}
+	removeOverlay(cause, rectOverlay) {
+		this.@cause=cause
+		this.@rectOverlay=rectOverlay
+		this.@canvas.removeOverlay(this)
+	}
+	addClipMdc(clipType, clipDuration) {
+		not(clipDuration) clipDuration=500
+		this.@clipTick=System.tick()
+		this.@clipType=clipType
+		this.@clipDuration=clipDuration
+		this.@canvas.addClipMdc(this)
+	}
+	removeClipMdc() {
+		this.@clipType=''
+		this.@canvas.removeClipMdc(this)
+	}
+	
+	drawTimeline(dc, code, timeline) {
+		dc.save()
+		frame=tm.frame()
+		value=tm.currentValue();
+		if(code.eq('fadeOut', 'fadeIn')) {			
+			curVal=value*100;
+			if(code.eq('fadeOut')) {
+				if(frame==1) this.@canvas.removeMdc(this)
+				dc.opacity(100-curVal)
+			} else {
+				if(frame==19) this.@canvas.addMdc(this)
+				dc.opacity(curVal)
+			}
+		} else if( code.eq('moveLeft', 'moveRight', 'moveTop', 'moveBottom') ) {
+			this.@rectDraw.inject(x,y,w,h)
+			if(frame==1) {
+				this.@canvas.removeMdc(this)
+				switch(code) {
+				case moveLeft: 
+					this.@moveSize = when(this.@fixedSize, w, x+w)
+				case moveRight:
+					this.cavasSize().inject(cw, ch)
+					this.@moveSize = when(this.@fixedSize, w, cw-x)
+				case moveTop: 
+					this.@moveSize = y+h
+				case moveBottom: 
+					this.cavasSize().inject(cw, ch)
+					this.@moveSize = ch-y
+				}				
+			} else if( frame>10) {
+				dc.opacity(50)
+			}
+			cv=this.@moveSize * value;
+			switch(code) {
+			case moveLeft: 
+				x-=cv;
+				if(frame==19) {
+					if( this.@minSize ) {
+						x=w-this.@minSize
+						this.@canvas.addMdc(this)
+					}
+				}
+			case moveRight: 
+				x+=cv;
+				if(frame==19) {
+					if( this.@minSize ) {
+						this.canvasSize().inject(cw, ch)
+						x=cw-this.@minSize
+						this.@canvas.addMdc(this)
+					}
+				}
+			case moveTop: 
+				y-=cv;
+			case moveBottom: 
+				y+=cv;
+			}			
+			this.@rectDraw = rc(x,y,w,h)
+			this.draw(dc)
+		}
+		dc.restore()
+	}
+	checkMousePos(pos) {
+		if(this.@rectDraw.contains(pos)) {
+			return true;
+		}
+		if(this.@rectPopup) {
+			rcPopup=this.@rectPopup.offset(this.@offset,false)			
+			return rcPopup.contains(pos);
+		}
+		return false;
+	}
+	mouseDownDefault(pos) {
+		if(this.checkMousePos(pos)) {			
+			pt=pos.offset(this.@offset,false)
+			this.mouseDown(pt)
+			return true;
+		}				
+		return false;
+	} 
+	mouseUpDefault(pos) {		
+		if(this.checkMousePos(pos)) {			
+			pt=pos.offset(this.@offset,false)
+			this.mouseUp(pt)
+			return true;
+		}
+		return false;
+	}
+	mouseMoveDefault(pos) {	
+	}
+	mouseDown(pt) {
+		print(">> mdc mouse down 함수를 등록하세요")
+	}
+	mouseUp(pt) {	
+	}
+</script>
+<script module="mdc_leftPanel">
+	init() {
+		
+	}
+	drawDc() {
+		this.inject(@rectAvail, @baseColor)
+		this.fill()
+		this.save().mode()
+		dark=baseColor.darkColor(100)
+		hbox(rectAvail,'*,24,4').inject(a,b)
+		bb=b.leftCenter(0,100)
+		bg=color('#fff')		
+		pa=[]
+		pa.add(a.lt(), a.rt(), bb.lt())
+		pa.add(bb.rt().incrY(10))
+		pa.add(bb.rb().incrY(-10))
+		pa.add(bb.lb(), a.rb(), a.lb(), a.lt())
+		rectAvail.lt().inject(sx,sy)
+		rectAvail.lb().inject(ex,ey)
+		this.drawPath(pa, null, true, 'gradient',sx,sy,ex,ey,0, baseColor.lightColor(220), 1,baseColor.lightColor(180) )
+		print("drawDc pa===$pa", bg)
+		a.incrW(2)
+		bb.incrX(2,true)
+		pa.reuse().add(a.rt(), bb.lt())
+		pa.add(bb.rt().incrY(10))
+		pa.add(bb.rb().incrY(-10))
+		pa.add(bb.lb(), a.rb())		
+		this.drawPath(pa, dark, 2 )
+		this.restore()
+	}
+	mouseDown(pt) {
+		return true;
+	}
+	mouseUp(pt) {
+		return true;
+	}
+</script>
+
+<script module="mdc_box">
+	drawDc() {
+		this.inject(@rectAvail, @baseColor, @title)
+		dark=baseColor.darkColor(100)
+		rcBox=rectAvail.incr(8)
+		roundRect(this, rcBox, 8, dark, 'gradient', baseColor, dark)
+		if(title) {
+			color=baseColor.lightColor(180)
+			this.font('size:20,weight:bold,color:$color').text(rcBox, title)
+		}
+	}
+	mouseDown(pt) {
+		return true;
+	}
+	mouseUp(pt) {
+		return true;
+	}
+	
+</script>

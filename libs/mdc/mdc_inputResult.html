@@ -1,0 +1,106 @@
+<script module="mdc_inputResult">
+	init() {
+		this.@bgColor = randomColor().lightColor(150) 
+		this.@clipFlag = true
+		this.@clipTick = System.tick()
+		this.@clipDuration = 1000
+		this.@rectClip = null
+		this.@fontStyle = 'size:15,weight:bold,color:#333'
+		this.@inputValue = ''
+		this.@cursorColor = null
+		this.@targetMdc = null
+		print("@@ input result init =============",this)
+		this.addClipMdc('cursor')
+	}
+	setFontStyle(style) {
+		not(style) return;
+		this.@fontStyle = style
+		return style;
+	}
+	updateMdc() {
+		this.@rectBox=this.@rectAvail.incr(2)
+	}
+	drawClip(dc, rc) {
+		if( this.@keyboardMdc ) {
+			ingString = this.@keyboardMdc.@ingString
+			if( ingString ) {
+				dc.save()
+				if(this.@clipFlag) {
+					dc.fill(rc, '#333')
+					dc.font('size:16,weight:bold,color:#fff').text(rc,ingString)
+					this.@clipFlag=false
+				} else {
+					dc.fill(rc, '#fff')
+					dc.font('size:16,weight:bold,color:#99a').text(rc,ingString)
+					this.@clipFlag=true
+				}				
+				dc.restore()
+				return;
+			}
+		}
+		if( this.@clipFlag) {
+			dc.fill(rc, color(200,80,80,50))
+			dc.rectLine(rc, 0, '#f00')
+			this.@clipFlag=false
+		} else {
+			this.@clipFlag=true
+		}
+	}
+	drawDc() {
+		dc=this
+		dc.fill()		
+		dark=this.@bgColor.darkColor(200)
+		rect=this.@rectBox
+		roundRect(dc, rect, 8, dark, '#fff')
+		dc.save().font(this.@fontStyle)
+		if( this.@keyboardMdc) {			
+			this.@keyboardMdc[=>@doneString, @ingString]
+			print("xxxxxx input draw dc xxxxxxx", doneString, ingString)
+			dc.textSize(doneString).inject(textWidth, textHeight)
+			dc.text(rect.incrX(10), doneString)
+			if(ingString) {
+				sx=textWidth + 10;
+				dc.textSize(ingString).inject(ingWidth)
+				dc.font('color:#99a').text(rect.incrX(sx), ingString)
+				this.@ingWidth = ingWidth
+			}
+		} else {
+			dc.text(rect.incrX(10), this.@inputValue)		
+			dc.textSize(this.@inputValue).inject(textWidth, textHeight)
+		}
+		this.@textWidth = textWidth
+		this.@textHeight = textHeight
+		this.restore()
+	}
+	getClipRect() {
+		offset=this.@offset
+		this.@rectBox.offset(offset).inject(x,y,w,h)
+		textWidth=this.@textWidth not(textWidth) textWidth=0
+		x+=10+textWidth;
+		ingString=when(this.@keyboardMdc, this.@keyboardMdc.@ingString)
+		if(ingString) {
+			ingWidth=30;
+			this.@rectClip = rc(x,y,ingWidth,h).incrYH(8,8)
+		} else {
+			this.@rectClip = rc(x,y,3,h).incrYH(8,8)
+		}
+		return this.@rectClip
+	}
+	setValue(text) {
+		this.@inputValue = text
+		this.drawDc()
+		this.canvasUpdate()
+	}
+	setKeyboardValue(keyboard) {
+		this.@keyboardMdc = keyboard
+		this.drawDc()
+		this.canvasUpdate()
+	}
+	mouseDown(pt) {		
+		return true;
+	} 
+	mouseUp(pt) {		
+		return true;
+	}
+	
+</script>

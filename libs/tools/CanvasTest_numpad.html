@@ -1,0 +1,35 @@
+<page id="main" margin=0 module="page_canvas" initPage() {
+	this.@canvas=widget('c')
+}>
+	<canvas id="c" module="canvas_mdc" updateCanvas() {
+		Cf.imageLoad('tools/login_num_00_n.png').imageSize().inject(btnWidth, btnHeight)
+		this.with(btnWidth, btnHeight)
+		this[numpadWidth = (btnWidth+4)*3]
+		this[numpadHeight = (btnHeight+4)*4]
+		this.inject(numpadWidth, numpadHeight)
+		rect = this.rect()
+		this.var(mdcList).reuse()
+		hbox(rect, '300,*').inject(left, right)
+		this.addMdc('left', left.incr(4), 'mdc_box')
+		this.addMdc('right', right.incr(4), 'mdc_box')
+		this.addMdc('numpad',rect.center(numpadWidth, numpadHeight),'mdc_numpad')
+		this.update()
+	}>
+</page> 
+
+<script include>
+	include('@mdc#mdc_common')
+	include('@mdc#mdc_numpad')
+</script>
+
+<script eval>
+	page=this.var(page)
+	c=page.get('c')
+	/*
+	page.resizeTick=System.tick()
+	*/
+	page.size(1024,800)
+	page.open()
+	 
+	print("eval>> ", page)
+</script>

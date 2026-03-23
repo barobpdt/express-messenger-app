@@ -1,0 +1,294 @@
+<page id="main" margin="0" initPage() {	
+	this.@canvas = widget('sprite')
+}>
+	<canvas id="sprite" module="canvas_sprite" >
+</page>
+
+<script eval>
+	p=page('CanvasTest_sprite:main')
+	p.size(1024,800)
+	p.open() 
+	/*
+	*/
+	print("CanvasTest eval>>")
+	
+</script>
+
+<script module="canvas_sprite" note="캔바스 기능구현">
+	init() {
+		print(">> canvas_sprite init")
+	}
+	clickBtn(cur) {
+		print(">> click btn current==$cur")
+		switch(cur.code) {
+		case selectImgFile:
+			not(this.@imagePath) {
+				this.@imagePath = pathJoin(conf('web.rootPath'),'images')
+			}
+			fileName = Cf.selectFile("이미지파일 선택", this.@imagePath)
+			if(fileName) {
+				filePathInfo(fileName).inject(folder)				
+				this.setLabelText('status', " 선택파일정보: $fileName")				
+				this.@imagePath=folder
+				this.@currentImageName=fileName
+				this.@mdcSprite.setImage(fileName)
+			}			
+		case removeBackground:
+			not(this.@currentImageName) {
+				this.alert("선택된 파일이 없습니다")
+			}
+			fnm=getDownloadName(this.@currentImageName)
+			filePathInfo(fnm).inject(folder, null, name)
+			outName="${folder}/${name}.png"
+			not(this.confirm("현재 이미지 배경을 제거하시겠습니까?","배경제거","파일명:$outName")) return;
+			System.wait(true)
+			cmd=Baro.process('pythonCommand')
+			cmd.@mdcSprite=this.@mdcSprite
+			pythonCommand("exec:remove_background('$this.@currentImageName','$outName')", function(result) {
+				print("배경제거 완료 결과:$result")
+				result.ref()
+				result.findPos('@#> rembg:')
+				rembgName=result.findPos('@#>').trim()
+				print("배경제거 이미지명: $rembgName", this.@mdcSprite, this.id)
+				if( this.@mdcSprite && rembgName) {
+					this.@mdcSprite.setImage(rembgName)
+				}
+				System.wait(false)
+			})
+		default:
+		}
+	}
+	updateCanvas() {
+		initForm(conf('form.sprite'))
+		this.updateForm()
+		not(this.@mdcSprite) {
+			cur=findField(this.@form,'code','mdc_sprite') not(cur) return;
+			this.@mdcSprite=cur.@mdc
+		}
+	}
+	drawBackground(dc) {
+		dc.fill()
+		if(this.@form) {
+			rcInput=this.@form.@formRowRects.2
+			dc.rectLine(rcInput, 24, '#aaa')
+		}
+	}
+	changeValueCallback(cur) {
+		print(">> changeValueCallback ", cur.code)
+		this.@currentChangeNode=cur
+		this.@useTimer=true
+	}
+	timerCallback() {
+		cur=this.@currentChangeNode
+		if(cur) {
+			not(cur.@changeValueTick) return;
+			dist=System.tick() - cur.@changeValueTick
+			print("timer callback dist==$dist")
+			if(dist<500) return;
+			this.@currentChangeNode=null
+			if(this.@mdcSprite) {
+				print(">> chnageFormValue ", cur)
+				this.@mdcSprite.changeFormValue(cur)
+			}
+		} 
+	}
+</script>
+
+<script module="mdc_sprite" note="애니메이션 이미지 정보">
+	init() {
+		this.@form=null
+		this.@img=null
+	}
+	drawDc() {
+		dc=this
+		not(this.@imgRate) {
+			return;
+		}
+		not(this.@rate) {
+			this.@rate=getDisplayRate() not(this.@rate) return;
+		}
+		if(this.@bgColor) {
+			this.fill(this.@bgColor)
+		} else {
+			this.fill()
+		}
+		this.@rectAvail.size().inject(aw,ah)
+		this.@imgRate.rect().size().inject(dw,dh)
+		if(dw.le(aw) && dh.le(ah)) {
+			rcImage=this.@rectAvail.center(dw, dh)
+			dc.image(rcImage, this.@imgRate)
+		} else {
+			if(dw.gt(aw)) sw=dw else sw=aw
+			if(dh.gt(ah)) sh=dh else sh=ah
+			rcImage=rc(0,0,sw,sh)
+			dc.image(rcImage, this.@imgRate, rc(0,0,dw,dh))
+		}
+		if(this.@rowCount) {
+			a=null, b=null
+			if(this.@marginV) {
+				if(this.@marginV.find(',')) {
+					splitSep(this.@marginV).inject(a,b)
+				} else {
+					a=this.@marginV.toInt(), b=a
+				}
+			}
+			if(typeof(a,'num')) {
+				print(">> marginV",a,b)
+				rcImage.incrYH(a,b)
+			}
+			a=null, b=null
+			if(this.@gapV) {
+				if(this.@gapV.find(',')) {
+					splitSep(this.@gapV).inject(a,b)
+				} else {
+					a=this.@gapV.toInt(), b=a
+				}
+			}
+			while(rcCur, vbox(rcImage,this.@rowCount), idx )  {
+				if(typeof(a,'num')) {
+					print(">> gapV",a,b)
+					rcCur.incrYH(a,b)
+					dc.rectLine(rcCur, 24, '#f88', 2, 'dot')
+				} else {
+					not(idx) continue;
+					dc.rectLine(rcCur, 2, '#f00', 2, 'dot')
+				}
+			}
+		}
+		if(this.@columnCount) {
+			a=null, b=null
+			if(this.@marginH) {
+				if(this.@marginH.find(',')) {
+					splitSep(this.@marginH).inject(a,b)
+				} else {
+					a=this.@marginH.toInt(), b=a
+				}
+			}
+			if(typeof(a,'num')) {
+				print(">> marginH",a,b)
+				rcImage.incrXW(a,b)
+			}
+			a=null, b=null
+			if(this.@gapH) {
+				if(this.@gapH.find(',')) {
+					splitSep(this.@gapH).inject(a,b)
+				} else {
+					a=this.@gapH.toInt(), b=a
+				}
+			}
+			while(rcCur, hbox(rcImage,this.@columnCount), idx )  {
+				if(typeof(a,'num')) {
+					print(">> gapH",a,b)
+					rcCur.incrXW(a,b)
+					dc.rectLine(rcCur, 13, '#f88', 2, 'dot')
+				} else {
+					not(idx) continue;
+					dc.rectLine(rcCur, 1, '#f00', 2, 'dot')
+				}
+			}
+		}
+		dc.rectLine(rcImage,0,'#f00',2,'dot')
+		this.@rcImage=rcImage
+	}
+	getDisplayRate() {
+		img=this.@currentImage not(img) return;
+		this.@rectAvail.size().inject(aw,ah) 
+		img.imageSize().inject(iw,ih)
+		rate=aw/iw.toDouble()		
+		print(">> getDisplayRate ", iw,ih,aw,ah,rate)
+		return roundValue(rate);
+	}
+	setImage(fileName) {
+		img=Cf.imageLoad(fileName)
+		print('>> setImage ', fileName, img)
+		if(img) {
+			this.@canvas.setWidgetValue('displayRate', '', true)
+			this.@currentImage = img			
+			this.@canvas.setWidgetValue('displayRate', "${this.getDisplayRate()}")
+		} else {
+			print("image not define ", fileName)
+		}
+	}
+	changeFormValue(cur) {
+		val=cur.@widgetValue
+		print(">> change form value", cur.code, val)
+		switch(cur.code) {
+		case displayRate:
+			not(val) return;
+			img=this.@currentImage
+			this.@rate=val.toDouble()
+			img.imageSize().inject(iw, ih)
+			dw=iw*this.@rate, dh=ih*this.@rate
+			this.@imgRate=mdc('SpriteImage', dw, dh)
+			this.@imgRate.image(img)
+			this.@canvas.update()
+		case rowCount:
+			this.@rowCount=val.toInt()
+		case columnCount:
+			this.@columnCount=val.toInt()
+		case marginH:
+			this.@marginH=val
+		case marginV:
+			this.@marginV=val
+		case gapH:
+			this.@gapH=val
+		case gapV:
+			this.@gapV=val
+		default:
+			print("to be")
+		}
+		this.drawDc()
+		this.@canvas.update()
+	}
+</script>
+
+<script module="mdc_sprite_title" note="페이지 타이틀">
+	init() {
+		this.@form=null
+		this.@baseColor=randomColor()
+	}
+	drawDc() {
+		dc=this
+		c=this.@baseColor
+		dark=c.darkColor(220)
+		rc=this.@rectAvail
+		fillGradient(dc, rc, c.lightColor(100), c.lightColor(20))
+		dc.rectLine(rc, 4, dark)
+		rcText=rc.incrX(16)
+		dc.font("size:14, weight:bold, color:$dark").text(rcText, 'SPRITE 이미지 생성')
+		dc.font("color:${c.lightColor(220)}").text(rcText.move(-1,-1), 'SPRITE 이미지 생성')
+	}
+</script>
+
+<conf name="form.sprite">
+	formRows: '50,*,40,40'
+	formItems: [
+		[{tag:mdc, module:mdc_sprite_title}]
+		[{tag:mdc, module:mdc_sprite}]
+		[
+			{tag:label, text:"화면비율:"}
+			{tag:input, code:displayRate, width:60}
+			{tag:label, text:"행갯수:"}
+			{tag:input, code:rowCount, width:40}
+			{tag:label, text:"열갯수:"}
+			{tag:input, code:columnCount, width:40}
+			{tag:label, text:"가로여백:"}
+			{tag:input, code:marginH, width:70}
+			{tag:label, text:"세로여백:"}
+			{tag:input, code:marginV, width:70}
+			{tag:label, text:"가로간격:"}
+			{tag:input, code:gapH, width:70}
+			{tag:label, text:"세로간격:"}
+			{tag:input, code:gapV, width:70}
+			{tag:space}
+		]
+		[
+			{tag:label, text:"불러오기:"}
+			{tag:btn, code:selectImgFile, text:"파일선택"}
+			{tag:btn, code:removeBackground, text:"배경제거"}
+			{tag:btn, code:saveFile, text:"저장"}
+			{tag:label, code:status, width:*}
+		]
+	]
+
+</conf>

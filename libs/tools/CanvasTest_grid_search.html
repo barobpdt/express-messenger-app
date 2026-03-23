@@ -1,0 +1,191 @@
+<page id="main" margin="0" initPage() {	
+	this.@canvas = widget('c')
+}
+onActivationChange() {
+	popup=this.@c.popupWidget
+	not(this.is('active')) {
+		
+	}
+}>
+	<canvas id="c" module="canvas_form, canvas_func_search" initWidget() {
+		@grid=createWidget('grid','grid_func_search', this, 'grid_func_search_impl')
+		this.@useTimer=true
+	}>
+	
+</page>
+
+<script eval>
+	p=page('main')
+	p.size(800,600)
+	p.open()
+	
+	print("CanvasTest eval>>")
+	
+</script>
+
+<script module="canvas_func_search">	
+	updateCanvas() {
+		vbox(this.@rectCanvas, '30,*,40').inject(rcTop, rcBody, rcBottom)
+		not(this.@form) {
+			this.@form = initForm(conf('form.test_grid_search'))
+		}
+		grid.move(rcBody.incr(4))
+		this.@rcTop=rcTop
+		this.@rcBottom=rcBottom
+		this.updateForm(this.@form, rcBottom)
+	} 
+	timerCallback() {
+		if(this.@currentModifyNode) {
+			this.@currentModifyNode.inject(code, @widget)
+			if(code=='searchText') {
+				this.@currentModifyNode=null
+				this.@filterChangeTick=System.tick()
+				this.@inputWidget=widget
+			} 
+		}
+		if(this.@filterChangeTick) {
+			dist=System.tick() - this.@filterChangeTick
+			if(dist>800) {
+				this.@filterChangeTick=0
+				grid.@filterText=this.@inputWidget.value()
+				grid.update()
+			}
+		}
+	}
+	changeValueCallback(node) {
+		code=node.code
+		if(code=='checkModule') {
+			grid.@checkModule=node.checked
+		} else {
+			this.@currentModifyNode=node
+		}
+	}
+	openSource(node, rect) {
+		e=this.@popupEditor
+		not(e) {
+			e=createWidget('editor','editor_sorce', null, 'editor,EditorSource')
+			e.syntax(object("syntax","default"))
+			e.flags('tool')
+			this.@popupEditor=e
+
+		}
+		rcPopup=@user.availRect(rect.moveBottom(650,300))
+		e.move(rcPopup)
+		e.open()
+		e.value(node.func_src)
+		this.@popupWidget=e
+	}
+	drawBackground(dc) {
+		bgColor=this.@baseColor.lightColor(160)
+		title='그리드 조회 테스트'
+		textColor=this.@baseColor.darkColor(100)
+		dc.save().font("size:12, color:${bgColor.lightColor(180)}, weight:bold")
+		dc.fill(this.@rcTop, bgColor)
+		dc.text(this.@rcTop.incrX(10).move(1,1), title) dc.font("color:$textColor")
+		dc.text(this.@rcTop.incrX(10), title)
+		fillGradient(dc, this.@rcBottom, bgColor, bgColor.lightColor(120))
+		dc.restore()
+	}
+</script>
+
+<script module="grid_func_search_impl">
+	init() {
+		addModule(this,'grid')
+		include('@tools#dev')
+		root=@dev.funcInfo()
+		this.headerHeight(40)
+		this.lineHeight(35)
+		this.model(#[
+			func_type:유형 			#45,
+			func_nm: 함수명			#200,
+			func_param: 매개변수		#150,
+			source_path:소스 경로		#flex,
+			func_src: 소스정보 		#120
+		])
+		this.rootNode(root)
+		event(this, 'onDraw', this.drawGrid)
+	}
+	drawGrid(dc, node, column, state, over) {
+		rc=this.drawState(dc, node, column, state, over)
+		switch(this.field(column)) {
+		case func_type:
+			if(node.func_type.eq('module')) {
+				dc.image(rc.center(24,24), 'vicon:brick_link')
+			} else {
+				dc.image(rc.center(24,24), 'vicon:asterisk_yellow')
+			}
+		case func_nm:
+			node.inject(module_nm, func_nm)
+			if(module_nm) {
+				text="@${module_nm}.${func_nm}"
+			} else {
+				text=func_nm
+			}
+			dc.text(rc.incrX(6), text)
+		case func_src:
+			drawBtn(dc,rc.center(80,22),'소스보기')
+		default:
+			text=node.get(field)
+			dc.text(rc.incrX(6), text)
+		}
+	}
+	onFilter(node) {
+		filter=this.@filterText
+		not(filter) return true;
+		if(node.func_nm.find(filter,2)) return true;
+		if(node.module_nm.find(filter,2)) return true;
+		return false;
+	}
+	onMouseDown(p,a) {
+		canvas=this.parentWidget()
+		if( canvas.@popupWidget ) {
+			canvas.@popupWidget.hide()
+		}
+		cur=this.at(p) not(cur) return;
+		if( cur.@code=='func_src') {
+			rect=this.nodeRect(cur)
+			canvas.openSource(cur, this.mapGlobal(rect) )
+		}
+		if(a==KEY.ctrl) {
+			
+		}
+	}
+</script>
+
+<script>
+	@user.availRect(rect) {
+		lt=rect.lt()
+		while(n=0,System.info('screenCount')) {
+			rcScreen=System.info('screenRect',n)
+			if( rcScreen.contains(lt)) {
+				if(rcScreen.contains(rect)) return rect;
+				return getRect(rcScreen)
+			}
+		}
+		return null;
+		getRect=function(rs) {
+			rect.inject(x,y,w,h)
+			rs.inject(sx,sy,sw,sh)
+			if(w>sw) w=sw-10
+			if(h>sh) h=sh-10
+			a=x+w, b=y+h
+			if(a>sw) {
+				x=sw-w
+			}
+			if(b>sh) {
+				y=sh-h
+			}
+			print('xxxxxxxxx get rect xxxxxxxxx', b,sh,y, rect)
+			return rc(x,y,w,h)
+		};
+	}
+</script>
+
+<conf name="form.test_grid_search">
+	formItems: [
+		{tag:input, code:searchText, width:120}
+		{tag:btn, code:search, text:선택}
+		{tag:check, code:checkModule, text:모듈만 조회}
+		{tag:space}
+	]
+</conf>

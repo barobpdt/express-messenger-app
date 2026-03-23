@@ -1,0 +1,99 @@
+<script module="mdc_numpad">
+	init() {
+		this[resultValue]=''
+		this[resultMdc]=null
+		this[bgColor]=color(90,90,90,80)
+		this.drawDc()
+	}
+	drawDc() {
+		not(this[rectBox]) {
+			this.updateRect()
+		}
+		this.drawBox()
+	}
+	drawBox() {
+		this.fill()
+		this.fill(this[bgColor])
+		this.rectLine(this[rectBox], 0, this[bgColor].darkColor(100), 2)
+		while(r=0,4) {
+			while(c=0,3) {
+				rc=this[rc $r $c], key=this[key $r $c]
+				img = Cf.imageLoad("tools/login_num_${key}_n.png")
+				this.image(rc, img)
+			}
+		}
+	}
+	drawOverlay(dc) {
+		this.inject(@cause,@rectOverlay, @offset, @row, @column,keyMode,langMode)
+		rc = rectOverlay.offset(offset).incr(-2)
+		key=this[key $row $column]
+		dc.image(rc,  Cf.imageLoad("tools/login_num_${key}_p.png"))
+	}
+	updateRect() {
+		this[rectBox]=this.var(rectAvail)
+		Cf.imageLoad('tools/login_num_00_n.png').imageSize().inject(bw, bh)
+		sx=2, sy=2, gap=4
+		while(r=0,4) {
+			startNum=r*3;
+			sx=2;
+			while(c=0,3) {
+				this[rc $r $c]=rc(sx,sy,bw,bh)
+				if(r==3) {
+					switch(c) {
+					case 0: this[key $r $c]='del'
+					case 1: this[key $r $c]='00'
+					case 2: this[key $r $c]='re'
+					}
+				} else {
+					this[key $r $c]=lpad(startNum+c,2)
+				}
+				sx+=bw+gap;
+			}
+			sy+=bh+gap;
+		}
+	}
+	mouseDown(pt) {
+		while(r=0,4) {
+			while(c=0,3) {
+				rc=this[rc $r $c]
+				if(rc.contains(pt)) {
+					cause = 'mouseDown'
+					rectOverlay = rc 
+					this.var(row,r)
+					this.var(column,c)
+					this.var(canvas).addOverlay(
+						this.with(@cause, @rectOverlay)
+					)
+					return true;
+				}
+			}
+		}
+		return true;
+	}
+	mouseUp(pt) {
+		this.inject(@rectOverlay,@row, @column)
+		if(rectOverlay.contains(pt)) {
+			this.setText(this[key $row $column])
+		}
+		cause = 'mouseUp'
+		this.var(canvas).removeOverlay(this.with(@cause))	
+		return true;
+	}
+	setText(curBtnValue) {
+		value=this[resultValue]
+		switch(curBtnValue) {
+		case del: 
+			if(value.length()) {
+				this[resultValue]
+			}
+		case re: 
+			this[resultValue]=''
+		default:
+			this[resultValue].add(curBtnValue.toInt())
+		}
+		print(">> @numpad setText ==> ", this[resultValue]) 
+		if( this[resultMdc] ) {
+			this[resultMdc].setValue(value)
+		}
+	}
+</script>

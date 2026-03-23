@@ -1,0 +1,298 @@
+<page id="main" margin="0" initPage() {	
+	@canvas = widget('c')
+}>
+	<canvas id="c" module="canvas_form, canvas_mdc, canvas_submenuTest">
+</page>
+ 
+
+<script eval>
+	p=page('main')
+	p.size(865,600)
+	p.open()
+	print("CanvasTest eval>>", c)
+	
+</script>
+
+<script module="canvas_submenuTest">
+	init() {
+		this.@useTimer=true
+		event(page(), 'onAction', this.execAction, this, true)
+	}
+	execAction(action) {
+		this.@subMenu.changeTab(action.id, this.movePage)
+	}
+	showMenu(menus, pos) {
+		this.menu(page(), menus, pos)
+	}
+	movePage(id, tab) {
+		switch(id) {
+		case menu.apiForm: 
+			alert("api form action 실행")
+		default:
+			alert("$action.id action 실행")
+		}	
+	}
+	updateCanvas() {
+		vbox(this.@rectCanvas,'30,*,40').inject(rcTopMenu, rcBody, rcStatus)
+		not(this.@form) {
+			this.@form=initForm(conf('form.menuTest'))
+		}
+		not(this.@stackPages) {
+			this.@stackPages=createWidget('div','stackPages',this)
+			this.@stackPages.show()
+		}
+		this.@stackPages.move(rcBody)		
+		this.@subMenu=this.addMdc('subMenu', rcTopMenu, 'mdc_subMenu')
+		not(this.@subMenu.@data) {
+			this.@subMenu.setMenu()
+		}
+		this.@rcStatus=rcStatus
+		this.updateForm(this.@form, rcStatus)
+		this.update()
+	}
+	timerCallback() {
+		
+	}
+	changeValueCallback(cur) {
+		this.@currentChangeItem=cur
+	}
+	clickBtn(cur) {
+		switch(cur.code) {
+		case search:
+		case deleteIcon:
+		default:
+		}
+	}
+	drawBackground(dc) {
+		bgColor=this.@baseColor
+		fillGradient(dc, this.@rcStatus, bgColor, bgColor.lightColor(120))
+	}
+</script>
+
+
+<script module="mdc_subMenu">
+	setMenu(menuCode) {
+		not(menuCode) menuCode='menu.subMenuTest'
+		json=conf(menuCode) not(json) return print("@@ subMenu setMenu함수 오류 (메뉴정보가 없습니다)");
+		this.addNode('@data').removeAll(true)
+		this.@data.parseJson(json)
+		this.@bgColor=randomColor()
+		this.updateMdc()
+	}
+	updateMdc(rc) {		
+		this.updateMenu(rc)
+	}
+	drawDc(dc) {
+		not(dc) dc=this
+		this.drawMenu(dc, rectAvail)
+	}
+	drawOverlay(dc) {
+		
+	}	
+	updateMenu(rc) {
+		not(rc) rc=this.@rectAvail
+		dc=this
+		tabs=this.@data.menuTabs
+		while(tab,tabs) {
+			switch(tab.tag) {
+			case btn:
+				dc.textSize(tab.text).inject(tw)
+				tab.tabWidth=tw+38
+			case action:
+				not(tab.@actionNode) {
+					tab.@actionNode=findId(this.@data.actionList, tab.id) 
+					not(tab.@actionNode) continue;
+					not(tab.text) tab.text=tab.@actionNode.text
+				}
+				dc.textSize(tab.text).inject(tw)
+				if(tab.@actionNode.icon) tw+=25
+				if(tab.useClose) tw+=22
+				tab.tabWidth=tw+20
+			default:
+			}
+		}
+		wa=''
+		while(tab,tabs,n) {
+			if(n) wa.add(',')
+			wa.add(tab.tabWidth)
+		}
+		wa.add(',*')
+		while(rcTab, hbox(rc,wa), n) tabs.$n.rcTab=rcTab
+		this.drawMenu(dc, rc)
+	}
+	drawMenu(dc,rc) {
+		dc.fill()
+		if(notValid(this.@data.menuTabs)) {
+			return dc.text(rc, '메뉴 아이템정보가 없습니다', 'center')
+		}
+		dc.fill(this.@bgColor)
+		while(tab, this.@data.menuTabs, n) {
+			rcTab=tab.rcTab
+			switch(tab.tag) {
+			case btn:
+				this.drawBtn(dc,tab,rcTab,this.@bgColor)
+			case action: 
+				this.drawTab(dc,tab,rcTab,this.@bgColor)
+			default:
+			}
+		}
+	}
+	drawBtn(dc, tab, rcTab, bgColor) {
+		fg=bgColor.lightColor(200)
+		if( tab==this.@mouseDownTab ) {
+			bg=bgColor.darkColor(120)
+		} else {
+			bg=bgColor.darkColor(180)
+		}
+		rcIcon=rcTab.leftCenter(16,16,4,2)
+		rcText=rcTab.incrX(25)
+		dc.fill(rcTab.incr(1), bg)
+		dc.image(rcIcon, 'icons:menu1')
+		dc.pen(fg).text(rcText, '메뉴')
+		dc.rectLine(rcTab, 3, bgColor.darkColor(50), 2)
+		dc.rectLine(rcTab.incrW(1), 3, bgColor.lightColor(80))
+	}
+	drawTab(dc, tab, rcTab, bgColor) {		
+		fg=bgColor.darkColor(200)
+		rcText=rcTab.margin(1,2,2,0)
+		dc.save()
+		if( tab==this.@currentTab ) {
+			dc.fill(rcTab, '#fff')
+			dc.rectLine(rcText, 23, '#404030aa', 2 )
+			dc.font('weight:bold')
+		} else if( tab==this.@mouseDownTab) { 
+			dc.fill(rcTab, bgColor)
+			dc.rectLine(rcTab, 23, bgColor.darkColor(120), 2 )
+		} else {
+			dc.fill(rcTab, bgColor)
+			dc.rectLine(rcText, 23, bgColor.darkColor(120) )
+		}
+		if(tab.@actionNode.icon) {
+			dc.image(rcText.leftCenter(16,16,4), tab.@actionNode.icon)
+			rcText.incrX(24)
+		}
+		dc.pen(fg).text(rcText, tab.text)
+		if( tab.useClose) {
+			rcClose=rcTab.rightCenter(16,16,-8)
+			dc.fill(rcClose.incr(-2), '#ee604055')
+			dc.image(rcClose, 'icons:close_gray')
+		}
+		dc.restore()
+	}
+	mouseDown(pt) {
+		while(tab, this.@data.menuTabs) {
+			if(tab.rcTab.contains(pt)) {
+				this.@mouseDownTab=tab
+				this.addOverlay('mouseDown', tab.rcTab )
+			}
+		}
+	}
+	mouseUp(pt) {
+		tab=this.@mouseDownTab
+		if( tab ) {
+			this.removeOverlay('mouseUp', tab.rcTab )
+			this.@mouseDownTab=null;
+			if(tab.menuId) {
+				this.showMenu(tab)
+			} else {
+				this.changeTab(tab.id)
+			}
+		}	
+		return true;
+	}
+	showMenu(tab) {
+		rcTab=tab.rcTab.offset(this.@offset)
+		menuInfo=this.makeMenu(tab.menuId)
+		not(menuInfo) return this.@canvas.alert("$menuId 메뉴를 찾을수 없습니다")
+		this.@canvas.showMenu(menuInfo, rcTab.lb())
+	}
+	makeMenu(menuId) {
+		actions=this.@data.actionList
+		setMenuInfo=function(menus) {
+			while(cur, menus) {
+				if(cur.menus) {
+					setMenuInfo(cur.menus)
+					continue;
+				}
+				if( cur.actionId) {
+					if(cur.text) continue;
+					action=findId(actions, cur.actionId) not(action) continue;
+					cur.icon=action.icon
+					cur.text=action.text
+					cur.tooltip=action.tooltip
+				}
+			}
+			return menus;
+		};
+		menuId=tab.menuId not(menuId) menuId='mainMenu'
+		menuInfo=this.@data.$menuId
+		if(notValid(menuInfo)) return;
+		return setMenuInfo(menuInfo);
+	}
+
+	changeTab(id, callback) {		
+        tab=findId(this.@data.menuTabs,id)
+		if(tab) {
+			if(tab==this.@currentTab) return;
+		} else {
+            tab=this.@data.menuTabs.addNode()
+			action=findId(this.@data.actionList,id)
+			not(action ) {
+				alert("메뉴변경 오류 - $id 메뉴액션를 찾을수 없습니다")
+				return false;
+			}
+            tab.id=id
+            tab.@actionNode=action
+			tab.text=action.text
+			tab.useClose=true;
+            this.updateMdc()
+		}
+		canvas=this.@canvas		
+		if(typeof(callback,'function')) {
+			call(callback, canvas, id, tab)
+		} else if(typeof(canvas.movePage,'function')) {
+			canvas.movePage(id, tab)
+		} else {
+			print("changeTab 탭변경 처리함수 미정의 (액션아이디:$id)")
+		}
+		this.@currentTab=tab
+		this.drawDc()
+		return true;
+	}
+	
+</script>
+
+<conf name="menu.subMenuTest">
+	menus:[
+		{tag:tab, id:apiTest, text:API 테스트, menus:[
+			{tag:menu, id:apiInfo, text:API 정보}
+			{tag:menu, id:apiCall, text:API 호출}
+			{tag:menu, id:apiHist, text:API 이력관리}
+		]}
+		{tag:tab, id:dbTest, text:DB 테스트, menus:[
+			{tag:menu, id:apiInfo, text:DB연결관리 }
+			{tag:menu, id:apiInfo, text:DB조회 }
+		]}
+		{tag:tab, id:drawTest, text:그리기 테스트, menus:[ 
+			{tag:menu, id:keyboard, text:키보드 테스트}
+			{tag:menu, id:numberpad, text:숫자패드 테스트}
+			{tag:menu, id:icon_search, text:아이콘 조회}
+		]}
+		{tag:tab, id:utilTest, text:공통화면 관리, menus:[
+			{tag:menu, id:splitter, text:분할창}
+			{tag:menu, id:stack, text:스텍페이지}
+			{tag:menu, id:video, text:동영상플레이}
+			{tag:menu, id:webview, text:웹뷰}
+		]}
+	]
+</conf>
+
+<conf name="form.menuTest">
+	formItems: [
+		{tag:input, code:searchText, width:120}
+		{tag:btn, code:search, text:선택}
+		{tag:combo, code:iconTypes}
+		{tag:space}
+		{tag:btn, code:deleteIcon, text:삭제}
+	]
+</conf>
