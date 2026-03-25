@@ -1,6 +1,3 @@
-/* 
-페이지 공통설정 
-*/
 const pageInfo = {}
 const clog = window.console.log
 const randomKey = () => (new Date % 9e64).toString(36)
@@ -21,12 +18,13 @@ const getJq = el => isEl(el) ? $(el) :
 	jqCheck(el) ? el :
 		typeof el == 'string' ? (('#' == el.charAt(0) || el.indexOf('.') != -1) ? $(el) : $(document.getElementById(el))) : null;
 
-// Object.prototype.update = function (...args) { return Object.assign(this, ...args) }
-// Object.prototype.copy = function (...args) { return Object.assign({}, this, ...args) }
-// Object.prototype.isset = function (name) { return this.hasOwnProperty(name) }
-// Object.prototype.cmp = function (name, value) { return this.isset(name) && this[name] === value }
+pageInfo.extSvgList = ['7z', 'aac', 'avi', 'bat', 'bmp', 'c', 'cpp', 'cs', 'css', 'doc', 'docx', 'flac', 'flv', 'gif', 'go', 'gz', 'h', 'hpp', 'html', 'ico', 'java', 'jpeg', 'jpg', 'js', 'json', 'jsx', 'kt', 'less', 'md', 'mkv', 'mov', 'mp3', 'mp4', 'ogg', 'older', 'older_open', 'pdf', 'php', 'png', 'ppt', 'pptx', 'ps1', 'py', 'rar', 'rb', 'rs', 'scss', 'sh', 'sql', 'svg', 'swift', 'tar', 'ts', 'tsx', 'txt', 'wav', 'webp', 'wmv', 'xls', 'xlsx', 'xml', 'yaml', 'yml', 'zip']
 
 /*
+Object.prototype.update = function (...args) { return Object.assign(this, ...args) }
+Object.prototype.copy = function (...args) { return Object.assign({}, this, ...args) }
+Object.prototype.isset = function (name) { return this.hasOwnProperty(name) }
+Object.prototype.cmp = function (name, value) { return this.isset(name) && this[name] === value }
 String.prototype.lpad = function (padLength, padString) {
 	let arrTxt = this;
 	if (!padString) padString = '0';
@@ -45,6 +43,7 @@ String.prototype.trim = function() { return this.replace(/^\s+|\s+$/g,"") }
 String.prototype.ltrim = function() { return this.replace(/^\s+/,"") }
 String.prototype.rtrim = function() { return this.replace(/\s+$/,"") }
 */
+
 function checkMessenger() {
 	const urlParams = new URLSearchParams(window.location.search);
 	const target = urlParams.get('opener');
@@ -63,7 +62,10 @@ function getByteLength(s) {
 		return 0;
 	}
 }
-
+// 백그라운드 여부 판단
+function isPageHidden() {
+	return document.hidden || document.visibilityState === 'hidden';
+}
 function getRandomColor() {
 	var letters = '0123456789ABCDEF';
 	var color = '#';
@@ -104,6 +106,34 @@ const getElOffset = (el, checkRect) => {
 	}
 	return checkRect ? { top, left, width, height } : { top, left }
 }
+function fmtSize(b) {
+	if (!b) return '0 B';
+	const u = ['B', 'KB', 'MB', 'GB'];
+	const i = Math.floor(Math.log(b) / Math.log(1024));
+	return (b / 1024 ** i).toFixed(i ? 1 : 0) + ' ' + u[i];
+}
+function fmtDate(iso) {
+	if (!iso) return '-';
+	const d = new Date(iso);
+	return d.toLocaleDateString('ko-KR') + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+function extSvg(name) {
+	const ext = name.split('.').pop().toLowerCase();
+	return pageInfo.extSvgList.includes(ext) ? ext : 'default';
+}
+function extIcon(name) {
+	const ext = name.split('.').pop().toLowerCase();
+	return ({
+		jpg: '🖼', jpeg: '🖼', png: '🖼', gif: '🖼', webp: '🖼', svg: '🖼',
+		mp4: '🎬', mov: '🎬', avi: '🎬', mkv: '🎬', mp3: '🎵', wav: '🎵',
+		pdf: '📄', doc: '📄', docx: '📄', xls: '📊', xlsx: '📊', ppt: '📊', pptx: '📊',
+		txt: '📝', md: '📝', json: '📋', xml: '📋', csv: '📋',
+		js: '⚙️', ts: '⚙️', py: '🐍', java: '☕', html: '🌐', css: '🎨',
+		zip: '📦', gz: '📦', tar: '📦', rar: '📦',
+		exe: '🖥', msi: '🖥', sh: '🔧', bat: '🔧'
+	})[ext] || '📄';
+}
+function barColor(r) { return r > 50 ? '#22c55e' : r > 20 ? '#f59e0b' : '#6366f1'; }
 
 const screenSize = () => ({ width: $(window).width(), height: $(window).height() })
 
@@ -163,6 +193,43 @@ function showToastBox(message) {
 	$('#toast-msg').text(message)
 	$('#toast-box').addClass('show')
 	setTimeout(() => $('#toast-box').removeClass('show'), 2500);
+}
+
+function showDownloadProgress() {
+	if ($('#download-progress-container').length == 0) return $('#download-progress-container').show()
+	const el = $(`
+	<div id="download-progress-container" style="position:fixed; bottom:20px; right:20px; width: 300px; background:var(--bg2, #fff); padding:15px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); border:1px solid var(--border, #ccc); z-index:9999;">
+		<div style="font-size:0.85rem; margin-bottom:8px; display:flex; justify-content:space-between;">
+			<span id="dl-filename">파일명.zip</span>
+			<span id="dl-percent">0%</span>
+		</div>
+		<div style="width:100%; height:10px; background:#e5e7eb; border-radius:5px; overflow:hidden;">
+			<div id="dl-bar" style="width:0%; height:100%; background:var(--primary, #3b82f6); transition:width 0.1s;"></div>
+		</div>
+	</div>`).appendTo(document.body)
+}
+function updateDownloadProgress(filename, percent) {
+	$('#dl-filename').text(filename)
+	$('#dl-percent').text(percent + '%')
+	$('#dl-bar').css('width', percent + '%')
+}
+function hideDownloadProgress() {
+	$('#download-progress-container').hide()
+}
+
+function showSpinner() {
+	if (pageInfo.loader) {
+		pageInfo.loader.show()
+		return
+	}
+	pageInfo.loader = $('<div class="loader" id="loading-spinner"></div>').appendTo(document.body)
+	pageInfo.loader.show()
+}
+
+function hideSpinner() {
+	if (pageInfo.loader) {
+		pageInfo.loader.hide()
+	}
 }
 
 function resizeContentRatio(targetCode, padding, ratio) {
@@ -229,7 +296,7 @@ function addSideToggleBtn(target, cb) {
 	})
 }
 
-class ChatModule {
+class ChatProc {
 	constructor(targetEl, url) {
 		if (!url) {
 			const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -350,7 +417,7 @@ class ChatModule {
 	}
 }
 
-class EditorModule {
+class EditorProc {
 	constructor(target, editorCode) {
 		this.target = target
 		this.editorCode = editorCode
@@ -558,7 +625,7 @@ class EditorModule {
 	}
 }
 
-class GridModule {
+class GridProc {
 	constructor(target, options) {
 		this.target = getEl(target)
 		this.options = options
@@ -653,7 +720,7 @@ class GridModule {
 	}
 }
 
-class UploadModule {
+class UploadProc {
 	constructor() {
 		this.inputEl = null
 		this.chunkSize = 1024 * 1024 * 2

@@ -19,6 +19,7 @@
         "@imgly/background-removal-node": "^1.4.5",
         "@neondatabase/serverless": "^0.10.4",
         "adm-zip": "^0.5.16",
+        "audic": "^3.0.2",
         "bcryptjs": "^3.0.3",
         "better-sqlite3": "^12.6.2",
         "cors": "^2.8.5",

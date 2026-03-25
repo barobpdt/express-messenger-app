@@ -15,7 +15,22 @@ for (let i = 0; i < rawArgs.length; i++) {
 	}
 }
 
-async function zipFileList(zipPath) {
+function zipEntryFile(zipPath, entryName, savePath) {
+	try {
+		const zip = new AdmZip(zipPath);
+		const entry = zip.getEntry(entryName);
+		if (!entry || entry.isDirectory) {
+			return logAppend("@#>zip-error: ZIP entry 파일을 찾을 수 없습니다: " + entryName);
+		}
+		const data = zip.readFile(entry);
+		fs.writeFileSync(savePath, data);
+		logAppend("@#>zip-entry: " + savePath);
+	} catch (err) {
+		logAppend("@#>zip-error: " + err.message);
+	}
+}
+
+function zipFileList(zipPath) {
 	try {
 		if (!fs.existsSync(zipPath)) {
 			return console.log({ error: "ZIP 파일을 찾을 수 없습니다: " + relPath });

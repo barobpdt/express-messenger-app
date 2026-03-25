@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>페이지 테스트</title>
+	<script src="./js/common.js"></script>
+	<script src="./js/jquery.js"></script>
+	<script src="./js/renderZipfile.js"></script>
+	<link rel="stylesheet" href="./css/boxicons.css">
+	<link rel="stylesheet" href="./css/funny.css">
+	<link rel="stylesheet" href="./css/pretendard.css">
+</head>
+
+<body>
+	<!-- ══ MAIN APP ══ -->
+	<div class="app-container" style="padding:10px; overflow:auto;">
+		<div class="page-title">
+			<h1>📦 ZIP 파일 브라우저</h1>
+			<span>서버 내 ZIP 파일 목록 조회</span>
+		</div>
+
+		<!-- Search Bar -->
+		<div class="search-bar">
+			<input id="zip-path" type="text" placeholder="ZIP 파일 상대 경로 (예: uploads/archive.zip)" value="">
+			<button class="bbtn" onclick="loadZip()">🔍 조회</button>
+			<button class="bbtn secondary" id="dl-zip-btn" onclick="downloadZip()" disabled>⬇ ZIP 전체</button>
+		</div>
+
+	</div>
+
+
+	<script>
+		let zipfile = null
+		$(document).ready(function () {
+			zipfile = new RenderZipFile('.app-container')
+			zipfile.loadData('uploads/neon.zip', 'tree')
+		});
+		$(window).on('resize', function () {
+		})
+	</script>
+</body>
+
+</html>

@@ -1,7 +1,7 @@
 import express from "express";
 import { ENV } from "./config/env.js";
 import { db } from "./config/db.js";
-import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable, offlineMessagesTable } from "./db/schema.js";
+import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable, offlineMessagesTable, chatRoomsTable, chatRoomUsersTable } from "./db/schema.js";
 import { and, eq, or, like, sql, desc } from "drizzle-orm";
 // import job from "./config/cron.js";
 import cors from "cors";
@@ -71,6 +71,19 @@ function setUserInfo(ws, username, user) {
 	ws.nickname = user.nickname || null;
 	onlineUsers.set(username, ws);
 	broadcastOnlineUsers();
+
+	// 참여 중인 채팅방 조회 후 ws.joinedRooms에 추가
+	db.select({ roomCode: chatRoomsTable.roomCode })
+		.from(chatRoomUsersTable)
+		.innerJoin(chatRoomsTable, eq(chatRoomUsersTable.roomId, chatRoomsTable.id))
+		.where(and(eq(chatRoomUsersTable.username, username), eq(chatRoomUsersTable.status, 'active')))
+		.then((rooms) => {
+			rooms.forEach(r => {
+				if (r.roomCode) {
+					ws.joinedRooms.add(r.roomCode);
+				}
+			});
+		}).catch(err => logger.error("참여 중인 채팅방 로드 실패", err));
 
 	// 오프라인 메시지 확인 및 전송
 	db.select().from(offlineMessagesTable).where(eq(offlineMessagesTable.receiver, username)).orderBy(offlineMessagesTable.createdAt)
@@ -401,12 +414,16 @@ async function broadcastOnlineUsers() {
 		const allUsers = await db.select({ username: usersTable.username, avatar: usersTable.avatar, nickname: usersTable.nickname }).from(usersTable);
 
 		const onlineCount = onlineUsers.size;
-		const users = allUsers.map(u => ({
-			username: u.username,
-			avatar: u.avatar || null,
-			nickname: u.nickname || null,
-			isOnline: onlineUsers.has(u.username)
-		}));
+		const users = allUsers.map(u => {
+			const ws = onlineUsers.get(u.username);
+			return {
+				username: u.username,
+				avatar: u.avatar || null,
+				nickname: u.nickname || null,
+				isOnline: !!ws,
+				joinedRooms: ws ? Array.from(ws.joinedRooms) : []
+			};
+		});
 
 		// 온라인 사용자가 위로 오게 정렬
 		users.sort((a, b) => b.isOnline - a.isOnline);
@@ -420,6 +437,16 @@ async function broadcastOnlineUsers() {
 	} catch (err) {
 		logger.error("Failed to broadcast complete user list", err);
 	}
+}
+
+function broadcastToRoom(roomCode, messageObj, excludeWs = null) {
+	const msgStr = typeof messageObj === 'string' ? messageObj : JSON.stringify(messageObj);
+	wss.clients.forEach(client => {
+		// client.joinedRooms 셋(Set)에 해당 룸코드가 포함되어 있으면 발송
+		if (client.readyState === 1 && client !== excludeWs && client.joinedRooms && client.joinedRooms.has(roomCode)) {
+			client.send(msgStr);
+		}
+	});
 }
 
 // if (ENV.NODE_ENV === "production") job.start();
@@ -481,8 +508,13 @@ app.post("/api/user/login", async (req, res) => {
 			await db.update(usersTable).set({ fcmToken }).where(eq(usersTable.id, user.id));
 		}
 
+		const rooms = await db.select({ roomCode: chatRoomsTable.roomCode, name: chatRoomsTable.name })
+			.from(chatRoomUsersTable)
+			.innerJoin(chatRoomsTable, eq(chatRoomUsersTable.roomId, chatRoomsTable.id))
+			.where(and(eq(chatRoomUsersTable.username, user.username), eq(chatRoomUsersTable.status, 'active')));
+
 		const token = jwt.sign({ userId: user.id, username: user.username }, CMD_JWT_SECRET, { expiresIn: '30d' });
-		res.json({ success: true, token, username: user.username, avatar: user.avatar, nickname: user.nickname });
+		res.json({ success: true, token, username: user.username, avatar: user.avatar, nickname: user.nickname, rooms });
 	} catch (error) {
 		logger.error("Login Error", error);
 		res.status(500).json({ success: false, error: "Server error" });
@@ -496,9 +528,14 @@ app.get("/api/user/info", async (req, res) => {
 		const users = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
 		if (users.length === 0) return res.status(401).json({ success: false, error: "Invalid credentials" });
 		const user = users[0];
+
+		const rooms = await db.select({ roomCode: chatRoomsTable.roomCode, name: chatRoomsTable.name })
+			.from(chatRoomUsersTable)
+			.innerJoin(chatRoomsTable, eq(chatRoomUsersTable.roomId, chatRoomsTable.id))
+			.where(and(eq(chatRoomUsersTable.username, user.username), eq(chatRoomUsersTable.status, 'active')));
+
 		const token = jwt.sign({ userId: user.id, username: user.username }, CMD_JWT_SECRET, { expiresIn: '30d' });
-		// console.log("user info=>", user);
-		res.json({ success: true, token, username: user.username, avatar: user.avatar, nickname: user.nickname || null });
+		res.json({ success: true, token, username: user.username, avatar: user.avatar, nickname: user.nickname || null, rooms });
 	} catch (error) {
 		logger.error("Login Error", error);
 		res.status(500).json({ success: false, error: "Server error" });
@@ -796,6 +833,93 @@ app.get("/api/peers/:peerId", catchAsyncErrors(async (req, res, next) => {
 		return res.status(404).json({ error: "Peer not found" });
 	}
 	res.status(200).json(peers[0]);
+}));
+
+// ─── 채팅방 CRUD API ─────────────────────────────────────────────────────────────
+
+// 채팅방 목록 조회
+app.get("/api/chat-rooms", catchAsyncErrors(async (req, res, next) => {
+	const rooms = await db.select().from(chatRoomsTable).orderBy(desc(chatRoomsTable.createdAt));
+	res.status(200).json({ success: true, data: rooms });
+}));
+
+// 채팅방 상세 및 참여자 조회
+app.get("/api/chat-rooms/:id", catchAsyncErrors(async (req, res, next) => {
+	const { id } = req.params;
+	const rooms = await db.select().from(chatRoomsTable).where(eq(chatRoomsTable.id, parseInt(id)));
+	if (!rooms.length) return res.status(404).json({ success: false, error: "Room not found" });
+
+	const users = await db.select().from(chatRoomUsersTable).where(eq(chatRoomUsersTable.roomId, parseInt(id)));
+	res.status(200).json({ success: true, room: rooms[0], users });
+}));
+
+// 채팅방 생성
+app.post("/api/chat-rooms", catchAsyncErrors(async (req, res, next) => {
+	const { name, description, owner, roomType, roomCode } = req.body;
+	if (!name || !owner || !roomCode) return res.status(400).json({ success: false, error: "Name, owner and roomCode are required" });
+
+	// 방 생성
+	const newRoom = await db.insert(chatRoomsTable).values({
+		name, description, owner, roomType, roomCode
+	}).returning();
+
+	// 생성자(owner)를 자동으로 방에 추가
+	await db.insert(chatRoomUsersTable).values({
+		roomId: newRoom[0].id,
+		username: owner,
+		role: "owner",
+		status: "active"
+	});
+
+	res.status(201).json({ success: true, data: newRoom[0] });
+}));
+
+// 채팅방 정보 수정
+app.put("/api/chat-rooms/:id", catchAsyncErrors(async (req, res, next) => {
+	const { id } = req.params;
+	const { name, description, roomType } = req.body;
+
+	const updated = await db.update(chatRoomsTable).set({ name, description, roomType }).where(eq(chatRoomsTable.id, parseInt(id))).returning();
+	res.status(200).json({ success: true, data: updated[0] });
+}));
+
+// 채팅방 삭제
+app.delete("/api/chat-rooms/:id", catchAsyncErrors(async (req, res, next) => {
+	const { id } = req.params;
+	// 참여자 연쇄 삭제
+	await db.delete(chatRoomUsersTable).where(eq(chatRoomUsersTable.roomId, parseInt(id)));
+	await db.delete(chatRoomsTable).where(eq(chatRoomsTable.id, parseInt(id)));
+	res.status(200).json({ success: true, message: "Room deleted" });
+}));
+
+// 채팅방 입장 (유저 추가)
+app.post("/api/chat-rooms/:id/users", catchAsyncErrors(async (req, res, next) => {
+	const { id } = req.params;
+	const { username, nickname, role, status } = req.body;
+	if (!username) return res.status(400).json({ success: false, error: "Username is required" });
+
+	const exist = await db.select().from(chatRoomUsersTable).where(and(eq(chatRoomUsersTable.roomId, parseInt(id)), eq(chatRoomUsersTable.username, username)));
+	if (exist.length > 0) {
+		await db.update(chatRoomUsersTable).set({ status: status || "active", nickname, role: role || exist[0].role }).where(eq(chatRoomUsersTable.id, exist[0].id));
+		return res.status(200).json({ success: true, message: "Re-joined/Updated", data: exist[0] });
+	}
+
+	const newUser = await db.insert(chatRoomUsersTable).values({
+		roomId: parseInt(id),
+		username,
+		nickname,
+		role: role || "member",
+		status: status || "active"
+	}).returning();
+
+	res.status(201).json({ success: true, data: newUser[0] });
+}));
+
+// 채팅방 퇴장 (유저 제거)
+app.delete("/api/chat-rooms/:id/users/:username", catchAsyncErrors(async (req, res, next) => {
+	const { id, username } = req.params;
+	await db.delete(chatRoomUsersTable).where(and(eq(chatRoomUsersTable.roomId, parseInt(id)), eq(chatRoomUsersTable.username, username)));
+	res.status(200).json({ success: true, message: "User removed" });
 }));
 
 // 피어 상태 업데이트 (예: disconnected 처리)

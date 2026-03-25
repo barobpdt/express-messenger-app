@@ -177,6 +177,29 @@ export const initializeDatabase = async () => {
 			created_at TIMESTAMP DEFAULT NOW()
 		)`;
 
+		// ─── 채팅방 테이블 ────────────────────────────────────────────────────────
+		await sql`
+		CREATE TABLE IF NOT EXISTS chat_rooms (
+			id          SERIAL PRIMARY KEY,
+			room_code   TEXT NOT NULL UNIQUE,
+			name        TEXT NOT NULL,
+			room_type   TEXT DEFAULT 'public',
+			description TEXT,
+			owner       TEXT NOT NULL,
+			created_at  TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS chat_room_users (
+			id         SERIAL PRIMARY KEY,
+			room_id    INTEGER NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+			username   TEXT NOT NULL,
+			nickname   TEXT,
+			role       TEXT DEFAULT 'member',
+			status     TEXT DEFAULT 'active',
+			joined_at  TIMESTAMP DEFAULT NOW()
+		)`;
+
 		console.log("✅ Database tables initialized successfully.");
 	} catch (error) {
 		console.error("❌ Failed to initialize database tables:", error);

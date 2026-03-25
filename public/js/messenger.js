@@ -7,6 +7,23 @@ const userInfo = {
 // <meta name="viewport" content="width=device-width, initial-scale=1.0">
 let backendOrigin = localStorage.getItem('backendOrigin') || '';
 let ws;
+let currentRoom = '';
+let joinedRoomsList = [];
+
+function changeRoom() {
+	const selectEl = document.getElementById('room-select');
+	currentRoom = selectEl ? selectEl.value : '';
+	if (currentRoom) {
+		const roomName = selectEl.options[selectEl.selectedIndex].text;
+		appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'html', text: `<b>${roomName}</b> 방에 입장했습니다.` });
+	} else {
+		appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'html', text: `<b>전체 채팅</b>으로 변경되었습니다.` });
+	}
+
+	// 방이 변경되면 회원 목록 및 접속자 수를 현재 방 기준으로 다시 필터링하여 렌더링
+	renderUserList();
+}
+
 // ─── 로그인 로직 ───
 const loginOverlay = document.getElementById('login-overlay');
 const loginUser = document.getElementById('login-username');
@@ -106,7 +123,19 @@ function clearTarget() {
 
 function renderUserList() {
 	const listEl = document.getElementById('user-list-dropdown');
-	listEl.innerHTML = onlineUsers.map(user => {
+	
+	// 현재 선택된 방에 따른 필터링 (전체 채팅이 아니면, 해당 방 그룹에 포함된 인원(나 포함)만 표시)
+	let filteredUsers = onlineUsers;
+	if (currentRoom) {
+		filteredUsers = onlineUsers.filter(u => u.username === userInfo.username || (u.joinedRooms && u.joinedRooms.includes(currentRoom)));
+	}
+
+	const countBadge = document.getElementById('user-count');
+	const onlineCount = filteredUsers.filter(u => u.isOnline).length;
+	countBadge.innerText = `${onlineCount}명 접속 중 ▾`;
+	countBadge.style.display = 'inline-block';
+
+	listEl.innerHTML = filteredUsers.map(user => {
 		const isSelected = user.username === currentTargetUser;
 		const isMe = user.username === userInfo.username;
 		const isOnline = user.isOnline; // 서버에서 추가된 필드 적용
@@ -183,6 +212,63 @@ function saveProfile() {
 		}).catch(err => alert("에러: " + err));
 }
 
+// ─── 환경설정 관리 ───
+const appSettings = {
+	downloadPath: localStorage.getItem('setting_downloadPath') || '',
+	clipAlarm: localStorage.getItem('setting_clipAlarm') === 'true',
+	clipLog: localStorage.getItem('setting_clipLog') === 'true',
+	alarmOn: localStorage.getItem('setting_alarmOn') !== 'false' // default true
+};
+
+function openSettingsPopup() {
+	$('#settings-dropdown .dropdown-content').hide();
+	document.getElementById('setting-download-path').value = appSettings.downloadPath;
+	document.getElementById('setting-clip-alarm').checked = appSettings.clipAlarm;
+	document.getElementById('setting-clip-log').checked = appSettings.clipLog;
+	document.getElementById('setting-alarm-on').checked = appSettings.alarmOn;
+	document.getElementById('settings-overlay').style.display = 'flex';
+}
+
+function closeSettingsPopup(e) {
+	if (e && e.target.id !== 'settings-overlay' && !$(e.target).hasClass('help-close-btn')) return;
+	document.getElementById('settings-overlay').style.display = 'none';
+}
+
+function saveSettings() {
+	appSettings.downloadPath = document.getElementById('setting-download-path').value.trim();
+	appSettings.clipAlarm = document.getElementById('setting-clip-alarm').checked;
+	appSettings.clipLog = document.getElementById('setting-clip-log').checked;
+	appSettings.alarmOn = document.getElementById('setting-alarm-on').checked;
+
+	localStorage.setItem('setting_downloadPath', appSettings.downloadPath);
+	localStorage.setItem('setting_clipAlarm', appSettings.clipAlarm ? 'true' : 'false');
+	localStorage.setItem('setting_clipLog', appSettings.clipLog ? 'true' : 'false');
+	localStorage.setItem('setting_alarmOn', appSettings.alarmOn ? 'true' : 'false');
+
+	closeSettingsPopup();
+	appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'text', text: '✅ 환경설정이 저장되었습니다.' });
+}
+
+function openRoomSettings() {
+	$('#settings-dropdown .dropdown-content').hide();
+	alert("방나가기/방설정 기능은 준비 중입니다.");
+}
+
+function doLogout() {
+	$('#settings-dropdown .dropdown-content').hide();
+	userInfo.token = null;
+	localStorage.removeItem('messengerUser');
+	appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: '', output: '✅ 로그아웃 되었습니다.' });
+	$('#login-overlay').css('display', 'flex');
+	if (ws) ws.close();
+}
+
+$(document).on('click', function (e) {
+	if (!$(e.target).closest('#settings-dropdown').length) {
+		$('#settings-dropdown .dropdown-content').hide();
+	}
+});
+
 document.getElementById('btn-login').addEventListener('click', () => handleAuth('login'));
 document.getElementById('btn-register').addEventListener('click', () => handleAuth('register'));
 
@@ -207,6 +293,40 @@ function setUserInfo(data) {
 	userInfo.nickname = data.nickname || userInfo.username;
 	userInfo.avatar = data.avatar || null;
 	userInfo.token = data.token;
+	
+	if (data.rooms) {
+		joinedRoomsList = data.rooms;
+		renderRoomSelect();
+	}
+}
+
+function renderRoomSelect() {
+	const selectEl = document.getElementById('room-select');
+	const textEl = document.getElementById('room-name-text');
+	if (selectEl && textEl) {
+		if (joinedRoomsList.length > 0) {
+			selectEl.style.display = 'inline-block';
+			textEl.style.display = 'none';
+			
+			selectEl.innerHTML = '<option value="">전체 채팅</option>';
+			joinedRoomsList.forEach(r => {
+				const opt = document.createElement('option');
+				opt.value = r.roomCode;
+				opt.innerText = r.name || r.roomCode;
+				selectEl.appendChild(opt);
+			});
+
+			if (joinedRoomsList.length === 1) {
+				selectEl.value = joinedRoomsList[0].roomCode;
+				changeRoom();
+			}
+		} else {
+			selectEl.style.display = 'none';
+			textEl.style.display = 'inline';
+			selectEl.value = '';
+			currentRoom = '';
+		}
+	}
 }
 async function handleAuth(action) {
 	const username = loginUser.value.trim();
@@ -305,8 +425,7 @@ const msgContainer = document.getElementById('messages');
 const inputEl = document.getElementById('msg-input');
 
 // CSS 추가 (자바스크립트로 동적 주입 방지 위해 직접 문자열로 반영)
-const bubbleStyle = document.createElement('style');
-bubbleStyle.innerHTML = `
+loadStyle(`
 	.bubble.whisper {
 		background: #fdf4ff !important;
 		color: #86198f !important;
@@ -317,9 +436,13 @@ bubbleStyle.innerHTML = `
 		color: #6b21a8 !important;
 		border: 1px solid #d8b4fe;
 	}
-`;
-document.head.appendChild(bubbleStyle);
-
+`)
+function appendMessageContainer() {
+	const div = $('<div/>').appendTo(msgContainer)
+	div.css({ width: '100%', height: 'auto', background: '#eee', padding: '8px', color: '#222' })
+	scrollToBottom();
+	return div
+}
 function appendMessageBubble(data) {
 	const isMine = data.senderId === userInfo.username;
 	const el = document.createElement('div');
@@ -656,6 +779,10 @@ function sendMessage() {
 		payload.args = args;
 	}
 
+	if (currentRoom) {
+		payload.room = currentRoom;
+	}
+
 	ws.send(JSON.stringify(payload));
 	inputEl.value = '';
 	inputEl.style.height = '40px'; // Reset height
@@ -712,15 +839,24 @@ function receiveMessage(data) {
 		return;
 	}
 
+	// 룸 필터링 (귓속말 제외, 현재 룸코드 불일치 시 메시지 숨김 처리)
+	if (!data.targetUser && data.type !== 'onlineUsers' && !data.type.endsWith('-invite')) {
+		const targetRoom = data.room || '';
+		if (targetRoom !== currentRoom) {
+			if (data.type === 'text' || data.type === 'file' || data.type === 'image') {
+				return;
+			}
+		}
+	}
+
 	if (data.type === 'onlineUsers') {
-		const countBadge = document.getElementById('user-count');
-		countBadge.innerText = `${data.count}명 접속 중 ▾`;
-		countBadge.style.display = 'inline-block';
 		onlineUsers = data.users || [];
+		document.getElementById('user-count').style.display = 'inline-block';
 		renderUserList();
 
-		// 만약 현재 타겟유저가 나갔다면 타겟 초기화 (선택적)
-		if (currentTargetUser && !onlineUsers.includes(currentTargetUser)) {
+		// 만약 현재 타겟유저가 나갔거나(또는 현재 방 멤버가 아니라면) 타겟 초기화도 가능.
+		// 지금은 온라인 유저 목록 갱신에 집중합니다.
+		if (currentTargetUser && !onlineUsers.find(u => u.username === currentTargetUser)) {
 			clearTarget();
 		}
 		return;

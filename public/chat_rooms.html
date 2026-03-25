@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<title>채팅방 CRUD 테스트</title>
+	<link rel="stylesheet" href="./css/common.css">
+	<style>
+		body { padding: 20px; font-family: 'Pretendard', sans-serif; background: #0d1117; color: #c9d1d9; }
+		.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+		input, select { background: #0d1117; border: 1px solid #30363d; color: #fff; padding: 8px; border-radius: 4px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+		button { background: #238636; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+		button:hover { background: #2ea043; }
+		button.danger { background: #da3633; }
+		button.danger:hover { background: #f85149; }
+		table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+		th, td { border: 1px solid #30363d; padding: 10px; text-align: left; }
+		th { background: #21262d; }
+	</style>
+</head>
+<body>
+
+	<h1>💬 채팅방 CRUD 관리</h1>
+
+	<div class="card">
+		<h2>방 생성</h2>
+		<input type="text" id="r-code" placeholder="채팅방코드 (필수, 고유)">
+		<input type="text" id="r-name" placeholder="방 이름 (필수)">
+		<select id="r-type">
+			<option value="public">Public</option>
+			<option value="private">Private</option>
+			<option value="1on1">1 on 1</option>
+		</select>
+		<input type="text" id="r-desc" placeholder="방 설명 (선택)">
+		<input type="text" id="r-owner" placeholder="방장 Username (필수)">
+		<button onclick="createRoom()">생성하기</button>
+	</div>
+
+	<div class="card">
+		<h2>방 목록</h2>
+		<button onclick="loadRooms()">새로고침</button>
+		<table>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>코드 (유형)</th>
+					<th>이름 & 설명</th>
+					<th>방장</th>
+					<th>등록일</th>
+					<th>관리</th>
+				</tr>
+			</thead>
+			<tbody id="room-list"></tbody>
+		</table>
+	</div>
+
+	<div class="card">
+		<h2>방 상세참여자 보기</h2>
+		<input type="number" id="detail-id" placeholder="Room ID 입력" style="width:150px; display:inline-block;">
+		<button onclick="loadRoomDetail()">조회</button>
+		
+		<div id="room-detail" style="margin-top:20px; display:none;">
+			<h3 id="d-title"></h3>
+			<table>
+				<thead>
+					<tr><th>유저 (닉네임)</th><th>역할</th><th>상태</th><th>진입일</th><th>동작</th></tr>
+				</thead>
+				<tbody id="user-list"></tbody>
+			</table>
+			<div style="margin-top: 10px; padding:10px; border:1px solid #333;">
+				<strong>참여자 추가 테스트</strong><br>
+				<input type="text" id="add-user" placeholder="Username" style="width:120px;">
+				<input type="text" id="add-nick" placeholder="Nickname" style="width:120px;">
+				<input type="text" id="add-role" placeholder="Role (admin/member)" style="width:120px;">
+				<button onclick="addUser()">추가/수정</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// 방 생성
+		async function createRoom() {
+			try {
+				const res = await fetch('/api/chat-rooms', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						roomCode: document.getElementById('r-code').value,
+						name: document.getElementById('r-name').value,
+						roomType: document.getElementById('r-type').value,
+						description: document.getElementById('r-desc').value,
+						owner: document.getElementById('r-owner').value
+					})
+				});
+				const data = await res.json();
+				if(data.success) {
+					alert('생성 완료!');
+					loadRooms();
+				} else {
+					alert('오류: ' + data.error);
+				}
+			} catch(e) { alert(e); }
+		}
+
+		// 목록 조회
+		async function loadRooms() {
+			const res = await fetch('/api/chat-rooms');
+			const data = await res.json();
+			const list = document.getElementById('room-list');
+			list.innerHTML = '';
+			if(data.data){
+				data.data.forEach(r => {
+					list.innerHTML += `
+					<tr>
+						<td>${r.id}</td>
+						<td>${r.roomCode} <br><small>(${r.roomType})</small></td>
+						<td><b>${r.name}</b><br><small>${r.description||'-'}</small></td>
+						<td>${r.owner}</td>
+						<td>${new Date(r.createdAt).toLocaleString()}</td>
+						<td>
+							<button onclick="deleteRoom(${r.id})" class="danger">삭제</button>
+							<button onclick="document.getElementById('detail-id').value=${r.id}; loadRoomDetail()">참여자</button>
+						</td>
+					</tr>
+					`;
+				});
+			}
+		}
+
+		// 삭제
+		async function deleteRoom(id) {
+			if(!confirm('정말 삭제하시겠습니까?')) return;
+			const res = await fetch('/api/chat-rooms/'+id, { method: 'DELETE' });
+			const data = await res.json();
+			if(data.success) loadRooms();
+		}
+
+		// 상세 조회
+		let currentRoomId = null;
+		async function loadRoomDetail() {
+			const id = document.getElementById('detail-id').value;
+			if(!id) return;
+			const res = await fetch('/api/chat-rooms/'+id);
+			const data = await res.json();
+			if(data.success) {
+				currentRoomId = id;
+				document.getElementById('room-detail').style.display = 'block';
+				document.getElementById('d-title').innerText = `[${data.room.roomCode}] ${data.room.name} 참여자 목록`;
+				const uList = document.getElementById('user-list');
+				uList.innerHTML = '';
+				data.users.forEach(u => {
+					uList.innerHTML += `
+						<tr>
+							<td>${u.username} <small>(${u.nickname||''})</small></td>
+							<td>${u.role}</td>
+							<td>${u.status}</td>
+							<td>${new Date(u.joinedAt).toLocaleString()}</td>
+							<td><button class="danger" onclick="removeUser('${u.username}')">퇴출</button></td>
+						</tr>
+					`;
+				});
+			} else {
+				alert(data.error);
+			}
+		}
+
+		async function addUser() {
+			if(!currentRoomId) return;
+			const u = document.getElementById('add-user').value;
+			const n = document.getElementById('add-nick').value;
+			const r = document.getElementById('add-role').value;
+			const res = await fetch(`/api/chat-rooms/${currentRoomId}/users`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ username: u, nickname: n, role: r, status: 'active' })
+			});
+			const data = await res.json();
+			if(data.success) loadRoomDetail();
+			else alert(data.error);
+		}
+
+		async function removeUser(username) {
+			if(!confirm(username + ' 유저를 제거할까요?')) return;
+			const res = await fetch(`/api/chat-rooms/${currentRoomId}/users/${username}`, { method: 'DELETE' });
+			const data = await res.json();
+			if(data.success) loadRoomDetail();
+		}
+
+		loadRooms();
+	</script>
+</body>
+</html>

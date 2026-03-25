@@ -145,3 +145,24 @@ export const offlineMessagesTable = pgTable("offline_messages", {
 	message: text("message").notNull(),
 	createdAt: timestamp("created_at").defaultNow(),
 });
+
+// ─── 채팅방 기능 ─────────────────────────────────────────────────────────────
+export const chatRoomsTable = pgTable("chat_rooms", {
+	id: serial("id").primaryKey(),
+	roomCode: text("room_code").notNull().unique(), // 채팅방코드 (초대/입장용)
+	name: text("name").notNull(), // 방 이름
+	roomType: text("room_type").default("public"), // 채팅방유형 (public, private 등)
+	description: text("description"), // 방 설명
+	owner: text("owner").notNull(), // 방장 (username)
+	createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const chatRoomUsersTable = pgTable("chat_room_users", {
+	id: serial("id").primaryKey(),
+	roomId: integer("room_id").notNull(), // chatRoomsTable 참조
+	username: text("username").notNull(), // usersTable 참조
+	nickname: text("nickname"), // 채팅방 내 사용할 닉네임
+	role: text("role").default("member"), // 역할 (owner, admin, member 등)
+	status: text("status").default("active"), // 접속 상태/참여 상태 (active, left, banned 등)
+	joinedAt: timestamp("joined_at").defaultNow(),
+});

@@ -3,6 +3,7 @@
 
 <head>
 	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>💬 메신저</title>
 	<link rel="stylesheet" href="./css/pretendard.css">
 	<link rel="stylesheet" href="./css/common.css">
@@ -87,6 +88,33 @@
 		</div>
 	</div>
 
+	<!-- 환경설정 모달 -->
+	<div id="settings-overlay" class="full-modal" style="display:none;" onclick="closeSettingsPopup(event)">
+		<div class="profile-box" style="text-align: left;" onclick="event.stopPropagation()">
+			<div class="help-close-btn" onclick="closeSettingsPopup()">✖</div>
+			<h2>⚙️ 환경설정</h2>
+			<div style="margin-bottom: 15px;">
+				<label>다운로드 경로설정</label>
+				<input type="text" id="setting-download-path" placeholder="C:\Downloads">
+			</div>
+			<div style="margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+				<input type="checkbox" id="setting-clip-alarm" style="width:auto; margin:0;">
+				<label for="setting-clip-alarm" style="margin:0;">클립보드 알림여부</label>
+			</div>
+			<div style="margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+				<input type="checkbox" id="setting-clip-log" style="width:auto; margin:0;">
+				<label for="setting-clip-log" style="margin:0;">클립보드 로그여부</label>
+			</div>
+			<div style="margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+				<input type="checkbox" id="setting-alarm-on" style="width:auto; margin:0;">
+				<label for="setting-alarm-on" style="margin:0;">알람설정</label>
+			</div>
+
+			<button class="btn" onclick="saveSettings()"
+				style="width: 100%; border-radius: 8px; margin-top: 10px;">저장하기</button>
+		</div>
+	</div>
+
 	<!-- 도움말 모달 -->
 	<div id="help-overlay" onclick="closeHelp(event)">
 		<div class="help-box" onclick="event.stopPropagation()">
@@ -119,27 +147,33 @@
 			<span style="color:#ef4444; margin-left:4px; font-weight:bold;">✖</span>
 		</div>
 
-		<div id="header">
-			<h1 style="display:flex; align-items:center; gap:8px;">
-				<span id="status-dot" class="status-dot"></span>채팅방
-				<span id="user-count" onclick="toggleUserList()"
-					style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none; cursor:pointer;"
-					title="접속자 목록 보기">1명
-					접속 중 ▾</span>
-				<span onclick="openProfile()" class="header-btn"
-					style="font-size:0.8rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
-					title="내 프로필 사진 변경">
-					✨<span class="hide-on-mobile"> 프로필 설정</span>
-				</span>
-			</h1>
-			<div style="margin-right: 10px; display: flex; gap: 8px;">
-				<span id="btn-disconnect-app" class="header-btn" onclick="disconnectApp()"
+		<div id="header" style="display:flex; align-items:center; gap:8px;">
+			<span id="status-dot" class="status-dot"></span>
+			<select id="room-select"
+				style="display:none; background:#333; color:#fff; border-radius:4px; padding:2px; border:none; max-width:140px; font-size:0.85rem;"
+				onchange="changeRoom()">
+				<option value="">전체 채팅</option>
+			</select>
+			<span id="room-name-text">채팅방</span>
+			<span id="user-count" onclick="toggleUserList()"
+				style="font-size:0.75rem; background:var(--primary); color:white; padding:2px 8px; border-radius:12px; font-weight:normal; display:none; cursor:pointer;"
+				title="접속자 목록 보기">1명
+				접속 중 ▾
+			</span>
+			<span onclick="openProfile()" class="header-btn"
+				style="font-size:0.8rem; background:#333; color:#d4d4d4; padding:2px 8px; border-radius:12px; font-weight:normal; cursor:pointer;"
+				title="내 프로필 사진 변경">
+				✨<span class="hide-on-mobile"> 프로필 설정</span>
+			</span>
+			<span style="flex:1"></span>
+			<div style="margin-right: 8px; display: flex; gap: 8px;">
+				<div id="btn-disconnect-app" class="header-btn" onclick="disconnectApp()"
 					style="display:none; font-size:0.8rem; background:rgba(239, 68, 68, 0.1); color:#ef4444; padding:6px 12px; border-radius:12px; cursor:pointer; align-items:center; gap:4px; border:1px solid rgba(239, 68, 68, 0.3); transition:0.2s;"
 					onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'"
 					onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
 					🔌<span class="hide-on-mobile"> 앱 연결해제</span>
-				</span>
-				<div class="dropdown" id="game-dropdown">
+				</div>
+				<div class="dropdown" id="game-dropdown" style="display:none;">
 					<span class="header-btn" onclick="toggleGameDropdown(event)"
 						style="font-size:0.8rem; background:#30363d; color:#10b981; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
 						onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
@@ -150,11 +184,26 @@
 						<button onclick="openRouletteAdmin()">🎯 룰렛 돌리기</button>
 					</div>
 				</div>
+
+				<div class="dropdown" id="settings-dropdown" style="display:none;">
+					<span class="header-btn"
+						onclick="$('#settings-dropdown .dropdown-content').toggle(); event.stopPropagation()"
+						style="font-size:1rem; cursor:pointer; padding: 4px;" title="설정 메뉴">
+						⚙️
+					</span>
+					<div class="dropdown-content"
+						style="left:-30px; right:auto; width: 140px; text-align:left;background: #555;">
+						<button onclick="openSettingsPopup()">환경설정</button>
+						<button onclick="openRoomSettings()">방나가기/방설정</button>
+						<button onclick="doLogout()" style="color:#ef4444;">로그아웃</button>
+					</div>
+				</div>
 				<span onclick="openHelp()" class="header-btn"
 					style="font-size:0.8rem; background:#30363d; color:#c9d1d9; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
 					onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
 					❓<span class="hide-on-mobile"> 도움말</span>
 				</span>
+
 			</div>
 		</div>
 

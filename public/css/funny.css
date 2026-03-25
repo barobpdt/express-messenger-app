@@ -18,6 +18,9 @@
 	--primary-light: #818CF8;
 	--primary-dark: #3730A3;
 	--secondary: #10B981;
+	--green: #22c55e;
+	--yellow: #f59e0b;
+	--red: #ef4444;
 	--th: 52px;
 	--hh: 46px;
 	--accent: #10b981;
@@ -54,6 +57,79 @@ body {
 
 .app-container.sb-hidden .funny-sidebar>* {
 	display: none;
+}
+
+.loader {
+	display: none;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #3498db;
+	border-radius: 50%;
+	width: 40px;
+	height: 40px;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+
+.page-title {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 24px;
+}
+
+.page-title h1 {
+	font-size: 1.4rem;
+	font-weight: 700;
+}
+
+.page-title span {
+	font-size: .8rem;
+	color: var(--muted);
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	padding: 3px 10px;
+	border-radius: 20px;
+}
+
+/* Search */
+.search-bar {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 20px;
+}
+
+.search-bar input {
+	flex: 1;
+	background: var(--bg2);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 10px 14px;
+	color: var(--text);
+	font-size: .9rem;
+	outline: none;
+	transition: .15s;
+}
+
+.search-bar input:focus {
+	border-color: var(--primary);
+}
+
+.search-bar input::placeholder {
+	color: var(--muted);
 }
 
 /* ── 공통 레이아웃 ── */
@@ -183,6 +259,81 @@ body {
 	border-radius: 99px;
 	border: 1px solid rgba(16, 185, 129, 0.3);
 	font-weight: 600;
+}
+
+/* toolbar */
+.table-grid.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+
+.table-grid .filter-in {
+	background: var(--bg2);
+	border: 1px solid var(--border);
+	border-radius: 7px;
+	padding: 6px 12px;
+	color: var(--text);
+	font-size: .83rem;
+	outline: none;
+}
+
+.table-grid .filter-in::placeholder {
+	color: var(--muted);
+}
+
+.table-grid .sort-btn {
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 7px;
+	padding: 6px 12px;
+	color: var(--muted);
+	font-size: .8rem;
+	cursor: pointer;
+	transition: .15s;
+}
+
+.table-grid .sort-btn.on {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: #fff;
+}
+
+.table-grid .sort-btn:hover {
+	background: var(--border);
+	color: var(--text);
+}
+
+.table-grid .vsep {
+	width: 1px;
+	height: 22px;
+	background: var(--border);
+	margin: 0 2px;
+}
+
+.table-grid .toolbar-right {
+	margin-left: auto;
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+/* Badge */
+.table-grid .sel-badge {
+	display: none;
+	background: var(--primary);
+	color: #fff;
+	border-radius: 12px;
+	padding: 1px 8px;
+	font-size: .75rem;
+	font-weight: 700;
+	margin-left: 4px;
+}
+
+.table-grid .sel-badge.show {
+	display: inline;
 }
 
 /* ── buttons header ── */
