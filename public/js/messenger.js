@@ -439,7 +439,7 @@ loadStyle(`
 `)
 function appendMessageContainer() {
 	const div = $('<div/>').appendTo(msgContainer)
-	div.css({ width: '100%', height: 'auto', background: '#eee', padding: '8px', color: '#222' })
+	div.css({ width: '100%', minHeight: 40, maxHeight: 400, overflow: 'auto', background: '#eee', padding: '8px', color: '#222' })
 	scrollToBottom();
 	return div
 }

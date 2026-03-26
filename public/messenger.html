@@ -353,11 +353,17 @@
 		}
 	</style>
 	<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+	<script src="./js/renderZipfile.js"></script>
 	<script>
+		let zipfile = null
+		$(document).ready(function () {
+			const target = appendMessageContainer()
+			zipfile = new RenderZipFile(target)
+			zipfile.loadData('uploads/sample.zip', 'tree')
+		});
 		if (typeof QWebChannel !== 'undefined') {
 			new QWebChannel(qt.webChannelTransport, channel => {
 				pageInfo.bridge = channel.objects.bridge;
-				alert(pageInfo.bridge)
 				$(document).on('click', e => {
 					if (e.target.id == 'message-input') return;
 					pageInfo.bridge.logAppend('pageActive');

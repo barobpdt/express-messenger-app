@@ -200,6 +200,8 @@ class RenderZipFile {
 			clog('@@ zipfileSearch parentEl is not element')
 			return
 		}
+		loadTreeStyle()
+		loadToolbarStyle()
 		const toolbar = $(`<div class="table-grid toolbar" style="display:none">
 			<input class="filter-in" type="text" placeholder="🔍 파일명 필터...">
 			<div class="vsep"></div>
@@ -237,6 +239,8 @@ class RenderZipFile {
 			clog('@@ zipfileSearch parentEl is not element')
 			return
 		}
+		loadTableStyle()
+		loadToolbarStyle()
 		const toolbar = $(`<div class="table-grid toolbar" style="display:none">
 			<input class="filter-in" type="text" placeholder="🔍 파일명 필터...">
 			<div class="vsep"></div>
@@ -397,10 +401,14 @@ class RenderZipFile {
 			e.stopPropagation()
 			if (parent.hasClass('tree-node')) {
 				const tc = parent.find('>.tree-children')
+				const checked = chk.is(':checked')
 				clog('tree-node children', tc.length)
 				if (tc.length == 1) {
 					tc.children().each(function () {
-						$(this).find('.row-chk').prop('checked', chk.is(':checked'))
+						$(this).find('.row-chk').prop('checked', checked)
+						if(!checked) {
+							$(this).find('.row-chk').prop('indeterminate', false)
+						}
 					})
 				}
 				parentCheck(parent.parent())
@@ -477,8 +485,8 @@ class RenderZipFile {
 	}
 
 }
-
-loadStyle(`
+function loadTableStyle() {
+	loadStyle(`
 	.table-wrap {
 		position: relative;
 		background: var(--bg2);
@@ -554,8 +562,10 @@ loadStyle(`
       color: #f87171;
       margin-top: 8px;
     }
-`)
-loadStyle(`
+	`)
+}
+function loadTreeStyle() {
+	loadStyle(`
 	tree-view {
 		background: var(--bg2);
 		border: 1px solid var(--border);
@@ -683,4 +693,82 @@ loadStyle(`
 	.tree-children.open {
 		display: block;
 	}
-`)	
+	`)
+}
+function loadToolbarStyle() {
+	loadStyle(`
+	.table-grid.toolbar {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 12px;
+		flex-wrap: wrap;
+	}
+
+	.table-grid .filter-in {
+		background: var(--bg2);
+		border: 1px solid var(--border);
+		border-radius: 7px;
+		padding: 6px 12px;
+		color: var(--text);
+		font-size: .83rem;
+		outline: none;
+	}
+
+	.table-grid .filter-in::placeholder {
+		color: var(--muted);
+	}
+
+	.table-grid .sort-btn {
+		background: var(--bg3);
+		border: 1px solid var(--border);
+		border-radius: 7px;
+		padding: 6px 12px;
+		color: var(--muted);
+		font-size: .8rem;
+		cursor: pointer;
+		transition: .15s;
+	}
+
+	.table-grid .sort-btn.on {
+		background: var(--primary);
+		border-color: var(--primary);
+		color: #fff;
+	}
+
+	.table-grid .sort-btn:hover {
+		background: var(--border);
+		color: var(--text);
+	}
+
+	.table-grid .vsep {
+		width: 1px;
+		height: 22px;
+		background: var(--border);
+		margin: 0 2px;
+	}
+
+	.table-grid .toolbar-right {
+		margin-left: auto;
+		display: flex;
+		gap: 6px;
+		align-items: center;
+	}
+
+	/* Badge */
+	.table-grid .sel-badge {
+		display: none;
+		background: var(--primary);
+		color: #fff;
+		border-radius: 12px;
+		padding: 1px 8px;
+		font-size: .75rem;
+		font-weight: 700;
+		margin-left: 4px;
+	}
+
+	.table-grid .sel-badge.show {
+		display: inline;
+	}
+	`)
+}
