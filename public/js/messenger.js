@@ -4,11 +4,76 @@ const userInfo = {
 	nickname: localStorage.getItem('messengerNickname') || null,
 	profile_check: false
 }
+const msgContainer = document.getElementById('messages');
+const inputEl = document.getElementById('msg-input');
+
 // <meta name="viewport" content="width=device-width, initial-scale=1.0">
 let backendOrigin = localStorage.getItem('backendOrigin') || '';
 let ws;
 let currentRoom = '';
 let joinedRoomsList = [];
+let currentTargetUser = null;
+let onlineUsers = [];
+// ─── 명령어 히스토리 관리 ───
+const cmdHistory = [];
+let historyIndex = -1;
+
+// ─── 로그인 로직 ───
+const loginOverlay = document.getElementById('login-overlay');
+const loginUser = document.getElementById('login-username');
+const loginPass = document.getElementById('login-password');
+const loginServer = document.getElementById('login-server');
+const loginServerContainer = document.getElementById('server-url-container');
+const loginError = document.getElementById('login-error');
+// 게임버튼은 role=admin인 경우에만 표시
+const urlParams = new URLSearchParams(window.location.search);
+const roleParam = urlParams.get('role');
+const btnGame = document.getElementById('game-dropdown')
+
+btnGame.style.display = roleParam === 'admin' ? 'block' : 'none'
+
+// 사용자 아이디가 localstorage에 있다면 자동 로그인 처리
+$(document).ready(function () {
+	if (userInfo.username) {
+		hideLogin();
+		fetchUserInfo()
+	} else {
+		showLogin()
+	}
+
+	// Capacitor(모바일 앱) 환경일 경우 서버 주소 입력창 표시
+	if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+		loginServerContainer.style.display = 'block';
+		if (backendOrigin) loginServer.value = backendOrigin;
+	}
+
+	$(document).on('click', function (e) {
+		if (!$(e.target).closest('#settings-dropdown').length) {
+			$('#settings-dropdown .dropdown-content').hide();
+		}
+	});
+
+	document.getElementById('btn-login').addEventListener('click', () => handleAuth('login'));
+	document.getElementById('btn-register').addEventListener('click', () => handleAuth('register'));
+
+	// ─── UI 렌더링 ───
+	if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+		document.getElementById('btn-disconnect-app').style.display = 'flex';
+	}
+});
+// CSS 추가 (자바스크립트로 동적 주입 방지 위해 직접 문자열로 반영)
+loadStyle(`
+	.bubble.whisper {
+		background: #fdf4ff !important;
+		color: #86198f !important;
+		border: 1px solid #e879f9;
+	}
+	.message.mine .bubble.whisper {
+		background: #f3e8ff !important;
+		color: #6b21a8 !important;
+		border: 1px solid #d8b4fe;
+	}
+`)
 
 function changeRoom() {
 	const selectEl = document.getElementById('room-select');
@@ -23,19 +88,6 @@ function changeRoom() {
 	// 방이 변경되면 회원 목록 및 접속자 수를 현재 방 기준으로 다시 필터링하여 렌더링
 	renderUserList();
 }
-
-// ─── 로그인 로직 ───
-const loginOverlay = document.getElementById('login-overlay');
-const loginUser = document.getElementById('login-username');
-const loginPass = document.getElementById('login-password');
-const loginServer = document.getElementById('login-server');
-const loginServerContainer = document.getElementById('server-url-container');
-const loginError = document.getElementById('login-error');
-// 게임버튼은 role=admin인 경우에만 표시
-const urlParams = new URLSearchParams(window.location.search);
-const roleParam = urlParams.get('role');
-const btnGame = document.getElementById('game-dropdown')
-btnGame.style.display = roleParam === 'admin' ? 'block' : 'none'
 
 async function fetchUserInfo() {
 	try {
@@ -66,24 +118,7 @@ function hideLogin() {
 	loginOverlay.style.display = 'none';
 }
 
-// 사용자 아이디가 localstorage에 있다면 자동 로그인 처리
-if (userInfo.username) {
-	hideLogin();
-	fetchUserInfo()
-} else {
-	showLogin()
-}
-
-// Capacitor(모바일 앱) 환경일 경우 서버 주소 입력창 표시
-if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-	loginServerContainer.style.display = 'block';
-	if (backendOrigin) loginServer.value = backendOrigin;
-}
-
 // ─── 귓속말 대상 관리 ───
-let currentTargetUser = null;
-let onlineUsers = [];
-
 function toggleUserList() {
 	document.getElementById('user-list-overlay').classList.toggle('active');
 }
@@ -123,7 +158,7 @@ function clearTarget() {
 
 function renderUserList() {
 	const listEl = document.getElementById('user-list-dropdown');
-	
+
 	// 현재 선택된 방에 따른 필터링 (전체 채팅이 아니면, 해당 방 그룹에 포함된 인원(나 포함)만 표시)
 	let filteredUsers = onlineUsers;
 	if (currentRoom) {
@@ -263,25 +298,12 @@ function doLogout() {
 	if (ws) ws.close();
 }
 
-$(document).on('click', function (e) {
-	if (!$(e.target).closest('#settings-dropdown').length) {
-		$('#settings-dropdown .dropdown-content').hide();
-	}
-});
-
-document.getElementById('btn-login').addEventListener('click', () => handleAuth('login'));
-document.getElementById('btn-register').addEventListener('click', () => handleAuth('register'));
-
 // 엔터키 지원
 loginPass.addEventListener('keydown', (e) => {
 	if (e.key === 'Enter') handleAuth('login');
 });
 
 // ─── Capacitor 푸시 알림 세팅 (제거됨) ───
-// ─── Capacitor 앱 연결 해제 ───
-if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-	document.getElementById('btn-disconnect-app').style.display = 'flex';
-}
 
 function disconnectApp() {
 	if (confirm('서버 원격 접속을 종료하고 초기 설정 화면으로 돌아가시겠습니까?')) {
@@ -293,7 +315,7 @@ function setUserInfo(data) {
 	userInfo.nickname = data.nickname || userInfo.username;
 	userInfo.avatar = data.avatar || null;
 	userInfo.token = data.token;
-	
+
 	if (data.rooms) {
 		joinedRoomsList = data.rooms;
 		renderRoomSelect();
@@ -307,7 +329,7 @@ function renderRoomSelect() {
 		if (joinedRoomsList.length > 0) {
 			selectEl.style.display = 'inline-block';
 			textEl.style.display = 'none';
-			
+
 			selectEl.innerHTML = '<option value="">전체 채팅</option>';
 			joinedRoomsList.forEach(r => {
 				const opt = document.createElement('option');
@@ -420,28 +442,20 @@ function connectWebSocket() {
 	};
 }
 
-// ─── UI 렌더링 ───
-const msgContainer = document.getElementById('messages');
-const inputEl = document.getElementById('msg-input');
-
-// CSS 추가 (자바스크립트로 동적 주입 방지 위해 직접 문자열로 반영)
-loadStyle(`
-	.bubble.whisper {
-		background: #fdf4ff !important;
-		color: #86198f !important;
-		border: 1px solid #e879f9;
-	}
-	.message.mine .bubble.whisper {
-		background: #f3e8ff !important;
-		color: #6b21a8 !important;
-		border: 1px solid #d8b4fe;
-	}
-`)
-function appendMessageContainer() {
-	const div = $('<div/>').appendTo(msgContainer)
-	div.css({ width: '100%', minHeight: 40, maxHeight: 400, overflow: 'auto', background: '#eee', padding: '8px', color: '#222' })
+function appendMessageContainer(type) {
+	const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	const div = $(`
+		<div data-type="${type}" style="display:flex; flex-direction:column;">
+			<div class="data-box"></div>
+			<div class="meta" style="justify-content:flex-start; gap:4px; margin-top:2px;">
+				<span>${time}</span>
+			</div>
+		</div>
+	`).appendTo(msgContainer)
+	const box = div.find('.data-box')
+	box.css({ width: '100%', minHeight: 40, maxHeight: 400, overflow: 'auto', background: '#eee', padding: '8px', color: '#222' })
 	scrollToBottom();
-	return div
+	return box
 }
 function appendMessageBubble(data) {
 	const isMine = data.senderId === userInfo.username;
@@ -522,7 +536,7 @@ function appendMessageBubble(data) {
 	}
 
 	const sender = data.senderId !== 'system' ? onlineUsers.find(x => x.username === data.senderId) : null;
-	const iconHtml = `<div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; margin-left:4px; ${isMine ? 'text-align:right; margin-right:4px;' : ''}">
+	const iconHtml = `<div data-type="${data.type}" data-sender="${data.senderId}" style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; margin-left:4px; ${isMine ? 'text-align:right; margin-right:4px;' : ''}">
 			${isMine ? userInfo.nickname : (sender ? sender.nickname || data.senderId : data.senderId)}
 		</div>`;
 	el.innerHTML = `
@@ -543,9 +557,6 @@ function scrollToBottom() {
 	msgContainer.scrollTop = msgContainer.scrollHeight;
 }
 
-// ─── 명령어 히스토리 관리 ───
-const cmdHistory = [];
-let historyIndex = -1;
 
 // ─── 메시지 발송 ───
 async function uploadAvatar(nickName, callback) {

@@ -150,6 +150,24 @@ const loadStyle = (src) => {
 	el.textContent = src;
 	document.head.appendChild(el);
 }
+function loadScriptAll(arr, callback) {
+	const loadScript = (src) => {
+		return new Promise((resolve, reject) => {
+			const script = document.createElement("script");
+			script.onload = () => resolve(src);
+			script.onerror = () => reject(new Error(`Script load error for ${src}`));
+			script.src = src;
+			document.head.appendChild(script);
+		})
+	}
+	const loadingPromises = arr.map(loadScript)
+	Promise.all(loadingPromises).then(() => {
+		clog("All scripts loaded!", arr)
+		if (callback) callback()
+	}).catch((error) => {
+		clog("One or more scripts failed to load:", arr, error.message);
+	})
+}
 function loadScript(src, callback) {
 	var script = document.createElement("script");
 	// script.async = false;

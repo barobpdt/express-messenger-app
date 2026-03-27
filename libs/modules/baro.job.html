@@ -1,0 +1,43 @@
+<script note="앱공통 작업처리 함수">
+	@job.ipconfig(s,b) {
+		not(b) return;
+		s.findPos('IPv4 Address')
+		s.findPos(':')
+		ip=s.findPos("\n").trim()
+		print("ip==$ip")
+		conf('local.ip', ip, true)		
+	}
+</script>
+
+<script note="파일 또는 폴더처리함수">
+	@job.folderList(path, root, parentId, depth, idxNum) {
+		not(root) root=object('user.folderList')
+		not(parentId) parentId='root'
+		not(depth) depth = 0
+		not(idxNum) idxNum = 0
+		fo=Baro.file()
+		fo.var(sort,'name, case')
+		depth++;
+		idxNum++;
+		fo.list(path, func(info) {
+			while(info.next()) {
+				info.inject(type,name, fullPath)
+				if(type.eq('file')) continue;
+				if(name.eq('Windows','Users','Program Files','Program Files (x86)')) continue; 
+				cur=root.addNode()
+				num = root.incrNum('idx')
+				cur.id="K$num"
+				cur.text = name
+				cur.type = type
+				cur.parent = parentId
+				cur.fullPath = fullPath
+				cur.depth = depth
+				if( idxNum<3 ) {
+					cur.checkChild=true
+					@api.folderList(fullPath, root, cur.id, depth, idxNum)
+				}
+			}
+		});
+		return root;
+	} 
+</script>

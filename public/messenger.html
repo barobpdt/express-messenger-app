@@ -235,7 +235,7 @@
 				</svg>
 			</button>
 
-			<textarea id="msg-input" placeholder="메시지 입력... (Enter로 전송)"></textarea>
+			<textarea id="msg-input" placeholder="메시지 입력... (Enter로 전송)" style="height:40px;"></textarea>
 
 			<button class="btn" onclick="sendMessage()" title="전송">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -355,17 +355,14 @@
 	<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 	<script src="./js/renderZipfile.js"></script>
 	<script>
-		let zipfile = null
-		$(document).ready(function () {
-			const target = appendMessageContainer()
-			zipfile = new RenderZipFile(target)
-			zipfile.loadData('uploads/sample.zip', 'tree')
-		});
 		if (typeof QWebChannel !== 'undefined') {
 			new QWebChannel(qt.webChannelTransport, channel => {
 				pageInfo.bridge = channel.objects.bridge;
 				$(document).on('click', e => {
-					if (e.target.id == 'message-input') return;
+					const tag = e.target.tagName
+					if (tag == 'INPUT' || tag == 'TEXTAREA' || tag == 'BUTTON' || tag == 'A') {
+						return;
+					}
 					pageInfo.bridge.logAppend('pageActive');
 				})
 			});

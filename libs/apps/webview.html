@@ -1,0 +1,232 @@
+<page id="main" margin="0" module="webview_page">
+	<canvas id="webview" module="webview_canvas" >
+</page>
+
+<script module="webview_page">
+	init() {	
+		this.@canvas = widget('webview')
+	}
+	onClose() {
+		this.@canvas.killTimer()
+		this.webviewExec('quit: webview close')
+		Baro.process('pythonWebview').close()
+		Baro.worker('webviewCommand').close()
+	}
+	openPage() {
+		rcPage=System.info('screenRect',0).rightBottom(800,600,0,-60)
+		this.open()
+		this.move(rcPage)
+		this.@canvas.webviewStart()
+	}
+	webviewActive() {
+		/*
+		log= logAppend("pythonWebview-out")
+		log.append("@#> bridge:pageActive")
+		*/
+		page=page('main')
+		not(page.is('active')) {
+			page.flags('active')
+			page.active()			
+		}
+		this.webviewExec('pageActive:bridge')
+	}
+</script>
+
+<script module="webview_canvas">
+	init() {
+		this.@cmd=Baro.process('pythonWebview')
+		this.@status='first'
+		this.@useTimer=true
+		this.@checkStart=false
+		this.@startWebviewTick=0
+		this.@finishCnt=0 
+		this.addArray('@penddingList')
+		this.timer(250)
+	}
+	updateCanvas() {
+		this.@webviewResizeTick=System.tick()
+	}
+	webviewActive() {	
+		log= logAppend("pythonWebview-out")
+		log.append("@#> bridge:pageActive")
+	}
+	webviewResize() {
+		this.@webviewResizeTick=0
+		rect=toRect(this.geo())
+		rect.inject(x,y,w,h)
+		ww=w*0.8, hh=h*0.8
+		this.webviewExec("geo:$x,$y,$ww,$hh,0")
+	}
+	drawBackground(dc) {
+		bgColor=this.@baseColor.lightColor(100)
+		dc.fill(bgColor)
+	}
+	setWebviewResult(s) {
+		print("setWebviewResult: webview result ==> $s")		
+	}
+	onTimer() {
+		if( this.@finishTick ) {
+			if(this.@finishCnt>10) return;
+			print(">> finish check ", this.@finishCnt )
+			if( checkTick(this.@finishTick, 500)) {
+				this.@finishCnt++
+				this.@finishTick=0
+				this.webviewStart()
+			}
+			return;
+		}
+		this.inject(@cmd, @status)
+		if( status.eq('first','close')) return;
+		if( status.eq('init')) {
+			result = cmd.@logTail.timeout() not(result) return;
+			if(result.find('start:webview') ) {
+				this.@status='start'
+				this.@startWebviewTick=System.tick()
+				this.updateCanvas()
+			}
+			print("init log result==$result")
+			return;
+		}
+		not( status.eq('start')) {
+			return print(">> status error [$status]")
+		}
+		if(checkTick(this.@webviewResizeTick) ) {
+			return this.webviewResize();
+		} 
+		if(checkTick(this.@startWebviewTick)) {
+			not(this.@checkStart) {
+				this.@checkStart = true
+				this.webviewExec("setParent:${this.winId()}")
+			}
+			if(isValid(this.@penddingList) ) {
+				execSource=this.@penddingList.pop()
+				print("@@ pendding execSource:$execSource")
+				this.webviewExec(execSource, true)
+				return;
+			}
+		}			
+		if(cmd.@jobStatus.eq('finish')) {
+			this.@finishTick = System.tick()				
+		}
+		result=cmd.@logTail.timeout() 
+		not(result) {
+			return;
+		}
+		print(">> webview log result:$result")
+		if( result.find('bridge:') ) {
+			page=page('main')
+			if( result.find('bridge:pageActive')) {				
+				return this.webviewActive();
+			}
+			if( result.find('bridge:fullscreen')) {
+				this.webviewExec('zoom:1.5')
+				return page.pageState('fullscreen')
+			}
+			if( result.find('bridge:maximized')) {
+				this.webviewExec('zoom:1.0')
+				return page.pageState('maximized')
+			}
+		}
+	}	
+	webviewStart() {
+		this.@status='init'
+		this.@checkStart=false
+		this.@startWebviewTick=0
+		this.@penddingList.reuse()
+		cmd=this.@cmd 
+		not(checkTag(cmd,'process')) return print("@@webviewStart 오류 (webview command 객체 미정의)");
+		if( cmd.@jobStatus=='run' ) {
+			print("webview 프로세스가 이미 실행중입니다")
+			return;
+		}
+		py=pathJoin(conf('python.path'), 'python.exe')
+		// sourcePath=pathJoin(conf('python.RUN_PATH'), 'webCommand.py')
+		sourcePath=pathJoin(conf('python.RUN_PATH'), 'webview6.py')
+		not(isFile(sourcePath)) {
+			log("error::@python.getCommand 소스파일 경로가 없습니다 (경로:$sourcePath)")
+		}
+		logObj = logAppend("pythonWebview-log")
+		outObj = logTail("pythonWebview-out")		
+		not( cmd.@jobMode ) {
+			// job
+			cmd.@jobMode='pythonWebview'		
+			cmd.@jobStatus='start'
+			cmd.@logAppend=logObj
+			cmd.@logTail=outObj
+			cmd.@canvas=this
+			cmd.addArray('@cmdJobList')
+			// worker 
+			cmd.@callbackWorker=@webview.callbackWorker
+			cmd.addArray('@webviewCommandList')
+			addCmdJob(cmd)
+		}
+		cmd.@webviewCommandList.reuse()
+		logFileName=logObj.get('logFileName')
+		outFileName=outObj.get('logFileName')
+		line=f["$py" "$sourcePath" --command="$logFileName" --out="$outFileName"]
+		url=this.@movePageUrl
+		if(url) {
+			this.@movePageUrl=''
+			line.add(" --url=$url")
+		}
+		addCmdJob(cmd, line)
+	}
+	webviewExec(execSource, skipPendding) {
+		cmd=this.@cmd
+		if( cmd.@jobStatus!='run' ) {
+			print("@@ webviewExec 오류 웹뷰 실행중이 아닙니다")
+			this.@penddingList.add(execSource)
+			return;
+		}
+		if(checkTick(this.@startWebviewTick)) {
+			cmd.@webviewCommandList.add(execSource)
+			addUserWorker('webviewCommand', cmd )
+		}  else {
+			this.@penddingList.add(execSource)
+			print(">> webview.exec : ${this.@penddingList}")
+		}		
+	}
+	webviewStop() {
+		this.webviewExec('quit:')
+	}
+	@webview.callbackWorker() {
+		cmd=this
+		if( cmd.@jobStatus!='run' ) {
+			while(n=0,30) {
+				System.sleep(100)
+				// print(">>@keyboad.execSource workerStatus => $n", cmd.@jobStatus);
+				if( cmd.@jobStatus=='run' ) {									
+					if( cmd.@canvas.@checkStart ) {
+						break;
+					}
+				}
+			}
+			if( cmd.@jobStatus!='run' ) {
+				return print("@@ python webview command 프로그램이 실행중이 아닙니다");
+			}
+		}
+		source=cmd.@webviewCommandList.pop()
+		print(">> webview command start", source)
+		cmd.@logTail.timeout()
+		cmd.@logAppend.append("@#>${source}")
+		result=''
+		while(n=0,30) {
+			System.sleep(10)
+			result = cmd.@logTail.timeout()
+			if(result) {
+				print(">>@webview callback result: $n $result")
+				cmd.@canvas.setWebviewResult(result)
+				break;
+			}
+		}
+		
+		if( cmd.@webviewCommandList.size() ) {
+			worker=cmd.@worker
+			workerSize=worker.list().size()
+			not(workerSize) {
+				print(">> 웹커멘드 요청건수 불일치 남은 목록 삭제", cmd.@webviewCommandList)
+				cmd.@webviewCommandList.reuse()
+			}
+		}
+	}
+</script>

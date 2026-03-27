@@ -42,8 +42,6 @@ class Bridge(QObject):
 
 	@pyqtSlot(str)
 	def logAppend(self, msg):
-		if msg=='pageActive':
-			win32gui.SetForegroundWindow(self.webview.parent_hwnd)
 		logAppend(f'bridge:{msg}')
 
 class MyWebView(QWebEngineView):
@@ -51,6 +49,7 @@ class MyWebView(QWebEngineView):
 	# external_windows = []
 	def __init__(self, parent=None):
 		super().__init__(parent)
+		logAppend(f'webview:init')
 		self.acceptDrops = True
 		self.urlChanged.connect(self.onUrlChange)
 		self.fp=open(args.command, 'r', encoding='utf8')
@@ -61,11 +60,10 @@ class MyWebView(QWebEngineView):
 		self.parent_hwnd = None
 		self.timer = QTimer(self)
 		self.timer.setInterval(100)
-		self.timer.timeout.connect(self.timeout)
-		self.timer.start()
-		self.setGeometry(0, 0, 800, 600)
+		self.timer.timeout.connect(self.timeout)		
 		self.timerCount=0
-		logAppend(f'webview:init {args.command}')
+		self.setGeometry(-500, -500, 400, 400)
+		self.timer.start()
 		try:
 			self.channel = QWebChannel(self)
 			self.bridge = Bridge(self)
@@ -74,14 +72,13 @@ class MyWebView(QWebEngineView):
 			# self.setBackgroundColor(QtCore.Qt.transparent)
 			# self.setAcceptDrops(True)
 			# self.setMouseTracking(True)
-			self.settings().setAttribute(QWebEngineSettings.FullScreenSupportEnabled, True)
 			# self.focusProxy().setMouseTracking(True)
-			self.focusProxy().installEventFilter(self)
-			profile = self.page().profile()
+			# self.focusProxy().installEventFilter(self)
 			# profile.setHttpCacheType(QWebEngineProfile.NoCache)
-			profile.clearHttpCache()
+			profile = self.page().profile()
+			profile.clearHttpCache()						
 		except Exception as e:
-			print(f" error: {e}")
+			logAppend(f'webview:start exception {e}')
 	
 	def onUrlChange(self, url):
 		logAppend(f'urlChange: {url.toString()}')
@@ -110,27 +107,28 @@ class MyWebView(QWebEngineView):
 		return super().acceptNavigationRequest(url,  _type, isMainFrame)
 
 	def timeout(self):
-		# sender = self.sender()
-		# currentTime = QTime.currentTime().toString("hh:mm:ss")
-		if self.timerCount<10:
-			if self.timerCount==5:
-				urlDefault='http://localhost:8081/messenger.html'
-				if args.url:
-					urlDefault=args.url
-				self.setUrl(QUrl(urlDefault))
-			logAppend(f'start:webview')
-		self.timerCount+=1
-		fsize=os.stat(args.command).st_size
-		checkCommand = True
-		if self.nextCommand:
-			data = self.nextCommand
-		elif fsize>self.lastPos :
-			data = self.fp.read().strip()
-		else:
-			checkCommand = False
-		if checkCommand:
-			dist=time.time()-self.tm
+		try:
+			# sender = self.sender()
+			# currentTime = QTime.currentTime().toString("hh:mm:ss")
+			if self.timerCount<10:
+				if self.timerCount==5:
+					urlDefault='http://localhost:8081/messenger.html'
+					if args.url:
+						urlDefault=args.url
+					self.setUrl(QUrl(urlDefault))
+				elif self.timerCount==8:
+					logAppend('start:webview')
+				self.timerCount+=1
+				return
+			fsize=os.stat(args.command).st_size			
+			if self.nextCommand:
+				data = self.nextCommand
+			elif fsize>self.lastPos :
+				data = self.fp.read().strip()
+			else:
+				return			
 			pos=data.find("@#>")
+			# dist=time.time()-self.tm
 			# logAppend(f"line:{data} dist={dist}")
 			params=None
 			val = ''
@@ -159,12 +157,12 @@ class MyWebView(QWebEngineView):
 					# self.setWindowFlags(Qt.WindowType.SplashScreen)
 					# self.move(0,0)
 					# self.resize(int(arr[2]), int(arr[3]))
-					self.setGeometry(int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3]))
+					self.setGeometry(int(float(arr[0])),int(float(arr[1])),int(float(arr[2])),int(float(arr[3])))
 					self.show()
 				elif ftype=='echo':
 					logAppend(f"echo = {params}")
 				elif ftype=='start':
-					logAppend(f"webview:start")
+					logAppend(f"start:webview")
 				elif ftype=='clearCache':
 					profile = self.page().profile()
 					# profile.setHttpCacheType(QWebEngineProfile.NoCache)
@@ -199,15 +197,16 @@ class MyWebView(QWebEngineView):
 			## if params
 			self.lastPos=fsize
 			logAppend(f"result:{ftype}")
-		# end if print(f"currentTime=={currentTime}")
+			# end if print(f"currentTime=={currentTime}")
+		except Exception as e:
+			logAppend(f"commandException:{ftype} {e}")
 
 	def eventFilter(self, source, event):
 		if source is self.focusProxy() and event.type() == QEvent.Type.MouseButtonPress:
 			logAppend(f"mouseFocus: {event.position().x()}, {event.position().y()}")
 		return super().eventFilter(source, event)
 
-def main():
-	logAppend('webview:start')
+def main():	
 	app = QApplication(sys.argv)
 	webview = MyWebView()
 	webview.show()

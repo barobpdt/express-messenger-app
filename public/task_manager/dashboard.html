@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Task Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 text-white flex flex-col transition-all duration-300">
+        <div class="h-16 flex items-center justify-center border-b border-gray-800">
+            <h1 class="text-xl font-bold tracking-wider"><i class="fa-solid fa-rocket mr-2 text-indigo-400"></i>TaskTrack</h1>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1">
+                <li><a href="dashboard.html" class="flex items-center px-6 py-3 bg-gray-800 border-l-4 border-indigo-500 text-white"><i class="fa-solid fa-chart-pie w-6"></i> Dashboard</a></li>
+                <li><a href="step.html" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"><i class="fa-solid fa-columns w-6"></i> Task Board</a></li>
+                <li><a href="calendar.html" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"><i class="fa-solid fa-calendar-alt w-6"></i> Calendar</a></li>
+                <li><a href="artifacts.html" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"><i class="fa-solid fa-folder-tree w-6"></i> 산출물 관리</a></li>
+                <li><a href="team.html" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors mt-8"><i class="fa-solid fa-users w-6"></i> 팀 설정</a></li>
+            </ul>
+        </nav>
+        <div class="p-4 border-t border-gray-800">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold">U</div>
+                <div><p class="text-sm font-medium">User Name</p><p class="text-xs text-gray-400">Team: Dev Team</p></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
+        <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-10 glass-panel">
+            <div class="flex items-center bg-gray-100 rounded-lg px-3 py-1.5 w-96">
+                <i class="fa-solid fa-search text-gray-400"></i><input type="text" placeholder="Search tasks, artifacts..." class="bg-transparent border-none outline-none ml-2 w-full text-sm">
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="relative p-2 text-gray-400 hover:text-gray-600 transition-colors"><i class="fa-solid fa-bell"></i><span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span></button>
+            </div>
+        </header>
+
+        <!-- Dashboard View Container -->
+        <div class="flex-1 overflow-auto p-6" id="main-view">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Project Overview</h2>
+                <select class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm outline-none">
+                    <option>All Projects</option>
+                    <option>Project Alpha Sprint 3</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <!-- Data Cards -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-gray-500 text-sm font-medium">Total Tasks</h3>
+                        <div class="p-2 bg-indigo-50 rounded-lg"><i class="fa-solid fa-list-check text-indigo-600"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-gray-800 mt-4">124</p>
+                    <p class="text-sm text-green-500 mt-2"><i class="fa-solid fa-arrow-up text-xs"></i> 12% from last month</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-gray-500 text-sm font-medium">In Progress</h3>
+                        <div class="p-2 bg-orange-50 rounded-lg"><i class="fa-solid fa-spinner text-orange-600"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-gray-800 mt-4">32</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-gray-500 text-sm font-medium">Completed</h3>
+                        <div class="p-2 bg-green-50 rounded-lg"><i class="fa-solid fa-check-double text-green-600"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-gray-800 mt-4">85</p>
+                    <p class="text-sm text-gray-500 mt-2">Overall Progress: 68%</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-gray-500 text-sm font-medium">Overdue</h3>
+                        <div class="p-2 bg-red-50 rounded-lg"><i class="fa-solid fa-clock text-red-600"></i></div>
+                    </div>
+                    <p class="text-3xl font-bold text-gray-800 mt-4">7</p>
+                    <p class="text-sm text-red-500 mt-2">Requires immediate attention</p>
+                </div>
+            </div>
+
+            <!-- Charts Skeleton Area -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Task Completion Trend</h3>
+                    <div class="w-full h-64 bg-gray-50 flex items-center justify-center border border-dashed border-gray-200 rounded-lg relative">
+                        <span class="text-gray-400">Line Chart Skeleton</span>
+                        <!-- Replace with <canvas id="trendChart"></canvas> later -->
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Task Status Distribution</h3>
+                    <div class="w-full h-64 bg-gray-50 flex items-center justify-center border border-dashed border-gray-200 rounded-lg relative">
+                        <span class="text-gray-400">Doughnut Chart Skeleton</span>
+                         <!-- Replace with <canvas id="statusChart"></canvas> later -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

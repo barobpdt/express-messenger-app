@@ -200,6 +200,88 @@ export const initializeDatabase = async () => {
 			joined_at  TIMESTAMP DEFAULT NOW()
 		)`;
 
+		// ─── Task Manager (Jira-like) 시스템 테이블 ────────────────────────────────
+		await sql`
+		CREATE TABLE IF NOT EXISTS teams (
+			id          SERIAL PRIMARY KEY,
+			name        TEXT NOT NULL UNIQUE,
+			webhook_url TEXT,
+			channel_id  TEXT,
+			created_at  TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL`;
+		await sql`ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS projects (
+			id          SERIAL PRIMARY KEY,
+			name        TEXT NOT NULL,
+			description TEXT,
+			status      TEXT DEFAULT 'active',
+			team_id     INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+			created_at  TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS tasks (
+			id          SERIAL PRIMARY KEY,
+			project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+			reporter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			title       TEXT NOT NULL,
+			description TEXT,
+			status      TEXT DEFAULT 'todo',
+			priority    TEXT DEFAULT 'medium',
+			progress    INTEGER DEFAULT 0,
+			start_date  TEXT,
+			due_date    TEXT,
+			created_at  TIMESTAMP DEFAULT NOW(),
+			updated_at  TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS task_histories (
+			id            SERIAL PRIMARY KEY,
+			task_id       INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+			user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			field_changed TEXT,
+			old_value     TEXT,
+			new_value     TEXT,
+			changed_at    TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS artifacts (
+			id              SERIAL PRIMARY KEY,
+			task_id         INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+			type            TEXT,
+			title           TEXT NOT NULL,
+			current_version INTEGER DEFAULT 1,
+			created_at      TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS artifact_versions (
+			id             SERIAL PRIMARY KEY,
+			artifact_id    INTEGER REFERENCES artifacts(id) ON DELETE CASCADE,
+			version_number INTEGER NOT NULL,
+			file_url       TEXT,
+			content        TEXT,
+			uploader_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			uploaded_at    TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS artifact_feedbacks (
+			id                  SERIAL PRIMARY KEY,
+			artifact_version_id INTEGER REFERENCES artifact_versions(id) ON DELETE CASCADE,
+			user_id             INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			content             TEXT NOT NULL,
+			status              TEXT DEFAULT 'open',
+			created_at          TIMESTAMP DEFAULT NOW()
+		)`;
+
 		console.log("✅ Database tables initialized successfully.");
 	} catch (error) {
 		console.error("❌ Failed to initialize database tables:", error);

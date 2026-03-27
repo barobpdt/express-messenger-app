@@ -1,8 +1,10 @@
 <script note="앱공통 유틸리티 함수">
 initApp() {
+	include('@apps#webview')
 	System.watcherClipboard(@app.clipboard)
+	page=page('webview:main')
+	page.openPage()
 }
-
 parseClipboardUrls(&s) {
 	while(s.valid()) {
 		line=s.findPos("\n") not(line.ch()) continue;
@@ -313,6 +315,45 @@ runWebviewScript(fnm, src, checkJson) {
 			}
 		}
 		return info;
+	}
+	@python.webviewCheck(callback) {
+		info=object('python.installInfo')
+		not(info.childCount()) {
+			pythonInstallStart('list', true)
+			addUserWorker('user', this, function() {
+				info=object('python.installInfo')
+				while(n=0,32) {
+					System.sleep(500)
+					if(info.childCount()) {
+						break;
+					}
+				}
+				not(info.childCount()) return this.alert('파이션 설치정보를 찾을수 없습니다');
+				@python.webviewCheck()
+			})
+			return;
+		}
+		// pythonInstallStart('rembg Pillow', true)
+		aa=findField(info,'name','PyQt5')
+		ab=findField(info,'name','PyQtWebEngine')
+		if(aa && ab ) {
+			return callback();
+		}
+		pythonInstallStart('PyQt5')
+		pythonInstallStart('PyQtWebEngine')
+		pythonInstallStart('pywin32')
+		this.@cmdInstall=pythonInstallStart()
+		addUserWorker('user',this,function() {
+			for(n=0,100 ) {
+				System.sleep(500)
+				cmd=this.@cmdInstall
+				aa=notValid(cmd.@cmdJobList)
+				ab=cmd.@jobStatus.eq('finish')
+				if( aa && ab ) {
+					return callback()
+				}
+			}
+		})
 	}
 	closePort(port) {
 		not(port) port=80
