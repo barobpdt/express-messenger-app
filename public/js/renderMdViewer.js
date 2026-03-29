@@ -33,7 +33,7 @@ class RenderMdViewer {
 		})
 	}
 	render() {
-		this.container = $(`
+		this.container = $(html`
 			<div class="md-viewer">
 				<div class="tool-bar">
 					<div class="page-info">
@@ -44,15 +44,17 @@ class RenderMdViewer {
 					<div class="sep"></div>
 					<div class="tool-group">
 						<button class="btn-tool on" data-tool="pen" title="펜">✏️</button>
-						<button class="btn-tool" data-tool="hl" title="형광펜">🧷</button>
+						<button class="btn-tool" data-tool="hl" title="형광펜">💉</button>
 						<button class="btn-tool" data-tool="er" title="지우개">🧽</button>
 						<button class="btn-tool" data-tool="laser" title="레이저">🔴</button>
 						<button class="btn-tool" data-tool="text" title="텍스트">📝</button>
 					</div>
 					<div class="sep"></div>
-					<div class="color-group"></div>
+					<div class="color-group" style="display:flex;justify-content:space-between;gap:4px;">
+
+					</div>
 					<div class="sep"></div>
-					<div class="sz-group">
+					<div class="size-group" style="color:#aaa;">
 						<label>크기</label>
 						<input class="input-pensize" type="range" id="sz" min="1" max="30" value="4">
 						<div class="szpv"><span id="szpv" style="width:8px;height:8px;"></span></div>
@@ -96,7 +98,7 @@ class RenderMdViewer {
 		})
 		this.toolbar.find('.input-pensize').on('change', (e) => {
 			const val = $(e.currentTarget).val()
-			this.setSize(val)
+			this.penSize = parseInt(val)
 		})
 		this.toolbar.find('.btn.clearAll').on('click', (e) => {
 			this.clearAll()
@@ -131,6 +133,8 @@ class RenderMdViewer {
 			el.className = 'csw' + (c === this.color ? ' on' : '');
 			el.style.background = c;
 			el.style.border = c === '#ffffff' ? '2px solid #666' : '2px solid transparent';
+			el.style.cursor = 'pointer';
+			el.style.width = '20px';
 			el.onclick = () => {
 				this.color = c;
 				colorGroup.find('.csw').removeClass('on');
@@ -145,12 +149,6 @@ class RenderMdViewer {
 		cc.innerHTML = '<input type="color" value="#e74c3c">';
 		cc.querySelector('input').oninput = e => { this.color = e.target.value; };
 		colorGroup.append(cc);
-	}
-	setSize(v) {
-		this.penSize = v;
-		const s = Math.max(4, Math.min(v * 2.5, 28));
-		this.toolbar.find('#szpv').css('width', s + 'px');
-		this.toolbar.find('#szpv').css('height', s + 'px');
 	}
 	joinRoom(room, nickname) {
 		this.room = room

@@ -557,30 +557,14 @@ addWebDownloadJob(id, targetNode, logCallback ) {
 }
 
 /* cmd 결과처리 작업등록 */
-callCmdJob(id, command, check) {
-	cmd=Baro.process(id)
-	not(cmd.@cmdJobList) {
-		addCmdJob(cmd)
-	}
-	if( check ) {
-		if(cmd.@jobStatus.eq('ready','finish')) {
-			cmd.@cmdJobList.add(command)
-			return true;
-		}
-		if(cmd.@jobStatus.eq('run')) {
-			print(">> $id cmd 작업이 실행중입니다")
-		} else {
-			print(">> $id cmd 작업이 대기중이거나 중지되었습니다 (상태:${cmd.@jobStatus})")
-		}
-	} else {
-		cmd.@cmdJobList.add(command)
-		return true;
-	}
-	return false;
-}
-
 removeCmdJob(id) {
-	cmd=Baro.process(id)
+	if(checkTag(id,'process')) {
+		cmd=id
+		id=cmd.id
+	} else {
+		not(typeof(id,'string')) return print("@@ removeCmdJob 오류", id);
+		cmd=Baro.process(id)
+	}
 	timerInfo = global('@timerInfo')
 	not(timerInfo.@jobList.find(cmd)) {
 		print(">> removeCmdJob $id 작업노드가 없습니다")
@@ -619,24 +603,9 @@ addCmdJob(id, command, logCallback) {
 	if( typeof(logCallback,'func')) {
 		cmd.logCallback=logCallback
 	} else {
-		not(cmd.logCallback) {
-			cmd.logCallback = func(result, info) { print("##cmd 작업콜백 RESULT: :$result") };
-		}
+		cmd.logCallback = func(result, info) { print("##cmd 작업콜백 RESULT: :$result") };
 	}
-	if( isValid(command) ) {	
-		if(typeof(command,'node')) {
-			if(cmd.@cmdJobList.find(command)) {
-				print(">> 커멘드 중복된 작업 정보입니다 (노드:$command)")
-			} else {
-				if( typeof(logCallback,'func')) {
-					not(command.logCallback) command.logCallback=logCallback
-				}
-				cmd.@cmdJobList.add(command)
-			}
-		} else {
-			cmd.@cmdJobList.add(command)			
-		}
-	}
+	cmd.@cmdJobList.add(command)
 	not(timerInfo.@jobList.find(cmd)) {
 		timerInfo.@jobList.add(cmd)
 	}	
@@ -681,15 +650,7 @@ addCmdJob(id, command, logCallback) {
 				f[@#>finish: id="${this.id}" command="${this.@command}"]
 			)
 			logData=this.ref('@cmdResult')
-			jobInfo=this.@jobInfo
-			if( jobInfo ) {
-				if( jobInfo.logCallback) {
-					logCallback=jobInfo.logCallback
-				}
-				call(logCallback, this, logData, jobInfo)
-			} else {
-				call(this.logCallback, this, logData, true)
-			}
+			all(this.logCallback, this, logData, true)
 			this.@cmdResult = ''
 		} else {
 			// cmd 명령 진행중
@@ -1027,14 +988,7 @@ runGlobalJob(node) {
 			if( notValid(cmd.@cmdJobList) ) {
 				return;
 			}
-			info=cmd.@cmdJobList.pop()
-			if(typeof(info,'node')) {				
-				command=info.@command
-				cmd.@jobInfo = info
-			} else {
-				command=info
-				cmd.@jobInfo = null
-			}
+			command=cmd.@cmdJobList.pop()
 			if( command) {
 				cmd.@jobStatus = 'run'
 				cmd.@cmdStartTick = System.tick()

@@ -219,6 +219,11 @@ try:
 					log(f"exec:{result}")
 				except Exception as ex:
 					log(f"execException:{ex}")
+			elif ftype=='result':
+				try:
+					exec("log(f'result:{"+data+"}')")
+				except Exception as ex:
+					log(f"execException:{ex}")
 			elif ftype=='echo':
 				params=[v.strip() for v in data.split(',')]
 				log(f"echo:params={params}")

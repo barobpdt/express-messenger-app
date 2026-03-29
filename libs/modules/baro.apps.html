@@ -92,6 +92,19 @@ startMessageClient(userId, host, port, callback) {
 		}
 	}
 }
+@app.userPath(callback) {
+	cmd=Baro.process('app')
+	if(cmd.@jobStatus=='run') {
+		if(callback) callback(cmd, "userPath 오류 사용자 cmd가 실행중입니다")
+		return;
+	}
+	cmd.@callbackResult=callback
+	addCmdJob(cmd, "echo %userprofile%", function(str,end) {
+		not(end) return;
+		path=str.findPos("\n").trim()
+		if(this.@callbackResult) this.@callbackResult(path)
+	})
+}
 runWebviewScript(fnm, src, checkJson) {
 	webview=Baro.process('pythonWebview')
 	if(checkJson) {
@@ -167,7 +180,7 @@ runWebviewScript(fnm, src, checkJson) {
 			result=""
 			maxCount=cmd.@maxWaitCount
 			not(maxCount) maxCount=16
-			print("pythonCommand 현재명령 작업시작 >> ${getLine(cmd.@currentCommand)} maxCount==$maxCount")
+			print("pythonCommand 현재명령 작업시작 >> ${getLine(cmd.@currentCommand)}")
 			while(n=0,maxCount) {
 				if(cmd.@jobStatus.eq('finish')) {
 					print("@@ python command 실행이 종료되었거나 오류가 발생했습니다 status:${cmd.@jobStatus}")
