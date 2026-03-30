@@ -1,3 +1,23 @@
+pip install pipwin
+pipwin install pyaudio
+
+pip install aiortc pyaudio websockets
+
+통화걸기
+python python/voice_client.py --username userA --call userB
+수신대기
+python python/voice_client.py --username userB --server ws://192.168.x.x:8081
+
+🔧 동작 구조
+서버 수정 없음: 기존 targetUser 기반 DM 방식 그대로 이용
+WebRTC P2P: aiortc가 SDP/ICE를 교환 후 직접 P2P로 음성 전송
+마이크 → MicrophoneTrack → aiortc → 상대 PC → 스피커 흐름
+
+> call userB      # 통화 걸기
+> hangup          # 통화 끊기
+> quit            # 프로그램 종료
+
+
 /*
 모나코 에디터에서 자동완성(Suggestions) 추천 항목을 고정된 텍스트가 아니라 "실시간으로(동적으로)" 변경하거나 추가하려면, 
 

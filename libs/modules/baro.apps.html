@@ -41,7 +41,41 @@ startMessageClient(userId, host, port, callback) {
 	not(cmd.cmp('@jobStatus','run')) {
 		print("webview 실행중이 아닙니다")
 		return;
-	}	
+	}
+	if(type=='html') {
+		page=page('webview:main')		
+		if(conf('clipboard.useHtml')) {
+			val=Cf.jsValue(data)
+		}
+		if(conf('clipboard.useText') && text) {
+			val=Cf.jsValue(text)
+		}
+		page.@canvas.webviewExec(#[runScript:addChatMessage(${val})])
+		return;
+	}
+	if(type=='text') {
+		if(conf('clipboard.useText') && text) {
+			val=Cf.jsValue(text)
+			page.@canvas.webviewExec(#[runScript:addChatMessage(${val})])
+		}
+		return;
+	}
+	if(type=='image') {
+		if(conf('clipboard.useImage') ) {			 
+			Baro.file().mkdir('c:/temp/clipboard-images', true)
+			tm=System.localtime()
+			filename="c:/temp/clipboard-images/copy-${tm}.png"
+			fileWrite(filename, data)
+			logFile=logAppend("pythonWebview-out").member(logFileName)
+			cmd=Baro.process('nodejs')
+			not(cmd.@jobStatus) {
+				path=conf('path.express')
+				addCmdJob(cmd,"cd $path")
+			} 
+			addCmdJob(cmd, #[node scripts/img2base64.js "${filename}" "${logFile}"])
+		}
+		return;
+	}
 	// print("$type : data=$data", text)	
 	if(type=='urls') {
 		parseClipboardUrls(data)
@@ -454,6 +488,21 @@ runWebviewScript(fnm, src, checkJson) {
 </script>
 
 <script>
+	checkNodeInstall(callback) {
+		cmd=Baro.process('common')
+		cmd.callbackResult=callback
+		addCmdJob(cmd, "node --version", function(result, endCheck) {
+			not(endCheck) return;
+			print("callback", callback)
+			if(result.start('@#>')) {
+				ok=false
+			} else {
+				ok=true
+			}
+			conf('check.node_install', ok, true)
+			if(this.callbackResult) this.callbackResult(ok)
+		})
+	}
 	nodeChildArray(node) {
 		arr=_arr()
 		not(typeof(node,'node')) return arr;
