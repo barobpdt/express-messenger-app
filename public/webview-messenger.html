@@ -173,19 +173,8 @@
 					onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
 					🔌<span class="hide-on-mobile"> 앱 연결해제</span>
 				</div>
-				<div class="dropdown" id="game-dropdown" style="display:none;">
-					<span class="header-btn" onclick="toggleGameDropdown(event)"
-						style="font-size:0.8rem; background:#30363d; color:#10b981; padding:6px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; border:1px solid var(--border); transition:0.2s;"
-						onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#30363d'">
-						🎮<span class="hide-on-mobile"> 미니게임</span> ▾
-					</span>
-					<div class="dropdown-content" id="game-dropdown-content">
-						<button onclick="openLadderAdmin()">🪜 사다리 타기</button>
-						<button onclick="openRouletteAdmin()">🎯 룰렛 돌리기</button>
-					</div>
-				</div>
 
-				<div class="dropdown" id="settings-dropdown" style="display:none;">
+				<div class="dropdown" id="settings-dropdown">
 					<span class="header-btn"
 						onclick="$('#settings-dropdown .dropdown-content').toggle(); event.stopPropagation()"
 						style="font-size:1rem; cursor:pointer; padding: 4px;" title="설정 메뉴">
@@ -226,15 +215,6 @@
 			</button>
 			<input type="file" id="file-input" onchange="handleFileUpload(event)">
 
-			<button class="btn secondary" onclick="openCamera()" title="카메라 촬영"
-				style="padding: 12px; background-color: #10b981; border-color: #059669;">
-				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20"
-					height="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-					<circle cx="12" cy="13" r="4"></circle>
-				</svg>
-			</button>
-
 			<textarea id="msg-input" placeholder="메시지 입력... (Enter로 전송)" style="height:40px;"></textarea>
 
 			<button class="btn" onclick="sendMessage()" title="전송">
@@ -254,25 +234,7 @@
 		</div>
 	</div>
 
-	<!-- Camera Overlay -->
-	<div id="camera-overlay" class="overlay" style="display: none; z-index: 2000;">
-		<div class="modal" style="max-width: 500px; text-align: center;">
-			<h2 style="margin-top: 0;">📸 사진 촬영</h2>
-			<div
-				style="position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; aspect-ratio: 4/3;">
-				<video id="camera-video" autoplay playsinline
-					style="width: 100%; height: 100%; object-fit: cover;"></video>
-				<canvas id="camera-canvas" style="display: none;"></canvas>
-			</div>
-			<div style="display: flex; gap: 10px; margin-top: 20px;">
-				<button class="btn" style="flex: 1; padding: 12px; background: #10b981;" onclick="takePhoto()">촬영 및
-					전송</button>
-				<button class="btn secondary" style="flex: 1; padding: 12px;" onclick="closeCamera()">취소</button>
-			</div>
-		</div>
-	</div>
-
-	<script src="./js/messenger.js"></script>
+	<script src="./js/webview-messenger.js"></script>
 
 	<!-- ── WebRTC: 숨김 오디오 요소 ── -->
 	<audio id="remote-audio" autoplay playsinline style="display:none"></audio>
@@ -352,7 +314,34 @@
 			background: rgba(34, 197, 94, .15);
 		}
 	</style>
+	<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 	<script src="./js/renderZipfile.js"></script>
+	<script>
+		if (typeof QWebChannel !== 'undefined') {
+			new QWebChannel(qt.webChannelTransport, channel => {
+				pageInfo.bridge = channel.objects.bridge;
+				$(document).on('click', e => {
+					if (pageInfo.focusTick) {
+						const dist = new Date().getTime() - pageInfo.focusTick
+						if (dist > 250) return;
+					}
+					if (pageInfo.blurTick) {
+						const dist = new Date().getTime() - pageInfo.blurTick
+						if (dist < 250) return;
+					}
+					/*
+					const tag = e.target.tagName
+					if (tag == 'INPUT' || tag == 'TEXTAREA' || tag == 'BUTTON' || tag == 'A') {
+						return;
+					}
+					*/
+					pageInfo.bridge.logAppend('pageActive');
+				})
+			});
+		}
+		window.onfocus = () => pageInfo.focusTick = new Date().getTime()
+		window.onblur = () => pageInfo.blurTick = new Date().getTime()
+	</script>
 </body>
 
 </html>

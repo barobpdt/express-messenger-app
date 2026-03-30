@@ -112,7 +112,7 @@ class MyWebView(QWebEngineView):
 			# currentTime = QTime.currentTime().toString("hh:mm:ss")
 			if self.timerCount<10:
 				if self.timerCount==5:
-					urlDefault='http://localhost:8081/messenger.html'
+					urlDefault='http://localhost:8081/webview-messenger.html'
 					if args.url:
 						urlDefault=args.url
 					self.setUrl(QUrl(urlDefault))

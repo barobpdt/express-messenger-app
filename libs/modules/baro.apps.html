@@ -60,7 +60,6 @@ startMessageClient(userId, host, port, callback) {
 		addCmdJob(cmd, "cd ${conf('path.express')}/scripts")
 		addCmdJob(cmd, #[node log-parse.js "${tailName}" --log "${logName}"])
 	}
-	
 }
 @app.jobRun(cmd) {
 	switch(cmd.id) {
@@ -101,6 +100,7 @@ startMessageClient(userId, host, port, callback) {
 	cmd.@callbackResult=callback
 	addCmdJob(cmd, "echo %userprofile%", function(str,end) {
 		not(end) return;
+		str.findPos("\n")
 		path=str.findPos("\n").trim()
 		if(this.@callbackResult) this.@callbackResult(path)
 	})
@@ -449,6 +449,58 @@ runWebviewScript(fnm, src, checkJson) {
 				}
 			}
 			return;
+		}
+	}
+</script>
+
+<script>
+	nodeChildArray(node) {
+		arr=_arr()
+		not(typeof(node,'node')) return arr;
+		while(cur, node) {
+			arr.add(cur)
+		}
+		return arr;
+	}
+	downloadWebType(filename, type) {
+		not(type) type='js'
+		path=conf('path.express')
+		str=fileRead("$path/public/$filename")
+		arr=_arr()
+		node=_node('downloads')
+		node.removeAll(true)
+		if(type=='js') {		
+			ss=str.ref()
+			while(ss.valid()) {
+				ss.findPos('<script')
+				ss.findPos('src=')
+				arr.add(ss.match())
+			}
+			while(url,arr) {
+				if(url.start('https')) {
+					cur=node.addNode()
+					cur.url=url
+					name=right(url,'/')
+					cur.downloadFilename="$p/public/js/$name"
+					addWebDownloadJob('public', cur)
+				}
+			}
+		} else if(type=='css') {		
+			ss=str.ref()
+			while(ss.valid()) {
+				ss.findPos('<link')
+				ss.findPos('href=')
+				arr.add(ss.match())
+			}
+			while(url,arr) {
+				if(url.start('https')) {
+					cur=node.addNode()
+					cur.url=url
+					name=right(url,'/')
+					cur.downloadFilename="$p/public/css/$name"
+					addWebDownloadJob('public', cur)
+				}
+			}
 		}
 	}
 </script>

@@ -5,8 +5,30 @@
 <script module="webview_page">
 	init() {	
 		this.@canvas = widget('webview')
+		if(conf('webview.useTray')) {
+			tray = this.tray()
+			tray.icon('vicon:application_add')
+			menus=_node('menus')
+			menus.addNode().with(id:'aaa',text:'aaa',icon:'vicon:arrow_branch')
+			menus.addNode().with(id:'bbb',text:'bbb',icon:'vicon:arrow_divide')
+			tray.contextMenu(nodeChildArray(menus))
+			tray.show()
+		}
 	}
 	onClose() {
+		if(conf('webview.useTray')) {
+			this.hide()
+			return 'ignore';
+		} else {
+			this.closePage()
+		}
+	}
+	onActivationChange() {
+		not(this.is('active')) {
+			this.@activeChangeTick=System.tick()
+		}
+	}
+	closePage() {
 		this.@canvas.killTimer()
 		this.webviewExec('quit: webview close')
 		Baro.process('pythonWebview').close()
@@ -20,15 +42,12 @@
 	}
 	webviewActive() {
 		/*
-		log= logAppend("pythonWebview-out")
-		log.append("@#> bridge:pageActive")
+		logAppend("pythonWebview-out").append("@#> bridge:pageActive")
 		*/
-		page=page('main')
-		not(page.is('active')) {
-			page.flags('active')
-			page.active()			
-		}
-		this.webviewExec('pageActive:bridge')
+		this.@canvas.webviewActive()
+	}
+	onAction(action) {
+	
 	}
 </script>
 
@@ -46,9 +65,16 @@
 	updateCanvas() {
 		this.@webviewResizeTick=System.tick()
 	}
-	webviewActive() {	
-		log= logAppend("pythonWebview-out")
-		log.append("@#> bridge:pageActive")
+	webviewActive() {
+		page=page('main')
+		if( page.@activeChangeTick) {
+			dist=System.tick() - page.@activeChangeTick
+			console.log(">> webviewActive dist == $dist")
+			if(dist<500) return;
+		}
+		page.flags('active')
+		page.active()
+		this.webviewExec('pageActive:bridge')
 	}
 	webviewResize() {
 		this.@webviewResizeTick=0
@@ -97,6 +123,7 @@
 			not(this.@checkStart) {
 				this.@checkStart = true
 				this.webviewExec("setParent:${this.winId()}")
+				this.@webviewResizeTick=System.tick()
 			}
 			if(isValid(this.@penddingList) ) {
 				execSource=this.@penddingList.pop()

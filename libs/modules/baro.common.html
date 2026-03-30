@@ -536,9 +536,7 @@ addWebDownloadJob(id, targetNode, logCallback ) {
 	if(typeof(logCallback,'func')) {
 		web.logCallback=logCallback
 	} else {
-		not(web.logCallback) {
-			web.logCallback=func(result,info) { print("##웹다운로드 콜백 URL: ${this.url}  RESULT: :$result") };
-		}
+		web.logCallback=func(result,info) { print("##웹다운로드 콜백 URL: ${this.url}  RESULT: :$result") };
 	}
 	not(web.@jobMode) {
 		web.@jobMode = 'DOWNLOAD'
@@ -582,6 +580,17 @@ removeCmdJob(id) {
 	print(">> remove cmd job $id 작업이 제거되었습니다")
 	return true;
 }
+checkCmdError(result) {
+	if( result.find('bad option') ) {
+		// bad option
+		return 'bad-option';
+	}
+	if( result.find('not recognized') ) {
+		// is not recognized as an internal or external command
+		return 'not-recognized';
+	}	
+	return;
+}
 addCmdJob(id, command, logCallback) {	
 	timerInfo = global('@timerInfo')
 	timerInfo.@useJob=true
@@ -603,7 +612,7 @@ addCmdJob(id, command, logCallback) {
 	if( typeof(logCallback,'func')) {
 		cmd.logCallback=logCallback
 	} else {
-		cmd.logCallback = func(result, info) { print("##cmd 작업콜백 RESULT: :$result") };
+		cmd.logCallback = func(result, endCheck) { if(endCheck) print("##cmd 작업콜백 RESULT: :$result") };
 	}
 	cmd.@cmdJobList.add(command)
 	not(timerInfo.@jobList.find(cmd)) {
@@ -640,8 +649,7 @@ addCmdJob(id, command, logCallback) {
 @baro.cmdJobProc(type,&data) {
 	if(type=='read') {
 		this.appendText('@cmdResult', data)
-		this.@logAppend.write(data)
-		logCallback=this.logCallback
+		this.@logAppend.write(data) 
 		c=data.ch(-1)
 		if(c=='>') {
 			// cmd 명령 종료
@@ -650,18 +658,21 @@ addCmdJob(id, command, logCallback) {
 				f[@#>finish: id="${this.id}" command="${this.@command}"]
 			)
 			logData=this.ref('@cmdResult')
-			all(this.logCallback, this, logData, true)
-			this.@cmdResult = ''
+			err=checkCmdError(logData)
+			if(err) {
+				logData=f[#@>error: error="$err" id="${this.id}" command="${this.@command}"]
+			} 
+			call(this.logCallback, this, logData, true)
 		} else {
 			// cmd 명령 진행중
-			call(logCallback,this,data, false)
+			call(this.logCallback, this, data, false)
 		}
 		return;
 	}
 	if(type=='error') {
-		this.@logAppend.apeend(
-			f[#@>error: error="$data" id="${this.id}" command="${this.@command}"]
-		)
+		error=f[#@>error: error="$data" id="${this.id}" command="${this.@command}"]
+		call(this.logCallback, this, error, false)
+		this.@logAppend.apeend(error)
 		this.@jobStatus='error'
 		this.@error = data
 	}
@@ -992,6 +1003,7 @@ runGlobalJob(node) {
 			if( command) {
 				cmd.@jobStatus = 'run'
 				cmd.@cmdStartTick = System.tick()
+				cmd.@cmdResult = ''
 				cmd.@command = command
 				cmd.write(command)
 				print(">> cmd job : $command")

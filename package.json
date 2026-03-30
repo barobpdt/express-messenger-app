@@ -17,6 +17,7 @@
         "@capacitor/ios": "^8.1.0",
         "@capacitor/keyboard": "^8.0.1",
         "@imgly/background-removal-node": "^1.4.5",
+        "@marp-team/marp-cli": "^4.3.1",
         "@neondatabase/serverless": "^0.10.4",
         "adm-zip": "^0.5.16",
         "audic": "^3.0.2",

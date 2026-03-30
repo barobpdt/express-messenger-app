@@ -70,11 +70,11 @@
 	</style>
 	<div class="app-container">
 		<!-- Header -->
-		<header class="header">
+		<header id="hdr">
 			<div class="logo">
 				<i class="fa-solid fa-layer-group logo-icon"></i>
-				<span class="logo-text">SQLite Studio</span>
-				<span class="logo-badge">
+				<span class="logo-text" style="width:130px;">SQLite Studio</span>
+				<span class="logo-badge" style="width:90px;">
 					<i class="fa-solid fa-circle-check" style="margin-right:2px;"></i>
 					Connected
 				</span>
@@ -83,17 +83,17 @@
 			<div class="hbox" style="margin-left:8px;">
 				<input type="text" id="db-path" placeholder="Path to Database (e.g. ./mydb.sqlite)"
 					style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-nav); color: var(--text-main); font-size: 0.85rem; width: 250px;">
-				<button class="bbtn btn-secondary" onclick="connectDb()" title="Connect to Local SQLite File">
+				<button class="hbtn btn-secondary" onclick="connectDb()" title="Connect to Local SQLite File">
 					<i class="fa-solid fa-link"></i> Connect
 				</button>
-				<div class="funny-space"></div>
-				<button class="bbtn btn-secondary" onclick="openHelpModal()" title="View Help & Shortcuts">
+				<div class="space"></div>
+				<button class="hbtn" onclick="openHelpModal()" title="View Help & Shortcuts">
 					<i class="fa-solid fa-circle-question"></i> Help
 				</button>
-				<button class="bbtn btn-secondary" onclick="resetEditor()" title="Clear editor content">
+				<button class="hbtn" onclick="resetEditor()" title="Clear editor content">
 					<i class="fa-solid fa-eraser"></i> Clear
 				</button>
-				<button class="bbtn btn-run" id="btn-run"
+				<button class="hbtn" id="btn-run"
 					title="Execute the query under the cursor or the selected text (Ctrl+Enter)">
 					<i class="fa-solid fa-play"></i> Run Query <span
 						style="opacity:0.7; font-size: 0.7rem; margin-left:4px;">(Ctrl+Enter)</span>
@@ -102,9 +102,9 @@
 		</header>
 
 		<!-- contents -->
-		<main class="main-stage">
+		<main class="main-stage" style="display: flex; flex: 1; height: calc(100vh - 60px); overflow: hidden;">
 			<!-- Left Sidebar: Schema Tree -->
-			<aside id="sidebar" class="sidebar">
+			<aside id="sidebar" class="funny-sidebar">
 				<div class="panel-header">
 					<i class="fa-solid fa-sitemap"></i> Database Explorer
 				</div>
@@ -184,83 +184,76 @@
 		</div>
 	</div>
 
-    <div class="modal-overlay" id="help-modal">
-        <div class="modal-content" style="width: 500px;">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <i class="fa-solid fa-circle-question text-primary"></i> <span>Help & Shortcuts</span>
-                </div>
-                <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body" style="line-height: 1.6;">
-                <h4 style="color: var(--primary); margin-bottom: 8px;">⌨️ Keyboard Shortcuts</h4>
-                <ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
-                    <li><kbd style="background: #334155; padding: 2px 6px; border-radius: 4px;">Ctrl+Enter</kbd> / <kbd
-                            style="background: #334155; padding: 2px 6px; border-radius: 4px;">F5</kbd> : Execute query
-                        at cursor</li>
-                </ul>
-                <h4 style="color: var(--primary); margin-bottom: 8px;">💡 Tips</h4>
-                <ul style="padding-left: 20px;">
-                    <li>Click a table in the database explorer to view columns.</li>
-                    <li>Select columns in the popup to auto-generate a SELECT query.</li>
-                    <li>Use the <b>Export</b> button to download results as an Excel file.</li>
-                    <li>Use the <b>Chart</b> button to visualize data (requires numeric Y-axis).</li>
-                </ul>
-            </div>
-            <div style="padding: 16px 20px; border-top: 1px solid var(--border-color); text-align: right;">
-                <button class="bbtn btn-secondary" onclick="closeModal()">Close</button>
-            </div>
-        </div>
+	<div class="modal-overlay" id="help-modal">
+		<div class="modal-content" style="width: 500px;">
+			<div class="modal-header">
+				<div class="modal-title">
+					<i class="fa-solid fa-circle-question text-primary"></i> <span>Help & Shortcuts</span>
+				</div>
+				<button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+			</div>
+			<div class="modal-body" style="line-height: 1.6;">
+				<h4 style="color: var(--primary); margin-bottom: 8px;">⌨️ Keyboard Shortcuts</h4>
+				<ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
+					<li><kbd style="background: #334155; padding: 2px 6px; border-radius: 4px;">Ctrl+Enter</kbd> / <kbd
+							style="background: #334155; padding: 2px 6px; border-radius: 4px;">F5</kbd> : Execute query
+						at cursor</li>
+				</ul>
+				<h4 style="color: var(--primary); margin-bottom: 8px;">💡 Tips</h4>
+				<ul style="padding-left: 20px;">
+					<li>Click a table in the database explorer to view columns.</li>
+					<li>Select columns in the popup to auto-generate a SELECT query.</li>
+					<li>Use the <b>Export</b> button to download results as an Excel file.</li>
+					<li>Use the <b>Chart</b> button to visualize data (requires numeric Y-axis).</li>
+				</ul>
+			</div>
+			<div style="padding: 16px 20px; border-top: 1px solid var(--border-color); text-align: right;">
+				<button class="bbtn btn-secondary" onclick="closeModal()">Close</button>
+			</div>
+		</div>
 
 
-	<script src="./js/tabulator.min.js"></script>
-	<!-- Monaco Editor Loader -->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
-
-
-	<script>
-		function setEditorHiehgt(height) {
-			console.log(height, $('#editor-wrapper .panel-header').height())
-			$('.monaco-container').css('height', height - $('#editor-wrapper .panel-header').height() + 'px')
-		}
-		$(document).ready(function () {
-			// 1. Initialize Layout Splitter
-			Split(['#sidebar', '#workspace'], {
-				sizes: [20, 80],
-				minSize: 220,
-				gutterSize: 6,
-				snapOffset: 0
-			})
-			Split(['#editor-wrapper', '#grid-wrapper'], {
-				direction: 'vertical',
-				sizes: [50, 50],
-				minSize: 150,
-				gutterSize: 6,
-				snapOffset: 0,
-				onDragEnd: function (sizes) {
-					const height = $('#editor-wrapper').height() * sizes[0] / 100
-					setEditorHiehgt(height)
-				}
-			})
-
-			const editor = new EditorModule(getEl('.monaco-container'), 'sqlEditor')
-			editor.init()
-			setTimeout(() => {
-				setEditorHiehgt($('#editor-wrapper').height() - 20)
-				// editor.setLayout()
+		<script src="./js/tabulator.min.js"></script>
+		<!-- Monaco Editor Loader -->
+		<script>
+			function setEditorHiehgt() {
+				$('.monaco-container').css('height', $('#editor-wrapper').height() - $('#editor-wrapper .panel-header').height() - 16)
 				editor.setFocus()
-			}, 500)
-			const chat = new ChatModule($('#grid-wrapper'))
-			chat.onMessage = onMessage.bind(chat)
-			chat.sendMessage({ type: 'init', username: 'isitna' })
-			pageInfo.chat = chat
-			pageInfo.editor = editor
-		})
-		function onMessage(msg) {
-			clog('@@ws message', msg, this)
-		}
+			}
+			$(document).ready(function () {
+				// 1. Initialize Layout Splitter
+				Split(['#sidebar', '#workspace'], {
+					sizes: [20, 80],
+					minSize: 220,
+					gutterSize: 6,
+					snapOffset: 0
+				})
+				Split(['#editor-wrapper', '#grid-wrapper'], {
+					direction: 'vertical',
+					sizes: [50, 50],
+					minSize: 150,
+					gutterSize: 6,
+					snapOffset: 0,
+					onDragEnd: function (sizes) {
+						//const height = $('#editor-wrapper').height() * sizes[0] / 100
+						setTimeout(() => setEditorHiehgt(), 100)
+					}
+				})
 
-	</script>
+				const editor = new EditorWidget(getEl('.monaco-container'), { language: 'python' })
+				editor.init()
+				setTimeout(() => setEditorHiehgt(), 500)
+				const chat = new ChatProc($('#grid-wrapper'))
+				chat.onMessage = onMessage.bind(chat)
+				chat.sendMessage({ type: 'init', username: 'isitna' })
+				pageInfo.chat = chat
+				pageInfo.editor = editor
+			})
+			function onMessage(msg) {
+				clog('@@ws message', msg, this)
+			}
+
+		</script>
 </body>
 
 </html>

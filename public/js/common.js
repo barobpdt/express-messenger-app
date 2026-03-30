@@ -1,4 +1,7 @@
-const pageInfo = {}
+const pageInfo = {
+	useSuggestions: false,
+	useSplitter: false
+}
 const clog = window.console.log
 const randomKey = () => (new Date % 9e64).toString(36)
 const isNull = a => a === null || typeof a == 'undefined'
@@ -314,6 +317,24 @@ function addSideToggleBtn(target, cb) {
 	})
 }
 
+function setSplitter(targes, options, onDragEnd) {
+	const info = Object.assign({
+		direction: 'vertical',
+		sizes: [50, 50],
+		minSize: 150,
+		gutterSize: 6,
+		snapOffset: 0
+	}, options)
+	if (onDragEnd) {
+		info.onDragEnd = onDragEnd
+	}
+	if (pageInfo.useSplitter) {
+		Split(targes, info)
+	} else {
+		loadScriptAll(['./js/Split.min.js'], () => Split(targes, info))
+	}
+}
+
 class ChatProc {
 	constructor(targetEl, url) {
 		if (!url) {
@@ -432,309 +453,6 @@ class ChatProc {
 		} else {
 			this.pendingMessages.push(msg)
 		}
-	}
-}
-
-class EditorProc {
-	constructor(target, editorCode) {
-		this.target = target
-		this.editorCode = editorCode
-		this.editor = null
-	}
-	init() {
-		require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
-		require(['vs/editor/editor.main'], () => {
-			clog('@@ editor module init ', this)
-			const editor = monaco.editor.create(this.target, {
-				value: '',
-				language: 'sql',
-				theme: 'vs-dark',
-				automaticLayout: true,
-				minimap: { enabled: false },
-				fontSize: 14,
-				fontFamily: "'JetBrains Mono', 'Consolas', 'Courier New', monospace",
-				fontLigatures: false, // Ligatures can sometimes mess up cursor alignment
-				lineHeight: 24,
-				padding: { top: 16, bottom: 16 },
-				scrollBeyondLastLine: false,
-				disableMonospaceOptimizations: true,
-				smoothScrolling: true,
-				cursorBlinking: "smooth",
-				cursorSmoothCaretAnimation: true,
-				renderWhitespace: "selection"
-			});
-
-			// Bind F5 and Ctrl+Enter to run query
-			editor.addCommand(monaco.KeyCode.F5, function () {
-				// executeQuery();
-			});
-			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
-				// executeQuery();
-			});
-			this.editor = editor;
-		});
-	}
-	setLayout() {
-		if (!this.editor) return;
-		this.editor.layout();
-	}
-	getValue() {
-		if (!this.editor) return '';
-		return this.editor.getValue();
-	}
-	setValue(value) {
-		if (!this.editor) return;
-		this.editor.setValue(value);
-	}
-	setFocus() {
-		if (!this.editor) return;
-		this.editor.focus();
-	}
-	resetEditor() {
-		if (!this.editor) return;
-		this.editor.setValue('');
-		this.editor.focus();
-	}
-	defineTheme() {
-		monaco.editor.defineTheme('premium-dark', {
-			base: 'vs-dark',
-			inherit: true,
-			rules: [],
-			colors: {
-				'editor.background': '#1e1e1e',
-				'editorLineNumber.foreground': '#475569',
-				'editorIndentGuide.background': '#334155',
-			}
-		});
-	}
-	registerCompletionItemProvider() {
-		monaco.languages.registerCompletionItemProvider('sql', {
-			triggerCharacters: [' ', '.'],
-			provideCompletionItems: function (model, position) {
-				var word = model.getWordUntilPosition(position);
-				var range = {
-					startLineNumber: position.lineNumber,
-					endLineNumber: position.lineNumber,
-					startColumn: word.startColumn,
-					endColumn: word.endColumn
-				};
-
-				// Suggest tables dynamically from schema
-				var suggestions = window.dbTables.map(tableName => {
-					return {
-						label: tableName,
-						kind: monaco.languages.CompletionItemKind.Struct,
-						insertText: tableName,
-						range: range,
-						detail: 'Table'
-					};
-				});
-				return { suggestions: suggestions };
-			}
-		});
-	}
-	changeLanguage(language) {
-		monaco.editor.setModelLanguage(this.editor.getModel(), language);
-	}
-	changeTheme(theme) {
-		monaco.editor.setTheme(theme);
-	}
-	updateOptions(options) {
-		this.editor.updateOptions(options);
-	}
-	setFontSize(fontSize) {
-		this.editor.updateOptions({ fontSize: fontSize });
-	}
-	setLineHeight(lineHeight) {
-		this.editor.updateOptions({ lineHeight: lineHeight });
-	}
-	setPadding(padding) {
-		this.editor.updateOptions({ padding: padding });
-	}
-	setScrollBeyondLastLine(scrollBeyondLastLine) {
-		this.editor.updateOptions({ scrollBeyondLastLine: scrollBeyondLastLine });
-	}
-	setDisableMonospaceOptimizations(disableMonospaceOptimizations) {
-		this.editor.updateOptions({ disableMonospaceOptimizations: disableMonospaceOptimizations });
-	}
-	setSmoothScrolling(smoothScrolling) {
-		this.editor.updateOptions({ smoothScrolling: smoothScrolling });
-	}
-	setCursorBlinking(cursorBlinking) {
-		this.editor.updateOptions({ cursorBlinking: cursorBlinking });
-	}
-	setCursorSmoothCaretAnimation(cursorSmoothCaretAnimation) {
-		this.editor.updateOptions({ cursorSmoothCaretAnimation: cursorSmoothCaretAnimation });
-	}
-	setRenderWhitespace(renderWhitespace) {
-		this.editor.updateOptions({ renderWhitespace: renderWhitespace });
-	}
-	addCommand(keyCode, command) {
-		this.editor.addCommand(keyCode, command);
-	}
-	getSelectValue() {
-		return this.editor.getModel().getValueInRange(this.editor.getSelection());
-	}
-	getCursorPosition() {
-		return this.editor.getPosition();
-	}
-	getOffsetAt(position) {
-		return this.editor.getModel().getOffsetAt(position);
-	}
-	getLineCount() {
-		return this.editor.getModel().getLineCount();
-	}
-	getLineContent(lineNumber) {
-		return this.editor.getModel().getLineContent(lineNumber);
-	}
-	getLineLength(lineNumber) {
-		return this.editor.getModel().getLineLength(lineNumber);
-	}
-	getLineFirstNonWhitespaceColumn(lineNumber) {
-		return this.editor.getModel().getLineFirstNonWhitespaceColumn(lineNumber);
-	}
-	getLineLastNonWhitespaceColumn(lineNumber) {
-		return this.editor.getModel().getLineLastNonWhitespaceColumn(lineNumber);
-	}
-	getLineMinColumn(lineNumber) {
-		return this.editor.getModel().getLineMinColumn(lineNumber);
-	}
-	getLineMaxColumn(lineNumber) {
-		return this.editor.getModel().getLineMaxColumn(lineNumber);
-	}
-	getLineRange(lineNumber) {
-		return this.editor.getModel().getLineRange(lineNumber);
-	}
-	getLineCount() {
-		return this.editor.getModel().getLineCount();
-	}
-	find(text) {
-		const matches = this.editor.getModel().findMatches(text, false, false, false, null, false);
-		return matches;
-	}
-	getCurrentQurey() {
-		const str = this.getSelectValue();
-		if (str) return str;
-		const position = this.getCursorPosition();
-		const text = this.getValue();
-		const offset = this.getOffsetAt(position);
-
-		let startSearchOffset = text.lastIndexOf(';', offset - 1);
-		let startOffset = startSearchOffset === -1 ? 0 : startSearchOffset + 1;
-
-		let endOffset = text.indexOf(';', offset);
-		if (endOffset === -1) endOffset = text.length;
-		return text.substring(startOffset, endOffset).trim();
-	}
-	formatCode() {
-		this.editor.trigger('anyString', 'editor.action.formatDocument');
-	}
-	onCursorChange(callback) {
-		this.editor.onDidChangeCursorPosition((e) => callback(e));
-	}
-	onContentChange(callback) {
-		this.editor.onDidChangeModelContent((e) => callback(e));
-	}
-	onSelectionChange(callback) {
-		this.editor.onDidChangeCursorSelection((e) => callback(e));
-	}
-	onCursorSelectionChange(callback) {
-		this.editor.onDidChangeCursorSelection((e) => callback(e));
-	}
-}
-
-class GridProc {
-	constructor(target, options) {
-		this.target = getEl(target)
-		this.options = options
-		this.grid = null
-		loadCss('/css/tabulator.min.css')
-		this.init()
-	}
-	init() {
-		/*
-		this.grid = new gridjs.Grid(this.options).render(this.target)
-		this.grid.setColumns([{ title: "Error", field: "error_message" }]);
-		this.grid.setData([{ error_message: result.error }]);
-		*/
-		if (!this.options.placeholder) this.options.placeholder = "데이터가 존재하지 않습니다."
-		this.grid = new Tabulator(this.target, this.options)
-	}
-	setData(data) {
-		this.grid.setData(data)
-	}
-	setColumns(columns) {
-		this.grid.setColumns(columns)
-	}
-	getData() {
-		return this.grid.getData()
-	}
-	getColumns() {
-		return this.grid.getColumns()
-	}
-	getSelectedData() {
-		return this.grid.getSelectedData()
-	}
-	getSelectedRows() {
-		return this.grid.getSelectedRows()
-	}
-	makeColumns(columns, useSet = false) {
-		const colDefs = columns.map(item => {
-			if (typeof item == 'string') {
-				return { title: item, field: item };
-			}
-			const field = item.field || item.code
-			const colDef = { field, title: item.title || field };
-			// Add some default custom widths based on length
-			if (field === 'id') colDef.width = 80;
-			if (field === 'status') colDef.formatter = this.statusFormatter;
-			if (item.hidden) colDef.hidden = true;
-			if (item.width) colDef.width = item.width;
-			if (item.formatter) colDef.formatter = item.formatter;
-			if (item.align) colDef.align = item.align;
-			if (item.sort) {
-				colDef.sorter = 'string';
-				colDef.headerSort = true;
-			}
-			if (item.editable) {
-				colDef.editor = "input";
-				colDef.cellClick = this.cellClick.bind(this)
-			} else if (item.useYn) {
-				colDef.editor = "select";
-				colDef.editorParams = { values: { "Y": "사용", "N": "미사용" } }
-			}
-			return colDef;
-		})
-		if (useSet) {
-			// colDefs.unshift({formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", width:90})
-			this.grid.setColumns(colDefs)
-		}
-		return colDefs
-	}
-	cellClick(e, cell) {
-		console.log(cell)
-	}
-	statusFormatter(cell, formatterParams, onRendered) {
-		var value = cell.getValue();
-		if (value === "active") {
-			return `<span style="color: #10b981; font-weight: 600;"><i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
-		} else {
-			return `<span style="color: #94a3b8;"><i class="fa-regular fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
-		}
-	}
-	addStyle() {
-		loadStyle(`
-			.tabulator-row {
-				font-family: 'JetBrains Mono', monospace;
-				font-size: 0.85rem;
-			}
-
-			.tabulator .tabulator-header {
-				font-family: 'Inter', sans-serif;
-				font-weight: 600;
-				border-bottom: 2px solid var(--border-color) !important;
-			}	
-		`)
 	}
 }
 
@@ -970,4 +688,366 @@ class UploadProc {
 	}
 
 }
+class EditorWidget {
+	constructor(target, options = {}, suggestions = []) {
+		this.target = target
+		this.editor = null
+		this.options = Object.assign({
+			value: '',
+			language: 'sql',
+			theme: 'vs-dark',
+			automaticLayout: true,
+			minimap: { enabled: false },
+			suggestOnTriggerCharacters: true,
+			quickSuggestions: true,
+			snippetSuggestions: 'top',
+			wordWrap: 'on',
+			fontSize: 14,
+		}, options)
+		this.language = this.options.language
+		this.dynamicSuggestions = []
+		this.staticSuggestions = suggestions
+
+		/*
+		fontFamily: "'JetBrains Mono', 'Consolas', 'Courier New', monospace",
+		fontLigatures: false, // Ligatures can sometimes mess up cursor alignment
+		lineHeight: 24,
+		padding: { top: 16, bottom: 16 },
+		scrollBeyondLastLine: false,
+		disableMonospaceOptimizations: true,
+		smoothScrolling: true,
+		cursorBlinking: "smooth",
+		cursorSmoothCaretAnimation: true,
+		renderWhitespace: "selection"
+		*/
+	}
+	init() {
+		if (!window.require) window.require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } }
+		loadScriptAll([
+			'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js',
+			'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/editor/editor.main.nls.js',
+			'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/editor/editor.main.js'
+		], () => {
+			setTimeout(() => this.initEditor(), 250)
+		})
+	}
+	initEditor() {
+		if (!require.config) {
+			clog('require.config not defined !!!')
+			setTimeout(() => this.initEditor(), 100)
+			return
+		}
+		require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } })
+		clog('>> require.config ok')
+		require(['vs/editor/editor.main'], () => {
+			const editor = monaco.editor.create(this.target, this.options)
+			// Bind F5 and Ctrl+Enter to run query
+			editor.addCommand(monaco.KeyCode.F5, function () {
+				// executeQuery();
+			})
+			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
+				// executeQuery();
+			})
+			this.editor = editor
+			// this.defineTheme()
+			try {
+				if (pageInfo.useSuggestions) {
+					this.setCompletionItem()
+				} else {
+					loadScriptAll(['/js/suggestions.js'], () => this.setCompletionItem())
+				}
+			} catch (e) {
+				console.error(e)
+			}
+		})
+	}
+	setCompletionItem() {
+		pageInfo.useSuggestions = true
+		if (this.staticSuggestions.length == 0) {
+			if (this.language === 'python') {
+				this.staticSuggestions = python_suggestions()
+			}
+		}
+		monaco.languages.registerCompletionItemProvider(this.language, {
+			provideCompletionItems: (model, position) => {
+				var word = model.getWordUntilPosition(position);
+				var range = {
+					startLineNumber: position.lineNumber,
+					endLineNumber: position.lineNumber,
+					startColumn: word.startColumn,
+					endColumn: word.endColumn
+				}
+				const kind = this.language === 'python' ? monaco.languages.CompletionItemKind.Function : monaco.languages.CompletionItemKind.Struct
+				const insertTextRules = this.language === 'python' ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet : monaco.languages.CompletionItemInsertTextRule.KeepText
+				const baseSuggestions = this.staticSuggestions.map(item => ({ ...item, range, kind, insertTextRules }))
+				return {
+					suggestions: baseSuggestions.concat(this.dynamicSuggestions.map(item => ({ ...item, range, kind, insertTextRules })))
+				}
+			}
+		})
+	}
+	setLayout() {
+		if (!this.editor) return;
+		this.editor.layout();
+	}
+	getValue() {
+		if (!this.editor) return '';
+		return this.editor.getValue();
+	}
+	setValue(value) {
+		if (!this.editor) return;
+		this.editor.setValue(value);
+	}
+	setFocus() {
+		if (!this.editor) return;
+		this.editor.focus();
+	}
+	resetEditor() {
+		if (!this.editor) return;
+		this.editor.setValue('');
+		this.editor.focus();
+	}
+	defineTheme() {
+		monaco.editor.defineTheme('premium-dark', {
+			base: 'vs-dark',
+			inherit: true,
+			rules: [],
+			colors: {
+				'editor.background': '#1e1e1e',
+				'editorLineNumber.foreground': '#475569',
+				'editorIndentGuide.background': '#334155',
+			}
+		});
+	}
+	registerCompletionItemProvider() {
+		monaco.languages.registerCompletionItemProvider('sql', {
+			triggerCharacters: [' ', '.'],
+			provideCompletionItems: function (model, position) {
+				var word = model.getWordUntilPosition(position);
+				var range = {
+					startLineNumber: position.lineNumber,
+					endLineNumber: position.lineNumber,
+					startColumn: word.startColumn,
+					endColumn: word.endColumn
+				};
+
+				// Suggest tables dynamically from schema
+				var suggestions = window.dbTables.map(tableName => {
+					return {
+						label: tableName,
+						kind: monaco.languages.CompletionItemKind.Struct,
+						insertText: tableName,
+						range: range,
+						detail: 'Table'
+					};
+				});
+				return { suggestions: suggestions };
+			}
+		});
+	}
+	changeLanguage(language) {
+		monaco.editor.setModelLanguage(this.editor.getModel(), language);
+	}
+	changeTheme(theme) {
+		monaco.editor.setTheme(theme);
+	}
+	updateOptions(options) {
+		this.editor.updateOptions(options);
+	}
+	setFontSize(fontSize) {
+		this.editor.updateOptions({ fontSize: fontSize });
+	}
+	setLineHeight(lineHeight) {
+		this.editor.updateOptions({ lineHeight: lineHeight });
+	}
+	setPadding(padding) {
+		this.editor.updateOptions({ padding: padding });
+	}
+	setScrollBeyondLastLine(scrollBeyondLastLine) {
+		this.editor.updateOptions({ scrollBeyondLastLine: scrollBeyondLastLine });
+	}
+	setDisableMonospaceOptimizations(disableMonospaceOptimizations) {
+		this.editor.updateOptions({ disableMonospaceOptimizations: disableMonospaceOptimizations });
+	}
+	setSmoothScrolling(smoothScrolling) {
+		this.editor.updateOptions({ smoothScrolling: smoothScrolling });
+	}
+	setCursorBlinking(cursorBlinking) {
+		this.editor.updateOptions({ cursorBlinking: cursorBlinking });
+	}
+	setCursorSmoothCaretAnimation(cursorSmoothCaretAnimation) {
+		this.editor.updateOptions({ cursorSmoothCaretAnimation: cursorSmoothCaretAnimation });
+	}
+	setRenderWhitespace(renderWhitespace) {
+		this.editor.updateOptions({ renderWhitespace: renderWhitespace });
+	}
+	addCommand(keyCode, command) {
+		this.editor.addCommand(keyCode, command);
+	}
+	getSelectValue() {
+		return this.editor.getModel().getValueInRange(this.editor.getSelection());
+	}
+	getCursorPosition() {
+		return this.editor.getPosition();
+	}
+	getOffsetAt(position) {
+		return this.editor.getModel().getOffsetAt(position);
+	}
+	getLineCount() {
+		return this.editor.getModel().getLineCount();
+	}
+	getLineContent(lineNumber) {
+		return this.editor.getModel().getLineContent(lineNumber);
+	}
+	getLineLength(lineNumber) {
+		return this.editor.getModel().getLineLength(lineNumber);
+	}
+	getLineFirstNonWhitespaceColumn(lineNumber) {
+		return this.editor.getModel().getLineFirstNonWhitespaceColumn(lineNumber);
+	}
+	getLineLastNonWhitespaceColumn(lineNumber) {
+		return this.editor.getModel().getLineLastNonWhitespaceColumn(lineNumber);
+	}
+	getLineMinColumn(lineNumber) {
+		return this.editor.getModel().getLineMinColumn(lineNumber);
+	}
+	getLineMaxColumn(lineNumber) {
+		return this.editor.getModel().getLineMaxColumn(lineNumber);
+	}
+	getLineRange(lineNumber) {
+		return this.editor.getModel().getLineRange(lineNumber);
+	}
+	getLineCount() {
+		return this.editor.getModel().getLineCount();
+	}
+	find(text) {
+		const matches = this.editor.getModel().findMatches(text, false, false, false, null, false);
+		return matches;
+	}
+	getCurrentQurey() {
+		const str = this.getSelectValue();
+		if (str) return str;
+		const position = this.getCursorPosition();
+		const text = this.getValue();
+		const offset = this.getOffsetAt(position);
+
+		let startSearchOffset = text.lastIndexOf(';', offset - 1);
+		let startOffset = startSearchOffset === -1 ? 0 : startSearchOffset + 1;
+
+		let endOffset = text.indexOf(';', offset);
+		if (endOffset === -1) endOffset = text.length;
+		return text.substring(startOffset, endOffset).trim();
+	}
+	formatCode() {
+		this.editor.trigger('anyString', 'editor.action.formatDocument');
+	}
+	onCursorChange(callback) {
+		this.editor.onDidChangeCursorPosition((e) => callback(e));
+	}
+	onContentChange(callback) {
+		this.editor.onDidChangeModelContent((e) => callback(e));
+	}
+	onSelectionChange(callback) {
+		this.editor.onDidChangeCursorSelection((e) => callback(e));
+	}
+	onCursorSelectionChange(callback) {
+		this.editor.onDidChangeCursorSelection((e) => callback(e));
+	}
+}
+
+class GridWidget {
+	constructor(target, options) {
+		this.target = getEl(target)
+		this.options = options
+		this.grid = null
+		loadCss('/css/tabulator.min.css')
+		this.init()
+	}
+	init() {
+		/*
+		this.grid = new gridjs.Grid(this.options).render(this.target)
+		this.grid.setColumns([{ title: "Error", field: "error_message" }]);
+		this.grid.setData([{ error_message: result.error }]);
+		*/
+		if (!this.options.placeholder) this.options.placeholder = "데이터가 존재하지 않습니다."
+		this.grid = new Tabulator(this.target, this.options)
+	}
+	setData(data) {
+		this.grid.setData(data)
+	}
+	setColumns(columns) {
+		this.grid.setColumns(columns)
+	}
+	getData() {
+		return this.grid.getData()
+	}
+	getColumns() {
+		return this.grid.getColumns()
+	}
+	getSelectedData() {
+		return this.grid.getSelectedData()
+	}
+	getSelectedRows() {
+		return this.grid.getSelectedRows()
+	}
+	makeColumns(columns, useSet = false) {
+		const colDefs = columns.map(item => {
+			if (typeof item == 'string') {
+				return { title: item, field: item };
+			}
+			const field = item.field || item.code
+			const colDef = { field, title: item.title || field };
+			// Add some default custom widths based on length
+			if (field === 'id') colDef.width = 80;
+			if (field === 'status') colDef.formatter = this.statusFormatter;
+			if (item.hidden) colDef.hidden = true;
+			if (item.width) colDef.width = item.width;
+			if (item.formatter) colDef.formatter = item.formatter;
+			if (item.align) colDef.align = item.align;
+			if (item.sort) {
+				colDef.sorter = 'string';
+				colDef.headerSort = true;
+			}
+			if (item.editable) {
+				colDef.editor = "input";
+				colDef.cellClick = this.cellClick.bind(this)
+			} else if (item.useYn) {
+				colDef.editor = "select";
+				colDef.editorParams = { values: { "Y": "사용", "N": "미사용" } }
+			}
+			return colDef;
+		})
+		if (useSet) {
+			// colDefs.unshift({formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", width:90})
+			this.grid.setColumns(colDefs)
+		}
+		return colDefs
+	}
+	cellClick(e, cell) {
+		console.log(cell)
+	}
+	statusFormatter(cell, formatterParams, onRendered) {
+		var value = cell.getValue();
+		if (value === "active") {
+			return `<span style="color: #10b981; font-weight: 600;"><i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
+		} else {
+			return `<span style="color: #94a3b8;"><i class="fa-regular fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> ${value}</span>`;
+		}
+	}
+	addStyle() {
+		loadStyle(`
+			.tabulator-row {
+				font-family: 'JetBrains Mono', monospace;
+				font-size: 0.85rem;
+			}
+
+			.tabulator .tabulator-header {
+				font-family: 'Inter', sans-serif;
+				font-weight: 600;
+				border-bottom: 2px solid var(--border-color) !important;
+			}	
+		`)
+	}
+}
+
 
