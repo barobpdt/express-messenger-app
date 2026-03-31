@@ -679,20 +679,22 @@ addCmdJob(id, command, logCallback) {
 }
 
 /* 사용자 워커등록 */
-addUserWorker(id, targetNode, callbackWorker ) {
+addUserWorker(param, targetNode, callbackWorker ) {
 	not(typeof(targetNode,'node')) {
 		return print("@@addWebDownloadWorker 대상노드 미정의");
 	}
-	worker=Baro.worker(id)
+	if(checkTag(param,'worker')) {
+		worker=param
+	} else {
+		worker=Baro.worker(param)
+	}
 	not(worker.@callback) {
 		worker.start(function(target) { if(target) target.@callbackWorker() });
 	}
 	if(typeof(callbackWorker,'func')) {
 		targetNode.@callbackWorker=callbackWorker
 	} else {
-		not(targetNode.@callbackWorker) {
-			targetNode.@callbackWorker=func(node) { print("##userWorker callback  node::$node") };
-		}
+		targetNode.@callbackWorker=func(node) { print("##userWorker callback  node::$node") };
 	}
 	not( targetNode.@worker ) {
 		targetNode.@worker=worker

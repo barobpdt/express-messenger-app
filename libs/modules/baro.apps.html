@@ -37,6 +37,13 @@ startMessageClient(userId, host, port, callback) {
 }
 
 @app.clipboard(type, data, text) {
+	if( this.@clipboardTick ) {
+		dist = System.tick() - this.@clipboardTick
+		if(dist<500) {
+			return;
+		}
+	}
+	this.@clipboardTick=System.tick()
 	cmd=Baro.process('pythonWebview')
 	not(cmd.cmp('@jobStatus','run')) {
 		print("webview 실행중이 아닙니다")
@@ -66,7 +73,7 @@ startMessageClient(userId, host, port, callback) {
 			tm=System.localtime()
 			filename="c:/temp/clipboard-images/copy-${tm}.png"
 			fileWrite(filename, data)
-			logFile=logAppend("pythonWebview-out").member(logFileName)
+			logFile=logAppend("pythonWebview-log").member(logFileName)
 			cmd=Baro.process('nodejs')
 			not(cmd.@jobStatus) {
 				path=conf('path.express')
@@ -80,6 +87,25 @@ startMessageClient(userId, host, port, callback) {
 	if(type=='urls') {
 		parseClipboardUrls(data)
 	}	
+}
+@api.folderTree(path, root, depth) {
+	not(root) root = _node('listFolder').removeAll();
+	not(depth) depth = 0;
+	fo=Baro.file()
+	fo.var(sort,'name, case')
+	depth++;
+	fo.list(path, func(info) {
+		while(info.next()) {
+			info.inject(type,name, fullPath)
+			if(type.eq('file')) continue;
+			if(name.eq('Windows', 'Program Files','Program Files (x86)')) continue;
+			cur=root.addNode().with(type,name,fullPath)
+			if(depth<3) {
+				@api.listFolder(fullPath, cur, depth)
+			}
+		}
+	})
+	return root;
 }
 @app.nodeRun(type, command) {
 	cmd=Baro.process('logParse')
@@ -95,36 +121,7 @@ startMessageClient(userId, host, port, callback) {
 		addCmdJob(cmd, #[node log-parse.js "${tailName}" --log "${logName}"])
 	}
 }
-@app.jobRun(cmd) {
-	switch(cmd.id) {
-	case logParse:
-		if( isValid(cmd.@nodeCommands)) {
-			line=cmd.@nodeCommands.pop()
-			logAppend('logParse').append(line)
-			return;
-		}
-		data=cmd.@logTail.timeout()
-		@app.logParse(data)
-	default:
-	}
-}
-@app.logParse(&s) {	
-	s.findPos('@#>') not(s.ch()) return;
-	while(s.valid()) {
-		left=s.findPos('@#>') not(left.ch()) continue;
-		type=left.findPos(':').trim()
-		src=left.trim()
-		switch(type) {
-		case 'upload-start': runWebviewScript('uploadStart', src)
-		case 'upload-progress': runWebviewScript('uploadProgress', src)
-		case 'upload-result': runWebviewScript('uploadResult', src)
-		case 'upload-error': runWebviewScript('uploadError', src)
-		case 'zip-result': runWebviewScript('zipResult', src)
-		case 'zip-error': runWebviewScript('zipError', src)
-		default: runWebviewScript('messengerLog', "$type:$src")
-		}
-	}
-}
+
 @app.userPath(callback) {
 	cmd=Baro.process('app')
 	if(cmd.@jobStatus=='run') {
@@ -139,15 +136,24 @@ startMessageClient(userId, host, port, callback) {
 		if(this.@callbackResult) this.@callbackResult(path)
 	})
 }
-runWebviewScript(fnm, src, checkJson) {
-	webview=Baro.process('pythonWebview')
-	if(checkJson) {
-		param=src
+
+addWorker(command, callbackWorker ) {
+	worker=Baro.worker('common')
+	targetNode=object('common.workerNode').addNode()
+	targetNode.@command=command
+	targetNode.@worker=worker
+	if(typeof(callbackWorker,'func')) {
+		targetNode.@callbackWorker=callbackWorker
 	} else {
-		param="`$src`"
+		targetNode.@callbackWorker=function() { print("##addWorker callback 함수 미정의 (노드:$this)") };
 	}
-	webview.@logAppend("@#>runScript:${fnm}(${param})\n")
+	not(worker.@callback) {
+		worker.start(function(target) { if(target) target.@callbackWorker(target) });
+	}
+	worker.push(targetNode)
+	return targetNode;
 }
+
 </script>
 
 <script note="파이션 유틸리티 함수">

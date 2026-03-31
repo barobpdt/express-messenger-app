@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Python WebRTC 음성 통화 클라이언트
 기존 Express WebSocket 서버를 시그널링 서버로 활용합니다.
@@ -8,7 +10,6 @@ pip install aiortc websockets pyaudio
 [실행]
 python python/voice_client.py --username userA --server ws://localhost:8081
 """
-
 import asyncio
 import json
 import sys
@@ -19,6 +20,8 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack
 from aiortc.contrib.media import MediaPlayer, MediaRecorder, MediaBlackhole
 from av import AudioFrame
 import websockets
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
 
 # ── 오디오 설정 ──────────────────────────────────────────────────
 AUDIO_RATE = 48000
@@ -307,7 +310,7 @@ async def main(server_url: str, user: str, call_target: str = None):
         await ws.send(json.dumps({"type": "init", "username": username}))
 
         # User CLI 루프 (백그라운드)
-        asyncio.create_task(cli_input_loop(call_target))
+        # asyncio.create_task(cli_input_loop(call_target))
 
         # WebSocket 메시지 수신 루프
         async for raw in ws:

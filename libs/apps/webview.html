@@ -141,10 +141,10 @@
 		}
 		print(">> webview log result:$result")
 		if( result.find('bridge:') ) {
-			page=page('main')
 			if( result.find('bridge:pageActive')) {				
 				return this.webviewActive();
 			}
+			page=page('main')
 			if( result.find('bridge:fullscreen')) {
 				this.webviewExec('zoom:1.5')
 				return page.pageState('fullscreen')
@@ -153,8 +153,21 @@
 				this.webviewExec('zoom:1.0')
 				return page.pageState('maximized')
 			}
+			this.bridgeCall(result)
 		}
 	}	
+	bridgeCall(&s) {
+		s.findPos('@#> bridge:')
+		while(s.valid()) {
+			left=s.findPos('@#> bridge:')
+			
+			not(s.ch()) break;
+		}  
+	}
+	bridgeProc(node) {	
+		not(node) return;
+		
+	}
 	webviewStart() {
 		this.@status='init'
 		this.@checkStart=false

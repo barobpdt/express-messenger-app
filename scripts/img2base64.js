@@ -38,9 +38,13 @@ try {
 
     if (outputFile) {
         // Save to file if output path is provided
-        const outPath = path.resolve(outputFile);
-        fs.writeFileSync(outPath, dataUri, 'utf8');
-        console.log(`✅ Base64 데이터가 성공적으로 저장되었습니다: ${outPath}`);
+		try {
+			const outPath = path.resolve(outputFile);
+			fs.appendFileSync(outPath, `\n@#>runScript:addChatMessage('<img src="${dataUri}">')`, 'utf8');
+			console.log(`✅ Base64 데이터가 성공적으로 저장되었습니다: ${outPath}`);
+		} catch(err) {
+			console.log(`✅ Base64 데이터가 생성오류: ${outPath} 에러:${err}`);
+		}
     } else {
         // Print to console
         console.log('--- 변환된 Base64(Data URI) 데이터 결과 ---');

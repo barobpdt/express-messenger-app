@@ -154,6 +154,7 @@
 		not( fo.open() ) {
 			not( fo.open(logFileName,'append') ) return print("로그파일 첨부오류 (파일명:$logFileName)");
 		}
+		fo.seek('end')
 		fo.append("\r\n$data\r\n")
 		fo.flush()
 		fo.timeStamp(logFileName, System.localtime())
