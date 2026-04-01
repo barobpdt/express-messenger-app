@@ -136,18 +136,6 @@ body {
 	animation: fadeIn 0.3s ease;
 }
 
-@keyframes fadeIn {
-	from {
-		opacity: 0;
-		transform: translateY(10px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
 .message.mine {
 	align-self: flex-end;
 }
@@ -213,18 +201,6 @@ body {
 	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
 	overflow: hidden;
 	animation: popIn 0.2s ease-out;
-}
-
-@keyframes popIn {
-	from {
-		opacity: 0;
-		transform: scale(0.95);
-	}
-
-	to {
-		opacity: 1;
-		transform: scale(1);
-	}
 }
 
 .user-list-header {
@@ -296,18 +272,6 @@ body {
 	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 	transition: all 0.2s;
 	animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes bounceIn {
-	0% {
-		transform: scale(0.5);
-		opacity: 0;
-	}
-
-	100% {
-		transform: scale(1);
-		opacity: 1;
-	}
 }
 
 .whisper-active-badge:hover {
@@ -697,4 +661,41 @@ textarea::placeholder {
 	border-radius: 6px;
 	color: white;
 	margin-bottom: 15px;
+}
+
+
+@keyframes popIn {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes bounceIn {
+	0% {
+		transform: scale(0.5);
+		opacity: 0;
+	}
+
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
 }

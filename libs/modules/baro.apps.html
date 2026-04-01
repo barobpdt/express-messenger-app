@@ -144,19 +144,20 @@ initApp() {
 	switch(type) {
 	case cmd:
 		cmd=cmdObject()
-		command=param.trim()
+		cmd.@target=webview
 		webview.@cmdBridge=cmd
-		addCmdJob(cmd, command, function(s,end) {
+		command=param.trim()
+		addCmdJob(cmd, command, function(s,&end) {
 			if(end) {
+				end.findPos("\n")
 				val=Cf.jsValue(end)
 				endCheck=true
 			} else {
-				s.findPos("\n")
 				val=Cf.jsValue(s)
 				endCheck=false
 			}
 			if( val ) {
-				webview.webviewExec("@#>runScript:setCmdResult($val,$endCheck)")
+				this.@target.webviewExec("@#>runScript:setCmdResult($val,$endCheck)")
 			}
 		})
 	case cmdWrite:
