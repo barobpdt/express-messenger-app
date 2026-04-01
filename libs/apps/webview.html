@@ -29,10 +29,11 @@
 		}
 	}
 	closePage() {
-		this.@canvas.killTimer()
-		this.webviewExec('quit: webview close')
-		Baro.process('pythonWebview').close()
+		this.@canvas.closeWebview()
+		System.sleep(100)
 		Baro.worker('webviewCommand').close()
+		Baro.process('pythonWebview').close()
+		this.close()
 	}
 	openPage() {
 		rcPage=System.info('screenRect',0).rightBottom(800,600,0,-60)
@@ -59,11 +60,61 @@
 		this.@checkStart=false
 		this.@startWebviewTick=0
 		this.@finishCnt=0 
+		this.@dcCanvas = object('dc.webview')
 		this.addArray('@penddingList')
 		this.timer(250)
 	}
-	updateCanvas() {
+	closeWebview() {
+		this.killTimer()
+		this.webviewExec('quit: webview close')
+	}
+	onDraw(dc, rc) {
+		if( rc.eq(this.rect()) ) {
+			not( rc.eq(this.@rectCanvas) ) {
+				this.@rectCanvas=rc
+				this.updateCanvas(rc)
+			}
+			this.drawBackground(dc, rc)
+		} else {
+			this.drawFrame(dc, rc)
+		}
+	}	
+	updateCanvas(rc) {
 		this.@webviewResizeTick=System.tick()
+	}
+	drawBackground(dc, rc) {		
+		bgColor=this.@baseColor.lightColor(100)
+		dc.fill(bgColor)
+	}
+	drawFrame(dc,rc) {
+		timeline=this.timeline()
+		not(isValid(timeline)) return;
+		while(pair, timeline) {
+			pair.inject(code, tm) not(tm.state()) continue;
+			fc=call("drawFrame_$code")
+			if(fc) {
+				call(fc,this,dc,rc,tm.frame(), tm)
+			}
+		}
+	}
+	showAnimation(code, frame, duration, updateRect, loopCount) {
+		tm=this.timeline(code, frame, duration)
+		if(loopCount) tm.loopCount(loopCount)
+		if(updateRect) tm.config().set('@updateRect', updateRect)
+	}
+	stopAnimation(code) {
+		if(code) {
+			tm=this.timeline().findPair(code)
+			if(tm) {
+				tm.stop()
+			}
+		} else {
+			while(pair, this.timeline()) {
+				pair.inject(code, tm)
+				tm.stop()
+			}
+		}
+		this.update()
 	}
 	webviewActive() {
 		page=page('main')
@@ -82,18 +133,16 @@
 		rect.inject(x,y,w,h)
 		ww=w*0.8, hh=h*0.8
 		this.webviewExec("geo:$x,$y,$ww,$hh,0")
+		Baro.drawObject(this.@dcCanvas, this)
 	}
-	drawBackground(dc) {
-		bgColor=this.@baseColor.lightColor(100)
-		dc.fill(bgColor)
-	}
+	
 	setWebviewResult(s) {
-		print("setWebviewResult: webview result ==> $s")		
+		/*내가 파이션에 요청한 결과처리*/
 	}
 	onTimer() {
 		if( this.@finishTick ) {
-			if(this.@finishCnt>10) return;
 			print(">> finish check ", this.@finishCnt )
+			if(this.@finishCnt>10) return;
 			if( checkTick(this.@finishTick, 500)) {
 				this.@finishCnt++
 				this.@finishTick=0
@@ -113,7 +162,15 @@
 			print("init log result==$result")
 			return;
 		}
-		not( status.eq('start')) {
+		if(cmd.@jobStatus.eq('finish')) {
+			this.@finishTick = System.tick()
+			return;			
+		}
+		if(cmd.@execStartTick) {
+			return;
+		}
+		not(
+		status.eq('start')) {
 			return print(">> status error [$status]")
 		}
 		if(checkTick(this.@webviewResizeTick) ) {
@@ -132,36 +189,36 @@
 				return;
 			}
 		}			
-		if(cmd.@jobStatus.eq('finish')) {
-			this.@finishTick = System.tick()				
-		}
+		
 		result=cmd.@logTail.timeout() 
 		not(result) {
 			return;
 		}
 		print(">> webview log result:$result")
-		if( result.find('bridge:') ) {
-			if( result.find('bridge:pageActive')) {				
-				return this.webviewActive();
-			}
-			page=page('main')
-			if( result.find('bridge:fullscreen')) {
-				this.webviewExec('zoom:1.5')
-				return page.pageState('fullscreen')
-			}
-			if( result.find('bridge:maximized')) {
-				this.webviewExec('zoom:1.0')
-				return page.pageState('maximized')
-			}
+		if( result.find('bridge:') ) {			
 			this.bridgeCall(result)
 		}
 	}	
 	bridgeCall(&s) {
+		page=page('main')
 		s.findPos('@#> bridge:')
 		while(s.valid()) {
-			left=s.findPos('@#> bridge:')
-			
+			left=s.findPos('@#>') not(left.ch()) continue;
+			type=left.move()
+			switch(type) {
+			case pageActive:			
+				this.webviewActive();
+			case fullscreen:
+				this.webviewExec('zoom:1.5')
+				page.pageState('fullscreen')
+			case maximized:
+				this.webviewExec('zoom:1.0')
+				page.pageState('maximized')			
+			default:
+				@app.bridgeTypeCall(this, type, left)				
+			}
 			not(s.ch()) break;
+			not(s.start('bridge:',true)) break;
 		}  
 	}
 	bridgeProc(node) {	
@@ -228,7 +285,10 @@
 	}
 	webviewStop() {
 		this.webviewExec('quit:')
-	}
+	}	
+</script>
+
+<script>
 	@webview.callbackWorker() {
 		cmd=this
 		if( cmd.@jobStatus!='run' ) {
@@ -246,27 +306,27 @@
 			}
 		}
 		source=cmd.@webviewCommandList.pop()
-		print(">> webview command start", source)
+		print(">> webview command start")
+		cmd.@execStartTick = System.tick()
 		cmd.@logTail.timeout()
 		cmd.@logAppend.append("@#>${source}")
 		result=''
-		while(n=0,30) {
-			System.sleep(10)
+		while(n=0,64) {
+			System.sleep(25)
 			result = cmd.@logTail.timeout()
 			if(result) {
-				print(">>@webview callback result: $n $result")
+				print(">>@webview callback result: $result ($n)")
 				cmd.@canvas.setWebviewResult(result)
 				break;
 			}
 		}
-		
+		dist=System.tick() - cmd.@execStartTick
+		if( dist>1000 ) {
+			print("실행시간 초과 $dist (ms) $source")
+		}
+		cmd.@execStartTick=0
 		if( cmd.@webviewCommandList.size() ) {
-			worker=cmd.@worker
-			workerSize=worker.list().size()
-			not(workerSize) {
-				print(">> 웹커멘드 요청건수 불일치 남은 목록 삭제", cmd.@webviewCommandList)
-				cmd.@webviewCommandList.reuse()
-			}
+			cmd.@worker.push(cmd)			
 		}
 	}
 </script>

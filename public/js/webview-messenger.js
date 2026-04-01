@@ -18,6 +18,8 @@ let onlineUsers = [];
 // ─── 명령어 히스토리 관리 ───
 const cmdHistory = [];
 let historyIndex = -1;
+let firstVisibleEl = null;
+let lastVisibleEl = null;
 
 // ─── 로그인 로직 ───
 const loginOverlay = document.getElementById('login-overlay');
@@ -33,6 +35,24 @@ if (urlParams.get('username')) {
 	pageInfo.username = urlParams.get('username')
 	pageInfo.room = urlParams.get('room')
 }
+
+const observer = new IntersectionObserver((entries) => {
+	// 현재 보이는 요소들 중 가장 위에 있는 것 찾기
+	const visibleEntries = entries
+		.filter(e => e.isIntersecting)
+		.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+	if (visibleEntries.length > 0) {
+		firstVisibleEl = visibleEntries[0].target;
+		lastVisibleEl = visibleEntries[visibleEntries.length - 1].target;
+		console.log('첫 번째 보이는 요소:', firstVisibleEl);
+		console.log('마지막 보이는 요소:', lastVisibleEl);
+	}
+}, {
+	root: msgContainer, // 이 컨테이너 기준으로 관찰
+	threshold: 0.2   // 10% 이상 보이면 감지
+});
+
 // 1:1 음성채팅
 let _pc = null;          // RTCPeerConnection
 let _localStream = null; // 내 마이크 스트림
@@ -502,6 +522,8 @@ function appendMessageContainer(type) {
 		div.remove()
 	})
 	scrollToBottom()
+	div.data('top', $(msgContainer).scrollTop())
+	observer.observe(div[0])
 	return box
 }
 function appendMessageBubble(data) {
@@ -598,6 +620,8 @@ function appendMessageBubble(data) {
 
 	msgContainer.appendChild(el);
 	scrollToBottom();
+	$(el).data('top', $(msgContainer).scrollTop())
+	observer.observe(el);
 }
 
 function scrollToBottom() {
@@ -634,6 +658,11 @@ async function uploadAvatar(nickName, callback) {
 		}
 	};
 }
+function cmdEnd() {
+	inputEl.value = '';
+	inputEl.style.height = '40px';
+	inputEl.focus();
+}
 function sendMessage() {
 	const text = inputEl.value.trim();
 	if (!text || ws.readyState !== WebSocket.OPEN) return;
@@ -654,187 +683,82 @@ function sendMessage() {
 
 	// 명령어 파싱 (/open URL, /alert MSG, /cmd CMD, /avatar URL)
 	if (text.startsWith('/')) {
-		const parts = text.split(' ');
-		const cmd = parts[0];
-		const param = parts[1];
-		const args = parts.slice(1).join(' ');
+		const pos = text.indexOf(' ');
+		const cmd = text.substring(0, pos);
+		const args = text.substring(pos + 1).trim()
+		if (cmd === '/next') {
+			if (lastVisibleEl) {
+				const next = $(lastVisibleEl).next()
+				if (next[0]) {
+					$(msgContainer).scrollTop(next.data('top'))
+				}
+			}
+			return cmdEnd()
+		}
+		if (cmd === '/prev') {
+			if (firstVisibleEl) {
+				const prev = $(firstVisibleEl).prev()
+				if (prev[0]) {
+					$(msgContainer).scrollTop(prev.data('top'))
+				}
+			}
+			return cmdEnd()
+		}
+		if (cmd == '/top') {
+			if (firstVisibleEl) {
+				$(msgContainer).scrollTop(firstVisibleEl.data('top'))
+			}
+			return cmdEnd()
+		}
+		if (cmd == '/bottom') {
+			if (lastVisibleEl) {
+				$(msgContainer).scrollTop(lastVisibleEl.data('top'))
+			}
+			return cmdEnd()
+		}
 		if (cmd === '/avatar') {
-			const url = args.trim();
+			const url = args
 			fetch(backendOrigin + '/api/user/avatar', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ username: userInfo.username, avatar: url || null })
-			})
-				.then(res => res.json())
-				.then(resData => {
-					if (resData.success) {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '✅ 프로필 사진이 업데이트 되었습니다.' });
-					} else {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `❌ 업데이트 실패: ${resData.error}` });
-					}
-				})
-				.catch(err => {
-					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `[Error] ${err.message}` });
-				});
-			inputEl.value = '';
-			inputEl.style.height = '40px';
-			inputEl.focus();
-			return;
+			}).then(res => res.json()).then(resData => {
+				if (resData.success) {
+					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '✅ 프로필 사진이 업데이트 되었습니다.' });
+				} else {
+					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `❌ 업데이트 실패: ${resData.error}` });
+				}
+			}).catch(err => {
+				appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `[Error] ${err.message}` });
+			});
+			return cmdEnd()
 		}
-
-		if (cmd === '/login') {
-			const [username, password] = args.split(' ');
-			appendMessageBubble({ senderId: userInfo.username, timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '로그인 확인 중...' });
-			fetch(backendOrigin + '/api/cmd/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ username, password })
-			})
-				.then(res => res.json())
-				.then(resData => {
-					if (resData.success) {
-						userInfo.token = resData.token;
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '✅ 로그인 성공. 이제 /cmd 명령어를 사용할 수 있습니다.' });
-					} else {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `❌ 로그인 실패: ${resData.error}` });
-					}
-				})
-				.catch(err => {
-					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `[Network Error] ${err.message}` });
-				});
-			inputEl.value = '';
-			inputEl.style.height = '40px';
-			inputEl.focus();
-			return;
-		}
-
 		if (cmd === '/logout') {
 			userInfo.token = null;
 			appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '✅ 로그아웃 되었습니다. 토큰이 삭제되었습니다.' });
-			inputEl.value = '';
-			inputEl.style.height = '40px';
-			inputEl.focus();
 			$('#login-overlay').show();
-			return;
-		}
-
-		if (cmd === '/log') {
-			if (!args) {
-				appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '❌ 저장할 내용을 입력해주세요. (예: /log 오늘 회의내용)' });
-				inputEl.value = '';
-				inputEl.style.height = '40px';
-				inputEl.focus();
-				return;
-			}
-
-			appendMessageBubble({ senderId: userInfo.username, timestamp: Date.now(), type: 'cmd-result', cmd: text, output: '로그 저장 중...' });
-			fetch(backendOrigin + '/api/log', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ text: args })
-			})
-				.then(res => res.json())
-				.then(resData => {
-					if (resData.success) {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: text, output: `✅ [${resData.file}] 파일에 저장되었습니다.` });
-					} else {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: text, output: `❌ 로그 저장 실패: ${resData.error}` });
-					}
-				})
-				.catch(err => {
-					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: text, output: `[Network Error] ${err.message}` });
-				});
-			inputEl.value = '';
-			inputEl.style.height = '40px';
-			inputEl.focus();
-			return;
-		}
-
-		if (cmd === '/monitor' || cmd === '/unmonitor') {
-			if (!userInfo.token) {
-				appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '❌ 로그인 먼저 해주세요. (사용법: /login id pw)' });
-				inputEl.value = '';
-				inputEl.style.height = '40px';
-				inputEl.focus();
-				return;
-			}
-
-			const action = cmd === '/monitor' ? 'start' : 'stop';
-			appendMessageBubble({ senderId: userInfo.username, timestamp: Date.now(), type: 'cmd-result', cmd: args || '(오늘 날짜 로그)', output: `${cmd === '/monitor' ? '모니터링 시작 중...' : '모니터링 종료 중...'}` });
-
-			fetch(backendOrigin + '/api/monitor', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${userInfo.token}`
-				},
-				body: JSON.stringify({ action: action, targetFile: args })
-			})
-				.then(res => res.json())
-				.then(resData => {
-					if (resData.success) {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args || '(오늘 날짜 로그)', output: `✅ ${resData.message}` });
-					} else {
-						appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args || '(오늘 날짜 로그)', output: `❌ ${resData.error}` });
-					}
-				})
-				.catch(err => {
-					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args || '(오늘 날짜 로그)', output: `[Network Error] ${err.message}` });
-				});
-			inputEl.value = '';
-			inputEl.style.height = '40px';
-			inputEl.focus();
-			return;
+			return cmdEnd()
 		}
 		if (cmd === '/go') {
-			if (param == 'ai') {
+			if (args == 'ai') {
 				openSubpage('/go-ai.html?opener=messenger&user=' + userInfo.username)
 			}
-			if (param == 'baduk') {
+			if (args == 'baduk') {
 				openSubpage('/go-ai.html?opener=messenger&user=' + userInfo.username)
 			}
-			if (param == 'game') {
+			if (args == 'game') {
 				openSubpage('/multiplayer-game/index.html?opener=messenger&user=' + userInfo.username)
 			}
+			return cmdEnd()
 		}
-
 		if (cmd === '/cmd') {
-			if (!userInfo.token) {
-				appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '❌ 로그인 먼저 해주세요. (사용법: /login id pw)' });
-				inputEl.value = '';
-				inputEl.style.height = '40px';
-				inputEl.focus();
-				return;
-			}
-
-			// /cmd 는 로컬(백엔드)로 직접 API 호출하고 화면에 결과만 출력, 웹소켓 브로드캐스트 안 함
-			appendMessageBubble({ senderId: userInfo.username, timestamp: Date.now(), type: 'cmd-result', cmd: args, output: '실행 중...' });
-			fetch(backendOrigin + '/api/cmd', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${userInfo.token}`
-				},
-				body: JSON.stringify({ command: args })
-			})
-				.then(res => res.json())
-				.then(resData => {
-					// 결과 갱신 (마지막 메시지를 덮어쓰거나 새로 추가)
-					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: resData.success ? resData.output : `[Error] ${resData.error}` });
-				})
-				.catch(err => {
-					appendMessageBubble({ senderId: 'system', timestamp: Date.now(), type: 'cmd-result', cmd: args, output: `[Network Error] ${err.message}` });
-				});
-
-			inputEl.value = '';
-			inputEl.style.height = '40px';
-			inputEl.focus();
-			return;
+			setCmdStart()
 		}
-
-		payload.type = 'command';
-		payload.cmd = cmd;
-		payload.args = args;
+		if (pageInfo.bridge) {
+			const type = cmd.substring(1)
+			pageInfo.bridge.logAppend(`${type} ${args}`)
+		}
+		return cmdEnd()
 	}
 
 	if (currentRoom) {
@@ -842,9 +766,7 @@ function sendMessage() {
 	}
 
 	ws.send(JSON.stringify(payload));
-	inputEl.value = '';
-	inputEl.style.height = '40px'; // Reset height
-	inputEl.focus();
+	return cmdEnd()
 }
 
 // Enter 및 방향키 처리
@@ -1608,4 +1530,27 @@ function _fmtTime(sec) {
 function addChatMessage(html) {
 	const box = appendMessageContainer('msg')
 	box.html(html)
+}
+function setFileList(node) {
+	const box = appendMessageContainer('msg')
+	box.html(JSON.stringify(node, null, 2))
+}
+function setZipfileList(node) {
+	const box = appendMessageContainer('msg')
+	box.html(JSON.stringify(node, null, 2))
+}
+function setErrorMessage(msg) {
+	alert('error message == ' + msg)
+}
+function setCmdStart() {
+	userInfo.cmdMessageEl = appendMessageContainer('msg')
+	userInfo.cmdMessageEl.html('명령어 실행중...')
+}
+function setCmdResult(msg, endCheck) {
+	if (userInfo.cmdMessageEl) {
+		$('<p/>').text(msg).appendTo(userInfo.cmdMessageEl)
+		if (endCheck) {
+			userInfo.cmdMessageEl = null
+		}
+	}
 }

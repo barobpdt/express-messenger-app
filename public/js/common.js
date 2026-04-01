@@ -109,6 +109,19 @@ const getElOffset = (el, checkRect) => {
 	}
 	return checkRect ? { top, left, width, height } : { top, left }
 }
+function getFirstVisibleChild(container) {
+	const containerRect = container.getBoundingClientRect();
+	const children = container.children;
+	for (const child of children) {
+		const rect = child.getBoundingClientRect();
+		// 자식 요소의 아래쪽이 컨테이너 위쪽보다 크고,
+		// 자식 요소의 위쪽이 컨테이너 아래쪽보다 작으면 = 보이는 상태
+		if (rect.bottom > containerRect.top && rect.top < containerRect.bottom) {
+			return child; // 첫 번째로 발견된 보이는 요소 반환
+		}
+	}
+	return null;
+}
 function fmtSize(b) {
 	if (!b) return '0 B';
 	const u = ['B', 'KB', 'MB', 'GB'];

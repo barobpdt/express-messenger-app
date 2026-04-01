@@ -571,7 +571,6 @@ removeCmdJob(id) {
 	timerInfo.@jobList.remove(cmd)
 	
 	cmd.@logAppend.close()
-	cmd.@logTail.close()
 	cmd.@cmdJobList.reuse()
 	cmd.@jobStatus='close'
 	if(cmd.run()) {
@@ -605,8 +604,12 @@ addCmdJob(id, command, logCallback) {
 	not(cmd.@jobMode) {
 		cmd.@jobMode='CMD'
 		cmd.@jobStatus='start'
-		cmd.@logTail = logTail("cmd_$id")
-		cmd.@logAppend = logAppend("cmd_$id")
+		if(id.start('cmd-')) {
+			jobId=id
+		} else {
+			jobId="cmd-$id"
+		}
+		cmd.@logAppend = logAppend(jobId)
 		cmd.addArray('@cmdJobList')
 	}
 	if( typeof(logCallback,'func')) {
@@ -662,7 +665,7 @@ addCmdJob(id, command, logCallback) {
 			if(err) {
 				logData=f[#@>error: error="$err" id="${this.id}" command="${this.@command}"]
 			} 
-			call(this.logCallback, this, logData, true)
+			call(this.logCallback, this, logData, data)
 		} else {
 			// cmd 명령 진행중
 			call(this.logCallback, this, data, false)
@@ -689,12 +692,14 @@ addUserWorker(param, targetNode, callbackWorker ) {
 		worker=Baro.worker(param)
 	}
 	not(worker.@callback) {
-		worker.start(function(target) { if(target) target.@callbackWorker() });
+		worker.start(function(target) { if(target) target.@callbackWorker(target) });
 	}
 	if(typeof(callbackWorker,'func')) {
 		targetNode.@callbackWorker=callbackWorker
 	} else {
-		targetNode.@callbackWorker=func(node) { print("##userWorker callback  node::$node") };
+		not(targetNode.@callbackWorker) {
+			targetNode.@callbackWorker=function(node) { print("##userWorker callback  (노드:$node)") };
+		}
 	}
 	not( targetNode.@worker ) {
 		targetNode.@worker=worker
@@ -921,7 +926,6 @@ stopGlobalTimer(closeCheck) {
 			if( checkTag(job,'process')) {
 				job.@jobStatus='stop'
 				job.@jobList.reuse()
-				job.@logTail.closeLog(true)
 				job.@logAppend.closeLog(true)
 				job.close()
 			}

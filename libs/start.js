@@ -349,32 +349,47 @@ isNull(s) {
 	if(typeof(s,'bool','number')) return false;	
 	return when(s,false,true) 
 }
+cmdObject(id) {
+	not(id) {		
+		while(n=0,32) {
+			cmd=Baro.process("cmd-$n")
+			if(cmd.@c) {
+				status=cmd.@jobStatus
+				if( status && status.eq('finish') ) {
+					return cmd;
+				}
+				continue;
+			}
+			return cmd;
+		}
+	}
+	return Baro.cmd(id)
+}
 webObject(id) { 
 	not(id) {		
-		while(n=0,16) {
-			web=Baro.web("web_$n")
+		while(n=0,32) {
+			web=Baro.web("web-$n")
 			if(web.is('run')) {
 				continue;
 			}
-			break;
+			return web;
 		}
-		return web;
 	}
 	return Baro.web(id) 
 }
 fileObject(id) {
 	not(id) {		
 		while(n=0,16) {
-			file=Baro.file("file_$n")
+			file=Baro.file("file-$n")
 			if(file.@c) {
 				continue;
 			}
-			break;
+			return file;
 		}
-		return file;
 	}
 	return Baro.file(id)
 }
+
 checkVar(name) {
 	not(typeof(name,'string')) return;
 	fn=Cf.funcNode('parent')
@@ -1232,13 +1247,15 @@ widget(name, moduleCode) {
 	}
 	not(moduleCode) {
 		moduleCode=widget.module
-	}
-	if( widget.tag=='canvas' ) {
-		widget.@skipFuncUpdate=true
-		addModule(widget,'canvas')
-	}
+	}	
 	if( moduleCode ) {
 		addModule(widget, moduleCode)
+	}
+	if( widget.tag=='canvas' ) {
+		not(widget.onDraw) {
+			widget.@skipFuncUpdate=true
+			addModule(widget,'canvas')
+		}
 	}
 	if(typeof(widget.initWidget,'func')) {
 		widget.initWidget()

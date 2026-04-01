@@ -5,28 +5,15 @@ initApp() {
 	page=page('webview:main')
 	page.openPage()
 }
-parseClipboardUrls(&s) {
-	while(s.valid()) {
-		line=s.findPos("\n") not(line.ch()) continue;
-		if( line.start('file:///', true) ) {
-			fullpath=line.trim()
-			if(isFolder(fullpath)) {
-			
-			} else {
-				filePathInfo(fullpath).inject(folder, filename, name)
-				ext=filename
-			}
-		}
-	}
-}
-startMessageServer(port) {
+
+@app.startMessageServer(port) {
 	not(port) port=8094
 	server=object('baro.server') addModule(server,'message_server')
 	server.start(port)
 	return server;
 }
 
-startMessageClient(userId, host, port, callback) {
+@app.startMessageClient(userId, host, port, callback) {
 	not(userId) userId="guest_${System.tick()}"
 	not(host) host='localhost'
 	not(port) port=8094
@@ -49,26 +36,32 @@ startMessageClient(userId, host, port, callback) {
 		print("webview 실행중이 아닙니다")
 		return;
 	}
+	useHtml = conf('clipboard.useHtml')
+	useText = conf('clipboard.useText')
 	if(type=='html') {
-		page=page('webview:main')		
-		if(conf('clipboard.useHtml')) {
+		val=''
+		page=page('webview:main')
+		if(useHtml) {
 			val=Cf.jsValue(data)
 		}
-		if(conf('clipboard.useText') && text) {
+		if(useText && text) {
 			val=Cf.jsValue(text)
 		}
-		page.@canvas.webviewExec(#[runScript:addChatMessage(${val})])
+		if(val) {
+			page.@canvas.webviewExec(#[runScript:addChatMessage(${val})])
+		}
 		return;
 	}
 	if(type=='text') {
-		if(conf('clipboard.useText') && text) {
+		if(useText && text) {
 			val=Cf.jsValue(text)
 			page.@canvas.webviewExec(#[runScript:addChatMessage(${val})])
 		}
 		return;
 	}
 	if(type=='image') {
-		if(conf('clipboard.useImage') ) {			 
+		useImage = conf('clipboard.useImage')
+		if( useImage ) {			 
 			Baro.file().mkdir('c:/temp/clipboard-images', true)
 			tm=System.localtime()
 			filename="c:/temp/clipboard-images/copy-${tm}.png"
@@ -79,36 +72,150 @@ startMessageClient(userId, host, port, callback) {
 				path=conf('path.express')
 				addCmdJob(cmd,"cd $path")
 			} 
-			addCmdJob(cmd, #[node scripts/img2base64.js "${filename}" "${logFile}"])
+			@app.callNodeJs('img2base64.js', filename)
 		}
 		return;
 	}
 	// print("$type : data=$data", text)	
 	if(type=='urls') {
-		parseClipboardUrls(data)
+		useFile = conf('clipboard.useFile')
+		if( useFile) {			
+			@app.parseClipboardUrls(data)
+		}
 	}	
 }
-@api.folderTree(path, root, depth) {
-	not(root) root = _node('listFolder').removeAll();
-	not(depth) depth = 0;
+@app.callNodeJs(nodeSource, fullpath) {
+	logFile=logAppend("pythonWebview-log").member(logFileName)
+	cmd=Baro.process('nodejs')
+	not(cmd.@jobStatus) {
+		path=conf('path.express')
+		addCmdJob(cmd,"cd $path")
+	} 
+	addCmdJob(cmd, #[node scripts/${nodeSource} "${fullpath}" "${logFile}"])
+}
+@app.parseClipboardUrls(&s) {
+	fo=Baro.file()
+	root=object('clipboard.fileRoot').removeAll()
+	node=object('clipboard.fileEntries').removeAll(true)
+	node.type='clipboard'
+	node.pathInfo = s
+	entries=node.addArray('entries')	
+	while(s.valid()) {
+		line=s.findPos("\n") not(line.ch()) continue;
+		if( line.start('file:///', true) ) {
+			fullpath=line.trim()
+			print("fullpath==$fullpath")
+			cur=root.addNode()
+			if(isFolder(fullpath)) {
+				cur.isDirectory=true
+				cur.size=0
+				sp=root.childCount()
+				@app.pathList(fullpath, root)
+			} else {
+				cur.isDirectory=false
+				cur.size=fo.fileInfo(fullpath,'size')
+			}
+			cur.fullpath=fullpath
+			cur.ext=fo.fileInfo(fullpath,'ext')
+			cur.name=fo.fileInfo(fullpath,'name')
+			cur.createDate=fo.fileInfo(fullpath,'createDt')
+			cur.modifyDate=fo.fileInfo(fullpath,'modifyDt')			
+		}
+	}
+	while(cur, root ) {
+		entries.add(cur)
+	}
+	page=page('webview:main')
+	if( root.childCount()==1 ) {
+		cur=root.child(0)
+		ext=cur.ext.lower()
+		if(ext.eq('zip')) {
+			return @app.callNodeJs('zipfile-list.js', cur.fullpath)
+		}
+		if(ext.eq('png','jpeg','jpg','bmp','gif')) {
+			@app.callNodeJs()
+			return @app.callNodeJs('img2base64.js', cur.fullpath)
+		}
+	}
+	val=json(node)
+	page.@canvas.webviewExec(#[runScript:setFileList(${val})])
+}
+@app.bridgeTypeCall(webview, type, &param) {
+	switch(type) {
+	case cmd:
+		cmd=cmdObject()
+		command=param.trim()
+		webview.@cmdBridge=cmd
+		addCmdJob(cmd, command, function(s,end) {
+			if(end) {
+				val=Cf.jsValue(end)
+				endCheck=true
+			} else {
+				s.findPos("\n")
+				val=Cf.jsValue(s)
+				endCheck=false
+			}
+			if( val ) {
+				webview.webviewExec("@#>runScript:setCmdResult($val,$endCheck)")
+			}
+		})
+	case cmdWrite:
+		cmd=webview.@cmdBridge
+		if( cmd && cmd.@jobStatus.eq('run')) {
+			cmd.write(value)
+		} else {
+			webview.webviewExec("@#>runScript:setErrorMessage('cmd가 실행중이 아닙니다')")
+		}
+	default:
+	}
+}
+@app.folderTree(path, root, depth) {
+	not(root) root = object('app.folderTree').removeAll();
+	not(depth) depth=0
+	if( depth>conf('app.maxFolderDepth')) return;
 	fo=Baro.file()
 	fo.var(sort,'name, case')
-	depth++;
 	fo.list(path, func(info) {
 		while(info.next()) {
 			info.inject(type,name, fullPath)
 			if(type.eq('file')) continue;
 			if(name.eq('Windows', 'Program Files','Program Files (x86)')) continue;
 			cur=root.addNode().with(type,name,fullPath)
-			if(depth<3) {
-				@api.listFolder(fullPath, cur, depth)
+			@app.folderTree(fullPath, cur, depth+1)
+		}
+	})
+	return root;
+}
+@app.pathList(path, root, depth) {
+	not(root) root = object('app.folderTree').removeAll()
+	not(depth) depth=0
+	if(depth>conf('app.maxFolderDepth')) {
+		return
+	}
+	fo=Baro.file()
+	fo.var(sort,'type, name, case')
+	fo.list(path, function(info) {
+		while(info.next()) {
+			info.inject(type, name, fullPath, modifyDt, createDt, size, ext)
+			isFolder=type.eq('folder')
+			if( isFolder ) {	
+				if(name.eq('Windows', 'Program Files','Program Files (x86)')) continue;
+			}
+			cur=root.addNode()
+			cur.name=name
+			cur.isDirectory=when(type.eq('folder'), true,false)
+			cur.createDate = System.date(createDt)
+			cur.modifyDate = System.date(modifyDt)
+			cur.size=size
+			if(isFolder) {
+				@app.pathList(fullPath, root, depth+1)
 			}
 		}
 	})
 	return root;
 }
-@app.nodeRun(type, command) {
-	cmd=Baro.process('logParse')
+@app.runNodeJsCommand(type, command) {
+	cmd=Baro.process('runNodeJsCommand')
 	log=logAppend('logParse')
 	line="@#>${type}:${command}"
 	if(cmd.cmp('@jobStatus', 'run')) {
@@ -129,14 +236,37 @@ startMessageClient(userId, host, port, callback) {
 		return;
 	}
 	cmd.@callbackResult=callback
-	addCmdJob(cmd, "echo %userprofile%", function(str,end) {
+	addCmdJob(cmd, "echo %userprofile%", function(result,end) {
 		not(end) return;
-		str.findPos("\n")
-		path=str.findPos("\n").trim()
-		if(this.@callbackResult) this.@callbackResult(path)
+		result.findPos("\n")
+		path=result.findPos("\n").trim()
+		if(this.@callbackResult) {
+			this.@callbackResult(path)
+		} else if(path) {
+			if(this.@command.start('echo')) {
+				conf('path.user', path.replace('\','/'), true)
+			}
+		}
 	})
 }
-
+@app.killProcess(name) {
+	not(name) return print("삭제할 프로세스명이 없습니다")
+	cmd=Baro.process('common')
+	addCmdJob(cmd, "tasklist | findstr $name", function(s,end) {
+		not(end) return;
+		s.findPos("\n")
+		root=object('app.tasklist').removeAll()
+		while(s.valid()) {
+			line=s.findPos("\n") not(s.ch()) break;
+			splitBlank(line).inject(name,pid,type,no,size)
+			root.addNode().with(name,pid,type,no,size)
+		}
+		while(cur, root) {
+			this.@current= cur
+			addCmdJob(this, "taskkill /PID ${cur.pid} /F")
+		}
+	})
+}
 addWorker(command, callbackWorker ) {
 	worker=Baro.worker('common')
 	targetNode=object('common.workerNode').addNode()
@@ -153,7 +283,16 @@ addWorker(command, callbackWorker ) {
 	worker.push(targetNode)
 	return targetNode;
 }
-
+splitBlank(&s) {
+	arr=_arr()
+	not(s.ch()) return a;
+	while(s.valid()) {	
+		val=s.findPos(" \t\n", 4)
+		arr.add(val)
+		not(s.ch()) break;
+	}
+	return arr;
+}
 </script>
 
 <script note="파이션 유틸리티 함수">
@@ -557,5 +696,79 @@ addWorker(command, callbackWorker ) {
 				}
 			}
 		}
+	}
+</script>
+
+<script note="에니메이션 처리">
+	drawFrame_boom02(dc, rc, frame, tm) {
+		sx=25, sy=40
+		w=182, h=227
+		idx=frame%9;
+		row=idx/3
+		col=idx%3
+		sx+=col*w
+		sy+=row*h
+		rcDest=rc(sx,sy,w,h)
+		dc.image(rc, this.@dcCanvas, rc)
+		dc.image(rc, 'boom02.png', rcDest)
+	}
+	drawFrame_boom03(dc, rc, frame, tm) {
+		sx=20, sy=50
+		w=211, h=201
+		idx=frame%9;
+		row=idx/2
+		col=idx%5
+		sx+=col*w
+		sy+=row*h
+		rcDest=rc(sx,sy,w,h)
+		dc.image(rc, this.@dcCanvas, rc)
+		dc.image(rc, 'boom03.png', rcDest)
+	}
+	drawFrame_boom05(dc, rc, frame, tm) {
+		w=170, h=368
+		ww=w*0.5, hh=h*0.5
+		rcCenter=dc.rect().center(ww,hh)
+		sx=15
+		idx=frame%7;
+		sx+=w*idx
+		rcDest=rc(sx,40,170,368)
+		dc.image(rc, this.@dcCanvas, rc)
+		dc.image(rcCenter, 'boom05.png', rcDest)
+	}
+	drawFrame_ani01(dc, rc, frame, tm) {
+		sx=100, sy=80
+		w=700, h=810
+		idx=frame%8;
+		row=idx/2
+		col=idx%4
+		sx+=col*w
+		sy+=$[row*h+(row-1)*120]
+		rcDest=rc(sx,sy,w,h)
+		dc.image(rc, this.@dcCanvas, rc)
+		dc.image(rc, 'ani01.png', rcDest)
+	}
+	drawFrame_ani04(dc, rc, frame, tm) {
+		sx=0, sy=0
+		w=125, h=148
+		idx=frame%9;
+		row=idx/3
+		col=idx%3
+		sx+=$[col*w+(col-1)*10]
+		sy+=$[row*h+(row-1)*10]
+		rcDest=rc(sx,sy,w,h)
+		dc.image(rc, this.@dcCanvas, rc)
+		dc.image(rc, 'ani04.png', rcDest)
+	}
+	drawFrame_ani06(dc, rc, frame, tm) {
+		sx=0, sy=0
+		w=171, h=162
+		idx=frame%9;
+		row=idx/3
+		col=idx%3
+		sx+=col*w
+		sy+=row*h
+		rcDest=rc(sx,sy,w,h)
+		dc.image(rc, this.@dcCanvas, rc)
+		dc.image(rc, 'ani06.png', rcDest)
 	}
 </script>

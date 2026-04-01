@@ -329,12 +329,11 @@
 						const dist = new Date().getTime() - pageInfo.blurTick
 						if (dist < 250) return;
 					}
-					/*
-					const tag = e.target.tagName
+					const target = e.target
+					const tag = target.tagName
 					if (tag == 'INPUT' || tag == 'TEXTAREA' || tag == 'BUTTON' || tag == 'A') {
-						return;
+						setTimeout(() => $(target).setFocus(), 1000)
 					}
-					*/
 					pageInfo.bridge.logAppend('pageActive');
 				})
 			});

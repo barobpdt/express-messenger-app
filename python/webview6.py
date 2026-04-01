@@ -44,6 +44,15 @@ class Bridge(QObject):
 	def logAppend(self, msg):
 		logAppend(f'bridge:{msg}')
 
+class WebPage(QWebEnginePage):
+	def acceptNavigationRequest(self, url, _type, isMainFrame):
+		# print(f"Navigation request intercepted: URL={url.toString()}, Type={_type}, MainFrame={isMainFrame}")
+		if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+			logAppend(f"linkClick:{url.toString()}")
+			return False 
+		return super().acceptNavigationRequest(url, _type, isMainFrame)
+
+
 class MyWebView(QWebEngineView):
 	# Store external windows.
 	# external_windows = []
@@ -52,6 +61,7 @@ class MyWebView(QWebEngineView):
 		logAppend(f'webview:init')
 		self.acceptDrops = True
 		self.urlChanged.connect(self.onUrlChange)
+		self.setPage(WebPage(self))
 		self.fp=open(args.command, 'r', encoding='utf8')
 		# self.fa=open(args.out, 'a', encoding='utf8')
 		self.lastPos=self.fp.seek(0, os.SEEK_END)
@@ -63,6 +73,7 @@ class MyWebView(QWebEngineView):
 		self.timer.timeout.connect(self.timeout)		
 		self.timerCount=0
 		self.setGeometry(-500, -500, 400, 400)
+		self.hide()
 		self.timer.start()
 		try:
 			self.channel = QWebChannel(self)
@@ -157,8 +168,8 @@ class MyWebView(QWebEngineView):
 					# self.setWindowFlags(Qt.WindowType.SplashScreen)
 					# self.move(0,0)
 					# self.resize(int(arr[2]), int(arr[3]))
+					# self.show()
 					self.setGeometry(int(float(arr[0])),int(float(arr[1])),int(float(arr[2])),int(float(arr[3])))
-					self.show()
 				elif ftype=='echo':
 					logAppend(f"echo = {params}")
 				elif ftype=='start':
@@ -209,7 +220,7 @@ class MyWebView(QWebEngineView):
 def main():	
 	app = QApplication(sys.argv)
 	webview = MyWebView()
-	webview.show()
+	# webview.show()
 	sys.exit(app.exec())
 	logAppend('app:quit')
 
