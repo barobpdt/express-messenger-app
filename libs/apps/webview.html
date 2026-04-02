@@ -169,8 +169,7 @@
 		if(cmd.@execStartTick) {
 			return;
 		}
-		not(
-		status.eq('start')) {
+		not(status.eq('start')) {
 			return print(">> status error [$status]")
 		}
 		if(checkTick(this.@webviewResizeTick) ) {

@@ -11,6 +11,12 @@ python python/make_icon.py <원본_이미지_경로> [출력_폴더]
 
 [예시]
 python python/make_icon.py clipboard_magic_icon.png ./icons/
+
+ 
+import cairosvg
+cairosvg.svg2png(url="input.svg", write_to="output.png")
+# 또는 바이트 데이터 사용
+# cairosvg.svg2png(bytestring=open("input.svg", "rb").read(), write_to="output.png")
 """
 
 import sys
