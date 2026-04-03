@@ -322,17 +322,16 @@
 				pageInfo.bridge = channel.objects.bridge;
 				$(document).on('click', e => {
 					if (pageInfo.focusTick) {
-						const dist = new Date().getTime() - pageInfo.focusTick
-						if (dist > 250) return;
+						if ((new Date().getTime() - pageInfo.focusTick) > 250) return;
 					}
 					if (pageInfo.blurTick) {
-						const dist = new Date().getTime() - pageInfo.blurTick
-						if (dist < 250) return;
+						if ((new Date().getTime() - pageInfo.blurTick) < 250) return;
 					}
 					const target = e.target
 					const tag = target.tagName
-					if (tag == 'INPUT' || tag == 'TEXTAREA' || tag == 'BUTTON' || tag == 'A') {
-						setTimeout(() => $(target).setFocus(), 1000)
+					if (tag == 'INPUT' || tag == 'TEXTAREA') {
+						pageInfo.focusTick = 0
+						return;
 					}
 					pageInfo.bridge.logAppend('pageActive');
 				})

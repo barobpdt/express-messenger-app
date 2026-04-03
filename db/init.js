@@ -282,6 +282,56 @@ export const initializeDatabase = async () => {
 			created_at          TIMESTAMP DEFAULT NOW()
 		)`;
 
+		// ─── 게시판 테이블 (QnA / 정보공유) ─────────────────────────────────────
+		await sql`
+		CREATE TABLE IF NOT EXISTS board_posts (
+			id                  SERIAL PRIMARY KEY,
+			board_type          TEXT NOT NULL DEFAULT 'qna',
+			title               TEXT NOT NULL,
+			content             TEXT NOT NULL,
+			author              TEXT NOT NULL,
+			author_nickname     TEXT,
+			author_avatar       TEXT,
+			tags                TEXT,
+			view_count          INTEGER DEFAULT 0,
+			like_count          INTEGER DEFAULT 0,
+			comment_count       INTEGER DEFAULT 0,
+			is_accepted         BOOLEAN DEFAULT FALSE,
+			accepted_comment_id INTEGER,
+			is_pinned           BOOLEAN DEFAULT FALSE,
+			created_at          TIMESTAMP DEFAULT NOW(),
+			updated_at          TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS board_comments (
+			id               SERIAL PRIMARY KEY,
+			post_id          INTEGER NOT NULL REFERENCES board_posts(id) ON DELETE CASCADE,
+			author           TEXT NOT NULL,
+			author_nickname  TEXT,
+			author_avatar    TEXT,
+			content          TEXT NOT NULL,
+			parent_id        INTEGER,
+			like_count       INTEGER DEFAULT 0,
+			is_accepted      BOOLEAN DEFAULT FALSE,
+			created_at       TIMESTAMP DEFAULT NOW(),
+			updated_at       TIMESTAMP DEFAULT NOW()
+		)`;
+
+		await sql`
+		CREATE TABLE IF NOT EXISTS board_likes (
+			id          SERIAL PRIMARY KEY,
+			target_type TEXT NOT NULL,
+			target_id   INTEGER NOT NULL,
+			username    TEXT NOT NULL,
+			created_at  TIMESTAMP DEFAULT NOW(),
+			UNIQUE(target_type, target_id, username)
+		)`;
+
+		await sql`CREATE INDEX IF NOT EXISTS idx_board_posts_type ON board_posts(board_type)`;
+		await sql`CREATE INDEX IF NOT EXISTS idx_board_posts_author ON board_posts(author)`;
+		await sql`CREATE INDEX IF NOT EXISTS idx_board_comments_post ON board_comments(post_id)`;
+
 		console.log("✅ Database tables initialized successfully.");
 	} catch (error) {
 		console.error("❌ Failed to initialize database tables:", error);

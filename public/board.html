@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>커뮤니티 게시판 – QnA & 정보공유</title>
+  <meta name="description" content="QnA 게시판과 정보공유 게시판. 궁금한 것을 질문하고 유용한 정보를 나눠보세요.">
+  <link rel="stylesheet" href="/css/board.css">
+</head>
+<body>
+
+  <!-- ── 헤더 ──────────────────────────────────────────────────── -->
+  <header class="board-header">
+    <div class="header-logo">
+      🌿 커뮤니티 게시판
+    </div>
+
+    <div class="header-tabs" role="tablist">
+      <button class="tab-btn active" data-board="qna" role="tab" aria-selected="true" id="tab-qna">
+        🙋 Q&amp;A
+      </button>
+      <button class="tab-btn" data-board="info" role="tab" aria-selected="false" id="tab-info">
+        📢 정보공유
+      </button>
+    </div>
+
+    <div class="header-spacer"></div>
+
+    <div class="header-actions">
+      <div id="user-bar" class="user-bar"></div>
+    </div>
+  </header>
+
+  <!-- ── 메인 컨테이너 ──────────────────────────────────────────── -->
+  <main class="board-container" id="main-container">
+
+    <!-- 게시판 제목 + 툴바 -->
+    <div class="board-toolbar">
+      <div>
+        <h1 style="font-size:20px;font-weight:800;margin-bottom:2px;color:var(--accent-qna);" id="board-subtitle">Q&amp;A 게시판</h1>
+        <p style="font-size:13px;color:var(--sub);" id="board-desc">궁금한 점을 질문하고 답변을 통해 함께 성장해요</p>
+      </div>
+
+      <div style="flex:1;"></div>
+
+      <div class="search-box">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+             viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="search" id="search-input" placeholder="검색어를 입력하세요" autocomplete="off">
+      </div>
+
+      <button class="btn btn-primary" id="write-btn">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 11h-6V5a1 1 0 1 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0v-6h6a1 1 0 0 0 0-2z"/>
+        </svg>
+        글쓰기
+      </button>
+    </div>
+
+    <!-- 게시글 목록 / 상세 뷰가 여기 렌더됨 -->
+    <div id="board-content">
+      <!-- JS로 채워짐 -->
+      <div class="post-list">
+        <div class="post-card" style="pointer-events:none;">
+          <div class="skeleton" style="height:20px;width:65%;margin-bottom:12px;"></div>
+          <div class="skeleton" style="height:13px;width:40%;"></div>
+        </div>
+        <div class="post-card" style="pointer-events:none;">
+          <div class="skeleton" style="height:20px;width:50%;margin-bottom:12px;"></div>
+          <div class="skeleton" style="height:13px;width:35%;"></div>
+        </div>
+        <div class="post-card" style="pointer-events:none;">
+          <div class="skeleton" style="height:20px;width:70%;margin-bottom:12px;"></div>
+          <div class="skeleton" style="height:13px;width:45%;"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── 토스트 컨테이너 (JS가 생성) ──────────────────────────── -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/js/board.js"></script>
+</body>
+</html>

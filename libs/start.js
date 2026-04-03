@@ -13,11 +13,10 @@ initService() {
 	// initWas()
 	// initWebsocket()
 	Cf.debug(true,"data/logs")
-	include("@apps#SourceRun")
-	
+	include("@apps#user_module")
+	include("@apps#SourceRun")	
 	page = page("SourceRun:main")
-	page.open()
-	runCommand("cd")
+	page.open()	
 	// include('@tools#CanvasTest')
 }
 initConfig() {
@@ -939,6 +938,11 @@ isFolder(fullPath, makeCheck) {
 		}
 	}
 	return folder;
+}
+isFullPath(path) {
+	c=path.ch(1)
+	if(c.eq(':')) return true;
+	return false;
 }
 pathJoin() {
 	ss=''

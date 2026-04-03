@@ -3,7 +3,8 @@ const userInfo = {
 	avatar: localStorage.getItem('messengerAvatar') || null,
 	nickname: localStorage.getItem('messengerNickname') || null,
 	profile_check: false,
-	room: ''
+	room: '',
+	bridgeIndex: 1
 }
 const msgContainer = document.getElementById('messages');
 const inputEl = document.getElementById('msg-input');
@@ -45,8 +46,6 @@ const observer = new IntersectionObserver((entries) => {
 	if (visibleEntries.length > 0) {
 		firstVisibleEl = visibleEntries[0].target;
 		lastVisibleEl = visibleEntries[visibleEntries.length - 1].target;
-		console.log('첫 번째 보이는 요소:', firstVisibleEl);
-		console.log('마지막 보이는 요소:', lastVisibleEl);
 	}
 }, {
 	root: msgContainer, // 이 컨테이너 기준으로 관찰
@@ -474,58 +473,7 @@ function connectWebSocket() {
 		setTimeout(connectWebSocket, 3000); // Reconnect after 3s
 	};
 }
-function appendMessageContainer(type) {
-	if (!pageInfo.useCheckOn) {
-		pageInfo.useCheckOn = true
-		loadStyle(`
-			.btn-message{
-				position:absolute;
-				top:4px;
-				background:#fff;
-				font-size:0.9rem;
-				right:4px;
-				width:24px;
-				height:24px;
-				border-radius:50%;
-				text-align:center;
-				padding-top:2px;
-				cursor:pointer;
-				border:1px solid #eee;
-			}
-			.check-on{background:rgb(229 177 229)}`)
-	}
-	const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-	const div = $(`
-		<div data-type="${type}" style="display:flex; flex-direction:column; position:relative;">
-			<div class="data-box"></div>
-			<div class="meta" style="justify-content:flex-start; gap:4px; margin-top:2px;">
-				<span>${time}</span>
-			</div>
-		</div>
-	`).appendTo(msgContainer)
-	const box = div.find('.data-box')
-	const checkBtn = $('<div class="btn-message" style="right:30px;"></div>').appendTo(div)
-	const deleteBtn = $('<div class="btn-message"></div>').appendTo(div)
 
-	box.css({ width: '100%', minHeight: 40, maxHeight: 400, overflow: 'auto', background: '#eee', padding: '8px', color: '#222' })
-	deleteBtn.html('❌')
-	checkBtn.html('✔️')
-	checkBtn.on('click', () => {
-		if (checkBtn.hasClass('check-on')) {
-			checkBtn.removeClass('check-on')
-		} else {
-			checkBtn.addClass('check-on')
-		}
-	})
-	deleteBtn.on('click', () => {
-		if (!confirm('현재 메시지를 삭제하시겠습니까?')) return
-		div.remove()
-	})
-	scrollToBottom()
-	div.data('top', $(msgContainer).scrollTop())
-	observer.observe(div[0])
-	return box
-}
 function appendMessageBubble(data) {
 	const isMine = data.senderId === userInfo.username;
 	const el = document.createElement('div');
@@ -620,7 +568,7 @@ function appendMessageBubble(data) {
 
 	msgContainer.appendChild(el);
 	scrollToBottom();
-	$(el).data('top', $(msgContainer).scrollTop())
+	$(el).data('top', $(msgContainer).scrollTop() + $(el).offset().top)
 	observer.observe(el);
 }
 
@@ -751,14 +699,8 @@ function sendMessage() {
 			}
 			return cmdEnd()
 		}
-		if (cmd === '/cmd') {
-			setCmdStart()
-		}
-		if (pageInfo.bridge) {
-			const type = cmd.substring(1)
-			pageInfo.bridge.logAppend(`${type} ${args}`)
-		}
-		return cmdEnd()
+
+		return setBridgeType(cmd.substring(1), args)
 	}
 
 	if (currentRoom) {
@@ -1527,30 +1469,112 @@ function _fmtTime(sec) {
 	return `${m}:${s}`;
 }
 
+
+function appendMessageContainer(type, index) {
+	if (!pageInfo.useCheckOn) {
+		pageInfo.useCheckOn = true
+		loadStyle(`
+			.btn-message{
+				position:absolute;
+				top:4px;
+				background:#fff;
+				font-size:0.9rem;
+				right:4px;
+				width:24px;
+				height:24px;
+				border-radius:50%;
+				text-align:center;
+				padding-top:2px;
+				cursor:pointer;
+				border:1px solid #eee;
+			}
+			.check-on{background:rgb(229 177 229)}`)
+	}
+	const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	const div = $(`
+		<div data-type="${type}" id="message-${index}" style="display:flex; flex-direction:column; position:relative;">
+			<div class="cmd-box"></div>
+			<div class="meta" style="justify-content:flex-start; gap:4px; margin-top:2px;">
+				<span>${time}</span>
+			</div>
+		</div>
+	`).appendTo(msgContainer)
+	const box = div.find('.cmd-box')
+	const checkBtn = $('<div class="btn-message" style="right:30px;"></div>').appendTo(div)
+	const deleteBtn = $('<div class="btn-message"></div>').appendTo(div)
+
+	box.css({ width: '100%', minHeight: 40, maxHeight: 400, overflow: 'auto', background: '#eee', padding: '8px', color: '#222' })
+	deleteBtn.html('❌')
+	checkBtn.html('✔️')
+	checkBtn.on('click', () => {
+		if (checkBtn.hasClass('check-on')) {
+			checkBtn.removeClass('check-on')
+		} else {
+			checkBtn.addClass('check-on')
+		}
+	})
+	deleteBtn.on('click', () => {
+		if (!confirm('현재 메시지를 삭제하시겠습니까?')) return
+		div.remove()
+	})
+	scrollToBottom()
+	const scrollY = $(div).offset().top - $(msgContainer).offset().top
+	div.data('top', $(msgContainer).scrollTop() + scrollY)
+	observer.observe(div[0])
+	return box
+}
+
+function setBridgeType(type, param) {
+	const index = userInfo.bridgeIndex++
+	if (pageInfo.bridge) {
+		if (type == 'cmd') {
+			setCmdStart(index)
+		} else {
+			setUserType(type, param, index)
+		}
+		pageInfo.bridge.logAppend(`${type}/${index}/${param}`)
+	}
+	cmdEnd()
+}
+
 function addChatMessage(html) {
-	const box = appendMessageContainer('msg')
+	const box = appendMessageContainer('msg', userInfo.bridgeIndex++)
 	box.html(html)
 }
 function setFileList(node) {
-	const box = appendMessageContainer('msg')
+	const box = appendMessageContainer('msg', userInfo.bridgeIndex++)
 	box.html(JSON.stringify(node, null, 2))
 }
 function setZipfileList(node) {
-	const box = appendMessageContainer('msg')
+	const box = appendMessageContainer('msg', userInfo.bridgeIndex++)
 	box.html(JSON.stringify(node, null, 2))
 }
+
 function setErrorMessage(msg) {
 	alert('error message == ' + msg)
 }
-function setCmdStart() {
-	userInfo.cmdMessageEl = appendMessageContainer('msg')
-	userInfo.cmdMessageEl.html('명령어 실행중...')
+function setCmdStart(index) {
+	const box = appendMessageContainer('cmd', index)
+	box.html('<div class="cmd-start">cmd 명령어 실행중...</div>')
 }
-function setCmdResult(msg, endCheck) {
-	if (userInfo.cmdMessageEl) {
-		$('<p/>').text(msg).appendTo(userInfo.cmdMessageEl)
-		if (endCheck) {
-			userInfo.cmdMessageEl = null
-		}
+function setCmdResult(msg, index) {
+	const box = $('#message-' + index).find('.cmd-box')
+	box.find('.cmd-start').remove()
+	msg = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	msg.split('\n').forEach(line => {
+		$('<p/>').html(line).appendTo(box)
+	})
+}
+
+function setUserType(type, param, index) {
+	if (pageInfo.bridge) {
+		const box = appendMessageContainer(type, index)
+		box.html(`<div class="cmd-start">${type} 명령어 실행중...</div>`)
+		pageInfo.bridge.logAppend(`${type} ${param}`)
 	}
+}
+function setUserResult(msg, index) {
+	const box = $('#message-' + index).find('.cmd-box')
+	box.find('.cmd-start').remove()
+	$('<p/>').text(msg).appendTo(box)
 }
