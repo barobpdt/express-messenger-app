@@ -1,7 +1,12 @@
 import express from "express";
 import { ENV } from "./config/env.js";
 import { db } from "./config/db.js";
-import { usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable, todosTable, todoHistoryTable, offlineMessagesTable, chatRoomsTable, chatRoomUsersTable } from "./db/schema.js";
+import {
+	usersTable, favoritesTable, peerConnectionsTable, songsTable, videoScheduleTable,
+	todosTable, todoHistoryTable, offlineMessagesTable,
+	chatRoomsTable, chatRoomUsersTable,
+	boardPostsTable, boardCommentsTable, boardLikesTable
+} from "./db/schema.js";
 import { and, eq, or, like, sql, desc } from "drizzle-orm";
 // import job from "./config/cron.js";
 import cors from "cors";
@@ -13,6 +18,7 @@ import logger from "./config/logger.js";
 import orderRouter from "./routes/order.js";
 import spriteRouter from "./routes/sprite.js";
 import uploadRouter from "./routes/upload.js";
+import boardRouter from "./routes/board.js";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
@@ -462,6 +468,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(express.static("public"));
 app.use("/api/sprite", spriteRouter);
 app.use("/api/upload", uploadRouter);
+app.use("/api/board", boardRouter);
 
 // 헬스 체크
 app.get("/api/health", (req, res) => {

@@ -83,8 +83,7 @@
 		this.@webviewResizeTick=System.tick()
 	}
 	drawBackground(dc, rc) {		
-		bgColor=this.@baseColor.lightColor(100)
-		dc.fill(bgColor)
+		dc.fill('#aaa')
 	}
 	drawFrame(dc,rc) {
 		timeline=this.timeline()
@@ -197,7 +196,10 @@
 		if( result.find('bridge:') ) {			
 			this.bridgeCall(result)
 		}
-	}	
+	}
+	runScript(s) {
+		this.webviewExec("@#>runScript:$s")
+	}
 	bridgeCall(&s) {
 		page=page('main')
 		s.findPos('@#> bridge:')
@@ -214,7 +216,16 @@
 				this.webviewExec('zoom:1.0')
 				page.pageState('maximized')			
 			default:
-				@app.bridgeTypeCall(this, type, left)				
+				if(type.eq('py')) type='python'
+				else if(type.eq('cb')) type='clipboard'
+				not(left.ch('/')) return print("$type 시작 오류");
+				index=left.incr().move() not(left.ch('/')) break;
+				fc=call("user.bridge_$type")
+				if(fc) {
+					call(fc,cmd,this,index,param)
+				} else {
+					print("user.bridge_$type 함수 미정의")
+				}
 			}
 			not(s.ch()) break;
 			not(s.start('bridge:',true)) break;

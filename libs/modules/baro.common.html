@@ -1,13 +1,33 @@
 <script type="service" note="어플리케이션 시작 초기화 함수">
-
+runCommand( command, callback ) {
+	cmd=cmdObject()
+	addCmdJob(cmd, command, callback)
+	return cmd;
+}
 closeApp() {
-	if(checkFunc('closePythonCommand')) {
-		closePythonCommand()
-		System.sleep(100)
-	}
-	Baro.process('common').close()
+	stopGlobalTimer()
 	Cf.debug(false)
-	stopGlobalTimer(true)
+	page=page('webview:main')
+	if(page) page.closePage()
+	root=Cf.getObject()
+	while(key, root.keys()) {
+		if(key.start('process.')) {
+			obj=root.get(key)
+			if( obj.@jobStatus && obj.@jobStatus.eq('finish') ) {
+				obj.@jobStatus='close'
+				obj.@jobList.reuse()
+				obj.close()
+			}
+		}
+		else if(key.start('worker.')) {
+			obj=root.get(key)
+			obj.stop()
+		}
+		else if(key.start('web.')) {
+			obj=root.get(key)
+			obj.stop()
+		}
+	}
 	System.sleep(200)
 	Cf.exit()
 }
@@ -457,21 +477,6 @@ webResult(url, method, data, headerJson) {
 
 
 <script type="worker" note="작업관리">
-runCommand( &str, callback ) {
-	count = getLineCount(str) 
-	param=null
-	if(count==0) return print("@@ runCommand 명령라인이 없습니다");
-	if(count==1) { 
-		line=str.trim()
-		addCmdJob('common', line, callback)
-	} else {
-		while(str.valid()) {
-			line=str.findPos("\n").trim() not(line) continue;
-			addCmdJob('common', line, callback)
-		}
-	}
-	return param;
-}
 
 /* 웹요청처리를 위한 호출 정보생성 */
 webRequestInfo(web, url, method, data, headerInfo) {
@@ -555,37 +560,26 @@ addWebDownloadJob(id, targetNode, logCallback ) {
 }
 
 /* cmd 결과처리 작업등록 */
-removeCmdJob(id) {
-	if(checkTag(id,'process')) {
-		cmd=id
-		id=cmd.id
-	} else {
-		not(typeof(id,'string')) return print("@@ removeCmdJob 오류", id);
-		cmd=Baro.process(id)
-	}
-	timerInfo = global('@timerInfo')
-	not(timerInfo.@jobList.find(cmd)) {
-		print(">> removeCmdJob $id 작업노드가 없습니다")
-		return false;
-	}
-	timerInfo.@jobList.remove(cmd)
-	
-	cmd.@logAppend.close()
-	cmd.@cmdJobList.reuse()
-	cmd.@jobStatus='close'
-	if(cmd.run()) {
-		cmd.close()
-	}
-	print(">> remove cmd job $id 작업이 제거되었습니다")
-	return true;
-}
 checkCmdError(result) {
-	if( result.find('bad option') ) {
-		// bad option
+	getLine = function(&s) {
+		s.findPos("\n")
+		a=s.findPos("\n") not(a.ch()) return;
+		b=s.findPos("\n")
+		not(b.ch()) {
+			c=s.findPos("\n")
+			d=c.ch(-1)
+			if(d.eq('>')) return a;
+		}
+		return;
+	}
+	line = getLine(result) not(line) return;
+	if( line.find('bad option') ) {
 		return 'bad-option';
 	}
-	if( result.find('not recognized') ) {
-		// is not recognized as an internal or external command
+	if( line.find('cannot find') ) {
+		return 'not-founded';
+	}
+	if( line.find('not recognized') ) {
 		return 'not-recognized';
 	}	
 	return;
@@ -910,30 +904,10 @@ startGlobalTimer() {
 	print("global timer 시작", timerInfo)
 }
 /* 전역 타이머 중지 */
-stopGlobalTimer(closeCheck) {
+stopGlobalTimer() {
 	global=global()
 	global.@timerDelay = 0
-	System.globalTimer(false)
-	print("global timer 중지됨")
-	if( closeCheck ) {
-		timerInfo=global('@timerInfo')
-		if( isObject(global.@watcherFiles) ) {
-			while(cur, global.@watcherFiles) {
-				cur.@callback = null
-			}
-		}
-		while(job, timerInfo.@jobList ) {
-			if( checkTag(job,'process')) {
-				job.@jobStatus='stop'
-				job.@jobList.reuse()
-				job.@logAppend.closeLog(true)
-				job.close()
-			}
-			else if( checkTag(job,'web')) {
-				job.stop()
-			}
-		}
-	}
+	System.globalTimer(false)	
 }
 /* 전역 타이머처리 콜백함수 */	
 @baro.procGlobalTimer() {

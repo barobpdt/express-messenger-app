@@ -1,0 +1,81 @@
+<script module="user">
+	/* cmd 실행 */
+	bridge_cmd(webview, index, param) {
+		cmd=cmdObject()
+		cmd.@target=webview
+		cmd.@resultCount=0
+		cmd.@brigeIndex=index
+		command=param.trim()
+		addCmdJob(cmd, command, function(s,&end) {
+			cnt=this.incrNum('@resultCount')			
+			if(end) {
+				not(cnt) end.findPos("\n")
+				val=Cf.jsValue(end)
+			} else {
+				not(cnt) s.findPos("\n")
+				val=Cf.jsValue(s)
+			}
+			if( val ) {
+				brigeIndex=cmd.@brigeIndex
+				this.@target.runScript("setCmdResult($val,$brigeIndex)")
+			}
+		})
+	}
+	bridge_test(webview, index, param) {
+		print("bridge_test=>$param")
+		val = Cf.jsValue(param)
+		webview.runScript("setUserResult($val,$brigeIndex)")
+	}
+	bridge_select(webview, index, &param) {
+		not(param.ch()) return webview.runScript("setErrorMessage('select 매개변수가 없습니다')")		
+		switch(param.move()) {
+		case color:
+			color=getColor()
+			webview.runScript(#[setUserResult(`select-color=>${color}`)])
+		case folder:
+			bridgeParamArray(param).inject(defaultFolder, title)
+			if(defaultFolder) {
+				conf('global.defaultFolder', defaultFolder, true)
+			} else {
+				defaultFolder=conf('global.defaultFolder')
+				not(defaultFolder) defaultFolder=System.path()
+			}
+			not(title) title='폴더 선택'
+			folder=selectFolder(title, defaultFolder)
+			webview.runScript(#[setUserResult(`select-folder=>${folder}`)])
+		case file:
+			bridgeParamArray(param).inject(defaultFolder, title, filter)
+			if(defaultFolder) {
+				conf('global.defaultFolder', defaultFolder, true)
+			} else {
+				defaultFolder=conf('global.defaultFolder')
+				not(defaultFolder) defaultFolder=System.path()
+			}
+			not(title) title='파일 선택'
+			file=selectFile(title, defaultFolder, filter)
+			webview.runScript(#[setUserResult(`select-file=>${file}`)])
+		}
+	}
+	bridge_python(webview, index, param) {
+	
+	}
+	bridge_clipboard(webview, index, param) {
+	
+	}
+</script>
+
+<script>
+	bridgeParamArray(&param) {
+		arr=[]
+		while(param.valid()) {
+			ch=param.ch() not(ch) break;
+			if(ch.eq()) {
+			}if(ch.eq('{')) {
+			
+			} else if(ch.eq('$')) {
+			
+			}
+		}
+		return arr;
+	}
+</script>

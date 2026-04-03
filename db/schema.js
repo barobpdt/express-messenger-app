@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, unique, pgEnum } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
 	id: serial("id").primaryKey(),
@@ -166,3 +166,47 @@ export const chatRoomUsersTable = pgTable("chat_room_users", {
 	status: text("status").default("active"), // 접속 상태/참여 상태 (active, left, banned 등)
 	joinedAt: timestamp("joined_at").defaultNow(),
 });
+
+// ─── 게시판 (QnA / 정보공유) ──────────────────────────────────────────────────
+export const boardPostsTable = pgTable("board_posts", {
+	id: serial("id").primaryKey(),
+	boardType: text("board_type").notNull().default("qna"),   // 'qna' | 'info'
+	title: text("title").notNull(),
+	content: text("content").notNull(),
+	author: text("author").notNull(),                         // username
+	authorNickname: text("author_nickname"),
+	authorAvatar: text("author_avatar"),
+	tags: text("tags"),                                       // 콤마로 구분된 태그
+	viewCount: integer("view_count").default(0),
+	likeCount: integer("like_count").default(0),
+	commentCount: integer("comment_count").default(0),
+	isAccepted: boolean("is_accepted").default(false),        // QnA: 답변 채택 여부
+	acceptedCommentId: integer("accepted_comment_id"),        // QnA: 채택된 답변 ID
+	isPinned: boolean("is_pinned").default(false),            // 공지 고정
+	createdAt: timestamp("created_at").defaultNow(),
+	updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const boardCommentsTable = pgTable("board_comments", {
+	id: serial("id").primaryKey(),
+	postId: integer("post_id").notNull(),                     // board_posts 참조
+	author: text("author").notNull(),
+	authorNickname: text("author_nickname"),
+	authorAvatar: text("author_avatar"),
+	content: text("content").notNull(),
+	parentId: integer("parent_id"),                           // 대댓글용 (NULL = 최상위)
+	likeCount: integer("like_count").default(0),
+	isAccepted: boolean("is_accepted").default(false),        // QnA: 채택된 답변
+	createdAt: timestamp("created_at").defaultNow(),
+	updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const boardLikesTable = pgTable("board_likes", {
+	id: serial("id").primaryKey(),
+	argetType: text("target_type").notNull(),                  // 'post' | 'comment'
+	targetId: integer("target_id").notNull(),
+	username: text("username").notNull(),
+	createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+	uniq: unique().on(t.targetType, t.targetId, t.username),  // 한 사용자 중복 좋아요 방지
+}));

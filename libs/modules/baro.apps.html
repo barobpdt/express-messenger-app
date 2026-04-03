@@ -140,36 +140,7 @@ initApp() {
 	val=json(node)
 	page.@canvas.webviewExec(#[runScript:setFileList(${val})])
 }
-@app.bridgeTypeCall(webview, type, &param) {
-	switch(type) {
-	case cmd:
-		cmd=cmdObject()
-		cmd.@target=webview
-		webview.@cmdBridge=cmd
-		command=param.trim()
-		addCmdJob(cmd, command, function(s,&end) {
-			if(end) {
-				end.findPos("\n")
-				val=Cf.jsValue(end)
-				endCheck=true
-			} else {
-				val=Cf.jsValue(s)
-				endCheck=false
-			}
-			if( val ) {
-				this.@target.webviewExec("@#>runScript:setCmdResult($val,$endCheck)")
-			}
-		})
-	case cmdWrite:
-		cmd=webview.@cmdBridge
-		if( cmd && cmd.@jobStatus.eq('run')) {
-			cmd.write(value)
-		} else {
-			webview.webviewExec("@#>runScript:setErrorMessage('cmd가 실행중이 아닙니다')")
-		}
-	default:
-	}
-}
+
 @app.folderTree(path, root, depth) {
 	not(root) root = object('app.folderTree').removeAll();
 	not(depth) depth=0
@@ -215,21 +186,49 @@ initApp() {
 	})
 	return root;
 }
-@app.runNodeJsCommand(type, command) {
-	cmd=Baro.process('runNodeJsCommand')
-	log=logAppend('logParse')
-	line="@#>${type}:${command}"
-	if(cmd.cmp('@jobStatus', 'run')) {
-		log.append(line)
+@app.runNodeEval(command) {
+	not(command) return print("node-eval 커멘드 미정의")
+	cmd=Baro.process('runNodeJs')
+	if(command=='quit') {
+		type='quit'
+		command='runNodeEval'
 	} else {
-		tailName=log.member(logFileName)
-		logName=cmd.@logTail.member(logFileName)
-		cmd.addArray('@nodeCommends').add(line)
-		addCmdJob(cmd, "cd ${conf('path.express')}/scripts")
-		addCmdJob(cmd, #[node log-parse.js "${tailName}" --log "${logName}"])
+		type='eval'
 	}
+	line="@#>${type}:${command}"	
+	if( cmd.@jobStatus=='run' ) {
+		logAppend('logParse').append(line)
+		return cmd;
+	} 
+	page=page('webview:main')
+	logOut=null
+	if(page) {
+		cmdWebview=Baro.process('pythonWebview')
+		outName=cmdWebview.@logAppend.get('logFileName')
+		logOut=logTail('node-eval', outName)
+	} else {
+		logOut=logTail('node-eval')
+		outName=logOut.get('logFileName')
+	}
+	cmd.@logOut=logOut
+	cmd.@nodeCommand=line
+	path=conf('path.express') not(path) return print("node-eval 노드 설치경로 오류");
+	logName=logAppend('logParse').member(logFileName)
+	addCmdJob(cmd, "cd $path/scripts")
+	addCmdJob(cmd, #[node node-eval.js --in "${logName}" --out "${outName}"])
+	addUserWorker('node-eval', cmd, function(cmd) {
+		while(n=0,64) {
+			System.sleep(50)
+			result=cmd.@logOut.timeout()
+			if(result.find('node-eval:start')) {
+				logAppend('logParse').append(cmd.@nodeCommand)
+				return;
+			}
+		}
+		print("node-eval 스크립트 미실행 ")
+	})
+	return cmd;
 }
-
 @app.userPath(callback) {
 	cmd=Baro.process('app')
 	if(cmd.@jobStatus=='run') {
