@@ -1,4 +1,4 @@
-<script type="service" note="어플리케이션 시작 초기화 함수">
+<script note="어플리케이션 시작 초기화 함수">
 runCommand( command, callback ) {
 	cmd=cmdObject()
 	addCmdJob(cmd, command, callback)
@@ -82,7 +82,7 @@ regServiceFolder(serviceMode, path) {
 
 </script>
 
-<script type="fav" note="자주사용하는 함수">
+<script note="자주사용하는 함수">
 	selectColor() {
 		return Cf.getColor()
 	}
@@ -238,57 +238,6 @@ getFolderList(path, node, depthNumber, pathLength) {
 	node.childLoad = true
 	return node;
 }
-// 주어진 경로 파일리스트 리턴
-getFileList(path, node, arr, depth ) {
-	not(node) node=_node()
-	if(typeof(arr,'array')) {
-		checkChild= true
-	} else {
-		checkChild = false
-		arr=_arr()
-	}
-	relativePath = node.relativeName
-	not(path) {
-		not(relativePath) return print("@@ getFileList 경로가 없거나 부모노드 경로가 없습니다")
-		root=findParentNode(node,'@rootPath')
-		not(root) return print("@@ getFileList 최상위 노드 경로가 없습니다")
-		path=pathJoin(root.@rootPath, relativePath)
-		print("path == $path ")
-	}
-	not(depth) {
-		fileObject = Baro.file('baro')
-		node.inject(@fileSort, @fileFilter, @nameFilter)
-		if(fileSort) {
-			// name, time, size, type, case
-			fileObject.@sort = fileSort
-		}
-		if(fileFilter) {
-			// folder, files, hidden
-			fileObject.@filter = fileFilter
-		}
-		if(nameFilter) {
-			// *.svg
-			fileObject.@nameFilter = nameFilter
-		}
-		depth=0
-	}
-	depth+=1;
-	fileObject.list(path, func(info) {
-		while(info.next()) {			
-			info.inject(type,fullPath,name,modifyDt)
-			if(type.eq('file')) {				
-				cur=node.addNode().with(type, name, fullPath, size, modifyDt)
-				if( relativePath ) {
-					cur.relativeName = pathJoin(relativePath, name)
-				}
-				arr.add(cur)
-			} else if(checkChild) {
-				getFileList(fullPath,node,arr,depth)
-			}
-		}
-	});
-	return arr;
-}
 
 // 객체의 태그명 체크
 checkTag(obj, type) {
@@ -314,35 +263,7 @@ typeName(&s) {
 	}
 	return ss;
 }
-/*
-	json 형태 속성의 끝위치 찾음 타입은 부모함수 @endPosType 에 적용
-	예) { info: a() + b() , title: hello } 경우 info 항목의 끝위치를 a()+b() 까지 찾음 
-*/ 
-varEndPos(&s) {
-	fn=Cf.funcNode('parent')
-	type=''
-	while(s.valid()) {
-		c=s.ch() not(c) break;
-		if(c.eq()) break;
-		if(c.eq(',')) break;
-		if(c.is('oper')) {
-			type='oper'
-			s.incr()
-			continue;
-		}
-		c=s.next().ch()
-		while(c.eq('.')) {
-			type='sub'
-			c=s.next().ch()
-		}
-		if(c.eq('(')) {
-			type='func'
-			s.match()
-		}
-	}
-	fn.set('@endPosType', type)
-	return s.cur();
-}
+
 // 모든라인의 인덴트를 없앤다
 trimLine(&s) {
 	nl=conf('cf.newline')
@@ -456,23 +377,7 @@ json(node, childPrefix, useIndent) {
 	obj.member(useIndent, useIndent)
 	return obj.jsonValue(node)
 }
-/* 웹호출 결과 출력 (api 호출) */
-webResult(url, method, data, headerJson) {
-	web=webObject()
-	not(method) method='GET'
-	if(method=='POST') {
-		web.set('data',data)
-	}		
-	if(headerJson && typeof(headerJson,'string')) {
-		header=web.addNode('@header').reuse()
-		header.parseJson(headerJson)
-	}
-	web.call(url,method, func(type,data) {
-		if(type=='error') return log('error::webResult 오류 객체:#{0} 메시지#{1}', this, data);
-		if(type=='read') this.appendText('@webResult', data)
-	})
-	return web.ref('@webResult')
-} 
+
 </script>
 
 
@@ -497,28 +402,28 @@ webRequestInfo(web, url, method, data, headerInfo) {
 }
 
 /* API 결과처리 작업등록 */
-addApiJob(id, targetNode, logCallback ) {
-	not(typeof(targetNode,'node')) {
-		return print("@@addApiJob 대상노드 미정의");
-	}	
+addApiJob(param, callback ) {
 	timerInfo = global('@timerInfo')
 	timerInfo.@useJob=true
 	timerInfo.@lock=true
-	web=webObject(id)
-	if(typeof(logCallback,'func')) {
-		web.logCallback=logCallback
+	web=webObject()
+	if(typeof(param,'node') ) {
+		targetNode=param
 	} else {
-		not(web.logCallback) {
-			web.logCallback=func(result,info) { print("##API 작업콜백 ${this.url}  result::$result") };
-		}
+		targetNode=_node()
+		targetNode.url=param
 	}
-	not(web.@jobMode) {
+	if(typeof(callback,'func')) {
+		web.@apiCallback=callback
+	} else {
+		web.@apiCallback=func(target, result) { print("##API 작업콜백 URL: ${this.url}  처리결과: $result") };
+	}
+	if(web.@jobMode!='API') {
 		web.@jobMode = 'API'
-		web.@logTail = logTail("api_$id")
-		web.@logAppend = logAppend("api_$id")
 		web.addArray('@webJobList')
-		event(web,'@callback',@baro.webJobProc)
-	}	
+		event(web,'@callback',@baro.webApiProc, null, true)
+	}
+	web.@jobStatus='ready'
 	// requestInfo: url, method, data, headerJson
 	web.@webJobList.add(targetNode)
 	not(timerInfo.@jobList.find(web)) {
@@ -529,27 +434,31 @@ addApiJob(id, targetNode, logCallback ) {
 }
 
 /* 다운로드처리 작업등록 */
-addWebDownloadJob(id, targetNode, logCallback ) {
+addWebDownloadJob(param, callback ) {
 	not(typeof(targetNode,'node')) {
 		return print("@@addWebDownloadJob 대상노드 미정의");
 	}
 	timerInfo = global('@timerInfo')
 	timerInfo.@useJob = true
 	timerInfo.@lock=true
-	webId="download_$id"
-	web=webObject(webId)
-	if(typeof(logCallback,'func')) {
-		web.logCallback=logCallback
+	web=webObject()
+	if(typeof(param,'node') ) {
+		targetNode=param
 	} else {
-		web.logCallback=func(result,info) { print("##웹다운로드 콜백 URL: ${this.url}  RESULT: :$result") };
+		targetNode=_node()
+		targetNode.url=param
 	}
-	not(web.@jobMode) {
+	if(typeof(callback,'func')) {
+		web.@downloadCallback=logCallback
+	} else {
+		web.@downloadCallback=func(result) { print("##웹다운로드 콜백 URL: ${this.url},  처리결과: $result") };
+	}
+	if(web.@jobMode!='DOWNLOAD') {
 		web.@jobMode = 'DOWNLOAD'
-		web.@logTail = logTail(webId)
-		web.@logAppend = logAppend(webId)
 		web.addArray('@webJobList')
-		event(web,'@callback',@baro.webJobProc)
+		event(web,'@callback',@baro.webDownloadProc,null,true)
 	}
+	web.@jobStatus='ready'
 	// requestInfo: url, method, data, headerJson
 	web.@webJobList.add(targetNode)
 	not(timerInfo.@jobList.find(web)) {
@@ -584,20 +493,19 @@ checkCmdError(result) {
 	}	
 	return;
 }
-addCmdJob(id, command, logCallback) {	
+addCmdJob(param, command, logCallback) {	
 	timerInfo = global('@timerInfo')
 	timerInfo.@useJob=true
 	timerInfo.@lock=true
-	if(checkTag(id,'process')) {
-		cmd=id
-		id=cmd.id
+	if(checkTag(param,'process')) {
+		cmd=param
 	} else {
-		not(typeof(id,'string')) return print("@@ addCmdJob cmd 프로세스 ID 오류", id);
 		cmd=Baro.process(id)
 	}
 	not(cmd.@jobMode) {
 		cmd.@jobMode='CMD'
 		cmd.@jobStatus='start'
+		id=cmd.id
 		if(id.start('cmd-')) {
 			jobId=id
 		} else {
@@ -618,28 +526,34 @@ addCmdJob(id, command, logCallback) {
 	timerInfo.@lock=false
 	return cmd;
 }
+@baro.webApiProc(type,&data) {
+	if(type=='read') {
+		this.appendText('@webResult', data)
+	}
+	if(type=='error') {
+		this.@error = data
+	}
+	if(type=='finish') {
+		this.@jobStatus=type
+		this.@apiCallback(this.@targetNode, thie.ref('@webResult'))
+	}
 
-@baro.webJobProc(type,&data,bytes) {
+}
+@baro.webDownloadProc(type,data,size) {
 	if(type=='progress') {
-		n=this.incrNum('@progressCnt')
-		m=n%10;
-		if(m==1) {
-			this.@logAppend.append(f[#@>progress: id="" ${this.url} ${bytes}])
-		}
+		this.@jobStatus=type
+		this.@totalSize=data
+		this.@downSize=size
 		return;
 	}
 	if(type=='error') {
 		this.@error = data
 	}
 	if(type=='finish') {
-		this.inject(url, @targetNode, @error)
-		result=when(error, "error[$error]", "ok")
-		this.@logAppend.append(
-			f[#@>finish:result="$result" url="$url" target={$targetNode}]
-		)
-		this.@progressCnt = 0
-		this.@jobStatus = 'finish'
-		this.logCallback(this.@logTail.timeout(), targetNode)
+		this.@jobStatus=type
+		result=when(this.@error, "error[${this.@error}]", "ok")
+		result.add("=>URL: ${this.url}, 다운로드경로:${this.@targetNode.downloadFilename}")
+		this.logCallback(result, this.@targetNode)
 	}
 }
 
@@ -722,101 +636,6 @@ addWatchFile(serviceMode, fullpath, callback) {
 	cur=timerInfo.@watchFileInfo.addNode(fullpath)
 	cur.with(serviceNode,fullpath,filename,name,modifyTime,callback)
 	return cur;
-}
-// 소스 문자열중 @[code] 형태 문자열 치환
-getSource(&s,node,fn) {
-	arr=args(1)
-	not(typeof(node,'node')) {
-		node=this
-		not(node) node=_node()
-	}
-	not(fn) {
-		fn=Cf.funcNode('parent')
-	}
-	fnCur=Cf.funcNode()
-	fnCur.set('endPos', 0)
-	ss=''
-	while(s.valid()) {
-		left = s.findPos('@[',0,1)
-		ss.add(left)
-		c=s.incr().ch()
-		not(c.eq('[')) break;
-		key=s.match(1).trim()
-		if(typeof(key,'bool')) break;
-		if(typeof(key,'num')) {
-			ss.add(arr.get(key))
-		} else {
-			if(isVar(key)) {
-				ss.add(getValue(key,node,fn))
-			} else {
-				ss.add(eval(key, fn))
-			}
-		}
-	}
-	return ss;
-	
-	isVar = func(&s) {
-		c=s.next().ch() 
-		while(c.eq('.')) c=s.next().ch()
-		fnCur.set('endPos', s.cur())
-		not(c) return true;	
-		if(startWith(s,'&&','||','?')) return true;
-		return when(c,false,true);
-	};	
-	getValue=func(&s,node,fn) {
-		not(typeof(s,'string')) return;
-		if( s.start('conf.',true)) {
-			return conf(s)
-		}
-		sp=s.cur()
-		key=s.trim(sp,endPos,true)
-		val=getVarValue(key,fn,node)		
-		s.pos(endPos)
-		
-		if(startWith(s,'&&','||','?')) {
-			c=s.ch()
-			// @[aaa? (문자열1): (문자열2)] aaa값이 있다면 문자열1, 없다면 문자열2 으로 치환
-			if(c.eq('?')) {
-				c=s.incr().ch()
-				if(c.eq('(')) {
-					src=s.match(1)
-				} else {
-					src=s.findPos(':',1,1)
-				}
-				if(val) {
-					val=getSource(src,node,fn)
-				} else {
-					c=s.ch()
-					if(c.eq(':')) {
-						c=s.incr().ch()
-						if(c.eq('(')) {
-							src=s.match(1)
-						} else {
-							src=s
-						}
-						val=getSource(src,node,fn)
-					} else {
-						val=''
-					}
-				}
-			} 
-			// 예) @[aaa && bbb] 경우 aaa값이 있다면 bbb값으로 치환
-			else if(s.start('&&',true)) {
-				if(val) {
-					val=getSource(s,node,fn)
-				} else {
-					val=''
-				}
-			} 
-			// 예) @[aaa || bbb] 경우 aaa값이 없다면 bbb값으로 치환	
-			else if(s.start('||',true)) {
-				if(isNull(val)) {
-					val=getSource(s,node,fn)
-				}
-			}
-		}
-		return val;
-	};
 }
 
 serviceModuleInfo(service, moduleName) {
@@ -997,19 +816,22 @@ runGlobalJob(node) {
 		if( web.is('run')) {
 			web.@jobStatus = 'run'
 			return;
-		} 
+		}
 		targetNode=web.@webJobList.pop()
-		if(targetNode) {
-			targetNode.inject(url, method, data, header)
-			targetNode.@requestStartTick=System.tick()
+		not(targetNode) return;
+		web.data=''				
+		targetNode.inject(url, method, data, header)
+		webRequestInfo(web, url, method, data, header)
+		web.@webStartTick = System.tick()
+		web.@jobStatus = 'start'
+		web.@targetNode=targetNode
+		if(web.@jobMode=='API') {
+			web.@webResult=''
+			web.request(url)
+		} else {
 			not( targetNode.downloadFilename) {
 				targetNode.downloadFilename=@baro.jobFilename(web)
 			}
-			web.data=''				
-			webRequestInfo(web, url, method, data, header)
-			web.@webStartTick = System.tick()
-			web.@jobStatus = 'ready'
-			web.@targetNode=targetNode
 			web.download(url, targetNode.downloadFilename)
 		}
 	}	

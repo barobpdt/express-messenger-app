@@ -349,44 +349,39 @@ isNull(s) {
 	return when(s,false,true) 
 }
 cmdObject(id) {
-	not(id) {		
-		while(n=0,32) {
-			cmd=Baro.process("cmd-$n")
-			if(cmd.@c) {
-				status=cmd.@jobStatus
-				if( status && status.eq('finish') ) {
-					return cmd;
-				}
-				continue;
-			}
+	if(id) return Baro.cmd(id);
+	while(n=0,32) {
+		cmd=Baro.process("cmd-$n")
+		not(cmd.@c) return cmd;
+		status=cmd.@jobStatus not(status) status='finish'
+		if( status.eq('finish') ) {
 			return cmd;
 		}
 	}
-	return Baro.cmd(id)
+	return Baro.process();
 }
 webObject(id) { 
-	not(id) {		
-		while(n=0,32) {
-			web=Baro.web("web-$n")
-			if(web.is('run')) {
-				continue;
-			}
-			return web;
+	if(id) return Baro.web(id) 
+	while(n=0,32) {
+		web=Baro.web("web-$n")
+		if(web.is('run')) {
+			continue;
 		}
+		status=web.@jobStatus not(status) status='finish'
+		if( status.eq('finish') ) {
+			return web;
+		}		
 	}
-	return Baro.web(id) 
+	return Baro.web();
 }
 fileObject(id) {
-	not(id) {		
-		while(n=0,16) {
-			file=Baro.file("file-$n")
-			if(file.@c) {
-				continue;
-			}
-			return file;
-		}
+	if(id) return Baro.file(id);
+	while(n=0,16) {
+		file=Baro.file("file-$n")
+		if(file.open()) continue;
+		return file;
 	}
-	return Baro.file(id)
+	return Baro.file();
 }
 
 checkVar(name) {
@@ -647,8 +642,13 @@ global(code) {
 	return Cf.rootNode().addNode(code);
 }
 object(code, newCheck) {
-	not( code.find('.') ) return Cf.rootNode(code,true)
-	code.split('.').inject(a,b);
+	not(code) return Cf.rootNode();
+	if(code.find('.')) {
+		code.split('.').inject(a,b);
+	} else {
+		a='object'
+		b=code
+	}
 	return Cf.getObject(a,b,true);
 }
 checkError(msg) {

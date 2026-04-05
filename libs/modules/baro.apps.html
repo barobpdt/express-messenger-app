@@ -186,6 +186,32 @@ initApp() {
 	})
 	return root;
 }
+
+@app.userPath(callback) {
+	cmd=Baro.process('app')
+	if(cmd.@jobStatus=='run') {
+		if(callback) callback(cmd, "userPath 오류 사용자 cmd가 실행중입니다")
+		return;
+	}
+	cmd.@callbackResult=callback
+	addCmdJob(cmd, "echo %userprofile%", function(result,end) {
+		not(end) return;
+		result.findPos("\n")
+		path=result.findPos("\n").trim()
+		if(this.@callbackResult) {
+			this.@callbackResult(path)
+		} else if(path) {
+			if(this.@command.start('echo')) {
+				conf('path.user', path.replace('\','/'), true)
+			}
+		}
+	})
+}
+/*
+	node js : eval 스크립트 실행
+	scripts/node-eval.js 파일을 실행하고 추가 스크립트 로그파일에 append
+	만약 command=='quit' 라면 node-eval.js를 종료한다
+*/
 @app.runNodeEval(command) {
 	not(command) return print("node-eval 커멘드 미정의")
 	cmd=Baro.process('runNodeJs')
@@ -229,26 +255,10 @@ initApp() {
 	})
 	return cmd;
 }
-@app.userPath(callback) {
-	cmd=Baro.process('app')
-	if(cmd.@jobStatus=='run') {
-		if(callback) callback(cmd, "userPath 오류 사용자 cmd가 실행중입니다")
-		return;
-	}
-	cmd.@callbackResult=callback
-	addCmdJob(cmd, "echo %userprofile%", function(result,end) {
-		not(end) return;
-		result.findPos("\n")
-		path=result.findPos("\n").trim()
-		if(this.@callbackResult) {
-			this.@callbackResult(path)
-		} else if(path) {
-			if(this.@command.start('echo')) {
-				conf('path.user', path.replace('\','/'), true)
-			}
-		}
-	})
-}
+/*
+	프로세스 강제삭제
+	예) @app.killProcess('java') 
+*/
 @app.killProcess(name) {
 	not(name) return print("삭제할 프로세스명이 없습니다")
 	cmd=Baro.process('common')
@@ -267,18 +277,45 @@ initApp() {
 		}
 	})
 }
+/*
+	워커 쓰레드를 생성하고 현재 작업등록
+	예) 
+	[command가 문자인경우]
+		my=object('my')
+		my.workerProc=function(target, command) {
+			if( command=='test' ) {
+				// 쓰레드 처리 내용 
+			}
+		}
+		addWorker('test', my.workerProc)
+	[command가 노드인경우]
+		node={} // 임시 노드생성
+		node.url='https://yoursite.com'
+		node.downloadFilename = 'c:/temp/test.txt'
+		node.@callbackWorker=function(target) {
+			addWebDownloadJob(target.url,
+		}
+		addWorker(node)
+	
+*/
 addWorker(command, callbackWorker ) {
 	worker=Baro.worker('common')
-	targetNode=object('common.workerNode').addNode()
-	targetNode.@command=command
+	if(typeof(command,'node')) {
+		targetNode=command
+	} else {
+		targetNode=object('common.workerNode').addNode()
+		targetNode.@command=command
+	}
 	targetNode.@worker=worker
 	if(typeof(callbackWorker,'func')) {
 		targetNode.@callbackWorker=callbackWorker
 	} else {
-		targetNode.@callbackWorker=function() { print("##addWorker callback 함수 미정의 (노드:$this)") };
+		not(targetNode.@callbackWorker) targetNode.@callbackWorker=function(target, command) { 
+			print("##addWorker callback 함수 미정의 (노드:$target, 명령정보:$command)") 
+		};
 	}
 	not(worker.@callback) {
-		worker.start(function(target) { if(target) target.@callbackWorker(target) });
+		worker.start(function(target) { if(target) target.@callbackWorker(target,target.@command) });
 	}
 	worker.push(targetNode)
 	return targetNode;
@@ -433,204 +470,8 @@ splitBlank(&s) {
 		not(callback) callback=function(s) { print("python version:$s") }
 		runCommand("$py --version", callback)
 	}
-	pythonInstallStart(moduleName, startCheck) {
-		if(args().size()==0) {
-			// 매개변수 없이 호출하면 등록된 모듈정보 실행 (예) pythonInstallStart()
-			startCheck=true
-		}
-		cmd=Baro.process('moduleInstall')
-		not(cmd.@cmdJobList) {
-			addCmdJob(cmd)
-			cmd.addArray('@installModuleList')
-			cmd.logCallback=@python.installCallback
-		}
-		py=pathJoin(conf('python.path'), 'python.exe')
-		not(isFile(py)) {
-			return print("파이션 설치 경로 미설정 (경로:$py)");
-		}
-		
-		if( moduleName ) {
-			info = object('python.installInfo')
-			cur=findField(info,'name',moduleName)
-			if(cur) {
-				print("$moduleName 파이션 모듈이 이미 설치되었습니다", cur)
-				return;
-			}
-			if(cmd.@installModuleList.find(moduleName)) {
-				print("파이션 설치 $moduleName 이미 추가되었습니다(경로:$py)")
-				return;
-			}
-			cmd.@installModuleList.add(moduleName)
-			print("파이션 설치 모듈정보 ", cmd.@installModuleList)
-		}
-		if( startCheck) {
-			moduleName=cmd.@installModuleList.pop()
-			not(moduleName) {
-				return print("설치 모듈정보가 없습니다 (pythonInstallAdd 함수로 파이션 설치 모듈을 등록하세요)");
-			}
-			cmd.@currentModuleName = moduleName
-			if(moduleName.eq('list')) {
-				cmd.@cmdJobList.add("$py -m pip $moduleName")
-			} else if(moduleName.eq('upgrade')) {
-				cmd.@cmdJobList.add("$py -m pip install --upgrade pip")
-			} else {
-				cmd.@cmdJobList.add("$py -m pip install $moduleName")
-			}
-		}
-		return cmd;
-	}
-	@python.installCallback(result, param) {
-		cmd=this
-		if(cmd.@currentModuleName=='list') {
-			@python.setInstallList(result)
-		} else {
-			print('파이션 설치정보 : ', result);
-			if(cmd.@installModuleList.size()) {
-				pythonInstallStart()
-			}
-		}
-	}
-	@python.setInstallList(&s) {
-		info = object('python.installInfo')
-		not(s) return info;
-		start=false
-		while(s.valid()) {
-			line=s.findPos("\n") not(line.ch()) break;
-			if(start) {
-				name=line.findPos(" \t\n",4)
-				version=line.trim()
-				info.addNode().with(name, version)
-				continue;
-			}
-			if(line.start('----')) {
-				start=true;
-			}
-		}
-		return info;
-	}
-	@python.webviewCheck(callback) {
-		info=object('python.installInfo')
-		not(info.childCount()) {
-			pythonInstallStart('list', true)
-			addUserWorker('user', this, function() {
-				info=object('python.installInfo')
-				while(n=0,32) {
-					System.sleep(500)
-					if(info.childCount()) {
-						break;
-					}
-				}
-				not(info.childCount()) return this.alert('파이션 설치정보를 찾을수 없습니다');
-				@python.webviewCheck()
-			})
-			return;
-		}
-		// pythonInstallStart('rembg Pillow', true)
-		aa=findField(info,'name','PyQt5')
-		ab=findField(info,'name','PyQtWebEngine')
-		if(aa && ab ) {
-			return callback();
-		}
-		pythonInstallStart('PyQt5')
-		pythonInstallStart('PyQtWebEngine')
-		pythonInstallStart('pywin32')
-		this.@cmdInstall=pythonInstallStart()
-		addUserWorker('user',this,function() {
-			for(n=0,100 ) {
-				System.sleep(500)
-				cmd=this.@cmdInstall
-				aa=notValid(cmd.@cmdJobList)
-				ab=cmd.@jobStatus.eq('finish')
-				if( aa && ab ) {
-					return callback()
-				}
-			}
-		})
-	}
-	closePort(port) {
-		not(port) port=80
-		runCommand("netstat -ano | findstr $port", function(s,endCheck) {
-			not(endCheck) return;
-			while(s.valid()) {		
-					s.findPos('TCP')
-					not(s.ch()) break;
-					line = s.findPos("\n")			
-					line.findPos(":$port")
-					c=line.ch(0)
-					print(">> line:$line [$c]")
-					not(typeof(c,'num')) {
-						line.findPos('LISTENING')
-						pid=line.trim()
-						if(pid) {
-							if(typeof(callback,'func')) {
-								callback(pid)
-							} else if(callback) {
-								runCommand("taskkill /PID $pid /F" )
-							}
-							return;
-						}
-					}
-				}
-		})
-	}
 </script>
 
-<script note="FM API호출">
-	@fm.artistApply(name, target) {
-		not(name) return print("@@@fm.artistSearch 오류 가수명을 입력하세요")
-		not(target) {
-			target=object('web.req').addNode()
-		}
-		target.url="https://lrclib.net/api/search?q=${name}&search_fields=artist_name"
-		target.type='apply'
-		addApiJob('artist_name', target, @callback.songs)
-	}
-	@callback.songs(&result, target) {
-		not(result.find('#@>finish:')) return;
-		result.findPos('#@>finish:')
-		result.findPos('result=')
-		success=result.match()
-		result.findPos('url=')
-		url=result.match()
-		fnm=target.downloadFilename
-		print("API JOB finish >>", url, success, fnm, target.type)
-		if(target.type=='save') {
-			apiResult=fileRead(fnm)
-			print("db save apiResult==$apiResult")
-			return;
-		}
-		if(target.type=='songs') {
-			target.apiResult=fileRead(fnm)
-			return;
-		}
-		if(target.type=='apply') {
-			data=fileRead(fnm)
-			target.parseJson(data)
-			while(cur, target) {
-				sub=object('web.req').addNode()
-				data=sub.addNode()
-				data.artist=cur.artistName
-				data.title=cur.name
-				data.lyrics=escapeString(cur.plainLyrics)			
-				sub.type='save'
-				sub.header='Content-Type:application/json'
-				sub.url='http://localhost:8081/api/songs/save'
-				sub.method='POST'
-				sub.data=json(data)
-				addApiJob('artist_name',sub, @callback.songs)
-			}
-			if(typeof(target.widget,'widget')) {
-				cnt=target.size()
-				if(cnt) {
-					target.widget.alert("원격DB에 ${cnt}건 노래가 저장되었습니다")
-				} else {
-					target.widget.alert("저장할 데이터가 없습니다")
-				}
-			}
-			return;
-		}
-	}
-</script>
 
 <script>
 	checkNodeInstall(callback) {
@@ -648,6 +489,32 @@ splitBlank(&s) {
 			if(this.callbackResult) this.callbackResult(ok)
 		})
 	}
+	closePort(port) {
+		not(port) port=80
+		runCommand("netstat -ano | findstr $port", function(s,endCheck) {
+			not(endCheck) return;
+			while(s.valid()) {		
+				s.findPos('TCP') not(s.ch()) break;
+				line = s.findPos("\n")			
+				line.findPos(":$port")
+				c=line.ch(0)
+				print(">> line:$line [$c]")
+				not(typeof(c,'num')) {
+					line.findPos('LISTENING')
+					pid=line.trim()
+					if(pid) {
+						if(typeof(callback,'func')) {
+							callback(pid)
+						} else if(callback) {
+							runCommand("taskkill /PID $pid /F" )
+						}
+						return;
+					}
+				}
+			}
+		});
+	}
+
 	nodeChildArray(node) {
 		arr=_arr()
 		not(typeof(node,'node')) return arr;
@@ -656,6 +523,9 @@ splitBlank(&s) {
 		}
 		return arr;
 	}
+	/*
+	html문서에서 script or link 파일을 로컬 js나 css폴더에 저장 
+	*/
 	downloadWebType(filename, type) {
 		not(type) type='js'
 		path=conf('path.express')
