@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chrome 탭 스타일 데모</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f4f8;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── 탭 바 전체 래퍼 ─── */
+    .tabbar-wrapper {
+      background: #1e1e3a;
+      display: flex;
+      align-items: flex-end;
+      padding: 8px 8px 0;
+      gap: 0;
+      min-height: 44px;
+      user-select: none;
+      overflow: visible;
+      /* 드롭다운이 잘리지 않도록 */
+      position: relative;
+    }
+
+    /* ─── 탭 목록 (내부 스크롤 컨테이너) ─── */
+    .tab-list-wrap {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      /* 탭이 넘치면 숨김 (스크롤 없음) */
+      position: relative;
+    }
+
+    .tab-list {
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+      white-space: nowrap;
+    }
+
+    /* ─── 개별 탭 ─── */
+    .tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 36px 8px 12px;
+      min-width: 120px;
+      max-width: 220px;
+      height: 36px;
+      background: #2d2d52;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      transition: background 0.15s, height 0.1s;
+      flex-shrink: 0;
+      color: #9e9ecf;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      border-top: 2px solid transparent;
+    }
+
+    /* 탭 사이 곡선 연결 */
+    .tab::before,
+    .tab::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      width: 12px;
+      height: 12px;
+    }
+
+    .tab::before {
+      left: -12px;
+      border-bottom-right-radius: 8px;
+      box-shadow: 4px 0 0 0 #2d2d52;
+    }
+
+    .tab::after {
+      right: -12px;
+      border-bottom-left-radius: 8px;
+      box-shadow: -4px 0 0 0 #2d2d52;
+    }
+
+    .tab:hover {
+      background: #3c3c6a;
+      color: #d0d0f0;
+    }
+
+    .tab:hover::before {
+      box-shadow: 4px 0 0 0 #3c3c6a;
+    }
+
+    .tab:hover::after {
+      box-shadow: -4px 0 0 0 #3c3c6a;
+    }
+
+    /* ── 활성 탭: 흰색 배경으로 콘텐츠 영역과 자연 연결 ── */
+    .tab.active {
+      background: #ffffff;
+      color: #1a1a2e;
+      font-weight: 600;
+      height: 40px;
+      z-index: 10;
+      border-top: 2px solid #6c63ff;
+    }
+
+    .tab.active::before {
+      box-shadow: 4px 0 0 0 #ffffff;
+    }
+
+    .tab.active::after {
+      box-shadow: -4px 0 0 0 #ffffff;
+    }
+
+    .tab.active:hover {
+      background: #ffffff;
+      color: #1a1a2e;
+    }
+
+    .tab.active .tab-close {
+      color: #555;
+    }
+
+    .tab.active .tab-close:hover {
+      background: rgba(0, 0, 0, 0.1);
+      color: #111;
+    }
+
+    /* 드래그 중 */
+    .tab.dragging {
+      opacity: 0.4;
+      background: #555580;
+    }
+
+    .tab.drag-over {
+      background: #4a4a7a;
+    }
+
+    /* 탭 파비콘 */
+    .tab-favicon {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    /* 탭 제목 */
+    .tab-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* 닫기 버튼 */
+    .tab-close {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: #9e9ecf;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      z-index: 3;
+    }
+
+    .tab:hover .tab-close,
+    .tab.active .tab-close {
+      opacity: 1;
+    }
+
+    .tab-close:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    /* ─── 탭 바 우측 버튼 (새탭 / 탭목록) 공통 ─── */
+    .tabbar-action-btn {
+      flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: #9e9ecf;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-left: 4px;
+      margin-bottom: 4px;
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+    }
+
+    .tabbar-action-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    /* ─── 탭 목록 드롭다운 ─── */
+    .tab-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      min-width: 220px;
+      background: #1e1e3a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      z-index: 9999;
+      overflow: hidden;
+      animation: dropIn 0.15s ease;
+    }
+
+    .tab-dropdown.open {
+      display: block;
+    }
+
+    @keyframes dropIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .tab-dropdown-header {
+      padding: 10px 14px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #7070a0;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .tab-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      color: #c0c0e0;
+      font-size: 13px;
+      transition: background 0.1s;
+      border-left: 3px solid transparent;
+    }
+
+    .tab-dropdown-item:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+    }
+
+    .tab-dropdown-item.active {
+      background: rgba(108, 99, 255, 0.15);
+      color: #a89cff;
+      border-left-color: #6c63ff;
+      font-weight: 600;
+    }
+
+    .tab-dropdown-item .di-emoji {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .tab-dropdown-item .di-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tab-dropdown-item .di-close {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: #7070a0;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    .tab-dropdown-item .di-close:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    /* ─── 주소 표시줄 ─── */
+    .addressbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #16213e;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .nav-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: #9e9ecf;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .address-input {
+      flex: 1;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.07);
+      color: #d0d0f0;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .address-input:focus {
+      border-color: #6c63ff;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    /* ─── 콘텐츠 영역 ─── */
+    .content-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tab-content {
+      display: none;
+      width: 100%;
+      height: 100%;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 각 탭의 콘텐츠 디자인 */
+    .page-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 40px;
+    }
+
+    .page-number {
+      font-size: 80px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #6c63ff, #e040fb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+
+    .page-desc {
+      color: #666;
+      font-size: 15px;
+      text-align: center;
+      max-width: 480px;
+      line-height: 1.6;
+    }
+
+    /* 탭 수 배지 */
+    .tab-count-badge {
+      background: #6c63ff;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 1px 6px;
+      margin-left: auto;
+    }
+
+    /* 콘텐츠 영역 상단 연결선 */
+    .content-area {
+      border-top: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══ 탭 바 ═══ -->
+  <div class="tabbar-wrapper" id="tabbarWrapper">
+    <div class="tab-list-wrap" id="tabListWrap">
+      <div class="tab-list" id="tabList"></div>
+    </div>
+    <!-- 새탭 버튼 / 탭목록 버튼 (overflow 여부에 따라 전환) -->
+    <button class="tabbar-action-btn" id="tabbarActionBtn" title="새 탭">＋
+      <div class="tab-dropdown" id="tabDropdown">
+        <div class="tab-dropdown-header">열린 탭</div>
+        <div id="tabDropdownList"></div>
+      </div>
+    </button>
+  </div>
+
+  <!-- ═══ 주소 표시줄 ═══ -->
+  <div class="addressbar" style="display: none;">
+    <button class="nav-btn" title="뒤로">‹</button>
+    <button class="nav-btn" title="앞으로">›</button>
+    <button class="nav-btn" title="새로고침">↻</button>
+    <input class="address-input" id="addressInput" type="text" value="chrome://newtab" readonly />
+    <span class="tab-count-badge" id="tabCountBadge">1</span>
+  </div>
+
+  <!-- ═══ 콘텐츠 ═══ -->
+  <div class="content-area" id="contentArea"></div>
+
+  <script>
+    // ─── 탭 데이터 ───
+    const COLORS = [
+      { grad: 'linear-gradient(135deg,#6c63ff,#e040fb)', bg: '#f8f5ff' },
+      { grad: 'linear-gradient(135deg,#00b09b,#96c93d)', bg: '#f0fff7' },
+      { grad: 'linear-gradient(135deg,#f7971e,#ffd200)', bg: '#fffbf0' },
+      { grad: 'linear-gradient(135deg,#ee0979,#ff6a00)', bg: '#fff0f5' },
+      { grad: 'linear-gradient(135deg,#0575e6,#00f260)', bg: '#f0fbff' },
+      { grad: 'linear-gradient(135deg,#c94b4b,#4b134f)', bg: '#fff5f5' },
+      { grad: 'linear-gradient(135deg,#2193b0,#6dd5ed)', bg: '#f0faff' },
+    ];
+    const EMOJIS = ['🌐', '📄', '🛠️', '📊', '🎵', '🎮', '🖼️', '📝', '🔒', '🌟'];
+
+    let tabIdCounter = 0;
+    let tabs = [];
+    let activeTabId = null;
+    let dragSrcId = null;
+
+    // ─── 탭 생성 ───
+    function createTab(title) {
+      const id = ++tabIdCounter;
+      const color = COLORS[(id - 1) % COLORS.length];
+      const emoji = EMOJIS[(id - 1) % EMOJIS.length];
+      tabs.push({ id, title: title || `새 탭 ${id}`, color, emoji });
+      renderTabs();
+      setActiveTab(id);
+      return id;
+    }
+
+    // ─── 탭 닫기 ───
+    function closeTab(id) {
+      const idx = tabs.findIndex(t => t.id === id);
+      if (idx === -1) return;
+      tabs.splice(idx, 1);
+
+      // 콘텐츠 제거
+      const el = document.getElementById(`content-${id}`);
+      if (el) el.remove();
+
+      if (activeTabId === id) {
+        // 다음 탭 or 이전 탭 활성화
+        const next = tabs[idx] || tabs[idx - 1];
+        if (next) setActiveTab(next.id);
+        else activeTabId = null;
+      }
+      renderTabs();
+      updateBadge();
+
+      // 탭이 0개면 새 탭 생성
+      if (tabs.length === 0) createTab('새 탭');
+    }
+
+    // ─── 탭 활성화 ───
+    function setActiveTab(id) {
+      activeTabId = id;
+
+      // 탭 UI
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      const tabEl = document.getElementById(`tab-${id}`);
+      if (tabEl) tabEl.classList.add('active');
+
+      // 콘텐츠
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      let contentEl = document.getElementById(`content-${id}`);
+      if (!contentEl) contentEl = buildContent(id);
+      contentEl.classList.add('active');
+
+      // 주소창
+      const t = tabs.find(t => t.id === id);
+      if (t) document.getElementById('addressInput').value = `about:blank#tab-${id}`;
+    }
+
+    // ─── 콘텐츠 빌드 ───
+    function buildContent(id) {
+      const t = tabs.find(t => t.id === id);
+      if (!t) return;
+
+      const area = document.getElementById('contentArea');
+      const div = document.createElement('div');
+      div.className = 'tab-content';
+      div.id = `content-${id}`;
+      div.style.background = t.color.bg;
+
+      div.innerHTML = `
+      <div class="page-inner">
+        <div class="page-number" style="background:${t.color.grad};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">
+          ${t.emoji}
+        </div>
+        <div class="page-title">${t.title}</div>
+        <div class="page-desc">
+          탭 ID <strong>#${id}</strong> 의 콘텐츠입니다.<br>
+          탭을 추가하거나, 드래그로 순서를 바꾸거나, ✕ 버튼으로 닫아보세요.
+        </div>
+      </div>`;
+      area.appendChild(div);
+      return div;
+    }
+
+    // ─── 탭 렌더링 ───
+    function renderTabs() {
+      const list = document.getElementById('tabList');
+      list.innerHTML = '';
+
+      tabs.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'tab' + (t.id === activeTabId ? ' active' : '');
+        div.id = `tab-${t.id}`;
+        div.draggable = true;
+        div.dataset.id = t.id;
+
+        div.innerHTML = `
+        <span class="tab-favicon" style="background:${t.color.grad};border-radius:4px;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;">${t.emoji}</span>
+        <span class="tab-title">${t.title}</span>
+        <button class="tab-close" data-id="${t.id}" title="탭 닫기">✕</button>`;
+
+        // 클릭으로 활성화
+        div.addEventListener('click', (e) => {
+          if (e.target.classList.contains('tab-close')) return;
+          setActiveTab(t.id);
+          updateActiveStyle();
+        });
+
+        // 닫기 버튼
+        div.querySelector('.tab-close').addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(t.id);
+        });
+
+        // ── 드래그 이벤트 ──
+        div.addEventListener('dragstart', (e) => {
+          dragSrcId = t.id;
+          div.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', () => {
+          div.classList.remove('dragging');
+          document.querySelectorAll('.tab').forEach(el => el.classList.remove('drag-over'));
+        });
+        div.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          document.querySelectorAll('.tab').forEach(el => el.classList.remove('drag-over'));
+          if (t.id !== dragSrcId) div.classList.add('drag-over');
+        });
+        div.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (dragSrcId === null || dragSrcId === t.id) return;
+          const srcIdx = tabs.findIndex(x => x.id === dragSrcId);
+          const dstIdx = tabs.findIndex(x => x.id === t.id);
+          if (srcIdx === -1 || dstIdx === -1) return;
+          const [moved] = tabs.splice(srcIdx, 1);
+          tabs.splice(dstIdx, 0, moved);
+          dragSrcId = null;
+          renderTabs();
+        });
+
+        list.appendChild(div);
+      });
+
+      updateBadge();
+      checkOverflow();
+    }
+
+    function updateActiveStyle() {
+      document.querySelectorAll('.tab').forEach(el => {
+        el.classList.toggle('active', parseInt(el.dataset.id) === activeTabId);
+      });
+    }
+
+    function updateBadge() {
+      document.getElementById('tabCountBadge').textContent = tabs.length;
+    }
+
+    // ─── 탭 오버플로우 감지: 넘치면 탭목록 버튼으로 전환 ───
+    function checkOverflow() {
+      const wrap = document.getElementById('tabListWrap');
+      const list = document.getElementById('tabList');
+      const btn = document.getElementById('tabbarActionBtn');
+      const isOverflow = list.scrollWidth > wrap.clientWidth;
+
+      if (isOverflow) {
+        btn.title = '탭 목록 보기';
+        btn.childNodes[0].textContent = '▼';
+        btn.dataset.mode = 'list';
+        renderDropdown();
+      } else {
+        btn.title = '새 탭';
+        btn.childNodes[0].textContent = '＋';
+        btn.dataset.mode = 'new';
+        document.getElementById('tabDropdown').classList.remove('open');
+      }
+    }
+
+    // ─── 드롭다운 내용 렌더링 ───
+    function renderDropdown() {
+      const dl = document.getElementById('tabDropdownList');
+      dl.innerHTML = '';
+      tabs.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'tab-dropdown-item' + (t.id === activeTabId ? ' active' : '');
+        item.innerHTML = `
+        <span class="di-emoji">${t.emoji}</span>
+        <span class="di-title">${t.title}</span>
+        <button class="di-close" data-id="${t.id}" title="닫기">✕</button>`;
+        item.addEventListener('click', (e) => {
+          if (e.target.classList.contains('di-close')) return;
+          setActiveTab(t.id);
+          updateActiveStyle();
+          document.getElementById('tabDropdown').classList.remove('open');
+        });
+        item.querySelector('.di-close').addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(t.id);
+        });
+        dl.appendChild(item);
+      });
+    }
+
+    // ─── 탭바 액션 버튼 클릭 ───
+    document.getElementById('tabbarActionBtn').addEventListener('click', (e) => {
+      const btn = document.getElementById('tabbarActionBtn');
+      if (btn.dataset.mode === 'list') {
+        e.stopPropagation();
+        const dd = document.getElementById('tabDropdown');
+        renderDropdown();
+        dd.classList.toggle('open');
+      } else {
+        createTab('새 탭');
+      }
+    });
+
+    // 드롭다운 외부 클릭 시 닫기
+    document.addEventListener('click', () => {
+      document.getElementById('tabDropdown').classList.remove('open');
+    });
+
+    window.addEventListener('resize', checkOverflow);
+
+    // ─── 초기 탭 ───
+    createTab('페이지 탭 1');
+    createTab('새 탭');
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>페이지 테스트</title>
+    <script src="./js/common.js"></script>
+    <script src="./js/jquery.js"></script>
+    <script src="./js/renderZipfile.js"></script>
+    <link rel="stylesheet" href="./css/boxicons.css">
+    <link rel="stylesheet" href="./css/funny.css">
+    <link rel="stylesheet" href="./css/pretendard.css">
+</head>
+
+<body>
+    <!-- ══ MAIN APP ══ -->
+    <div class="app-container" style="padding:10px; overflow:auto;">
+        <div class="page-title">
+            <h1>📦 ZIP 파일 브라우저</h1>
+            <span>서버 내 ZIP 파일 목록 조회</span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar" style="display: none;">
+            <input id="zip-path" type="text" placeholder="ZIP 파일 상대 경로 (예: uploads/archive.zip)" value="">
+            <button class="bbtn" onclick="loadZip()">🔍 조회</button>
+            <button class="bbtn secondary" id="dl-zip-btn" onclick="downloadZip()" disabled>⬇ ZIP 전체</button>
+        </div>
+        <div class="page-container">
+            <div class="icons-list"
+                style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;background: #eee;"></div>
+        </div>
+    </div>
+
+
+    <script>
+
+        $(document).ready(function () {
+            fetch('/api/files-list?folder=public/images/ext').then(res => res.json()).then(data => {
+                const html = data.files.map(file => {
+                    return `
+					<div class="icon-item" style="display:flex; flex-direction:column; align-items:center;border:1px solid #ccc;padding:5px;width:100px;">
+						<img src="/images/ext/${file.name}" alt="${file.name}" style="width:48px;">
+						<span>${file.name}</span>
+					</div>
+				`}).join('')
+                $('.icons-list').html(html)
+            })
+        });
+    </script>
+</body>
+
+</html>

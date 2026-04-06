@@ -637,6 +637,13 @@ confSearch(&s) {
 	}
 	return ss;
 }
+localFunc(func) {
+	Cf.rootNode().set('@inlineMode','')
+	root=Cf.getObject()
+	not(args().size()) return root.@localFunc;
+	root.@localFunc=func
+	return func;
+}
 global(code) {
 	not(code) return Cf.rootNode();
 	return Cf.rootNode().addNode(code);

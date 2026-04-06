@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>페이지 테스트</title>
+	<script src="./js/common.js"></script>
+	<script src="./js/jquery.js"></script>
+	<script src="./js/renderTabs.js"></script>
+	<link rel="stylesheet" href="./css/boxicons.css">
+	<link rel="stylesheet" href="./css/funny.css">
+	<link rel="stylesheet" href="./css/pretendard.css">
+</head>
+
+<body>
+	<!-- ══ MAIN APP ══ -->
+	<div class="app-container">
+	</div>
+	<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+	<script>
+		$(document).ready(function () {
+			const tabs = new RenderTabs('.app-container');
+			pageInfo.tabs = tabs
+			tabs.render();
+			tabs.createTab('zip', '압축파일 정보', '', '/test-zip.html');
+		});
+		if (typeof QWebChannel !== 'undefined') {
+			new QWebChannel(qt.webChannelTransport, channel => {
+				pageInfo.bridge = channel.objects.bridge;
+				$(document).on('click', e => setActivePage(e))
+			});
+		}
+		window.onfocus = () => pageInfo.focusTick = new Date().getTime()
+		window.onblur = () => pageInfo.blurTick = new Date().getTime()
+	</script>
+</body>
+
+</html>

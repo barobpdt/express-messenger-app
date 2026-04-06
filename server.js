@@ -1862,7 +1862,7 @@ app.use(errorMiddleware);
 (async () => {
 	try {
 		// console.log("Server is running on PORT: " + ENV.PORT);
-		await initializeDatabase();
+		// await initializeDatabase();
 		server.listen(ENV.PORT, () => {
 			logger.info(`Server (HTTP & WS) is running on PORT: ${ENV.PORT}`);
 		});

@@ -1,3 +1,66 @@
+# yt-dlp 설치 (Windows)
+pip install yt-dlp
+# 또는 직접 다운로드
+winget install yt-dlp
+# FFmpeg 설치 (MP3 변환에 필수)
+winget install ffmpeg
+
+# python/youtube_mp3.py
+import yt_dlp
+import os
+
+def download_mp3(youtube_url: str, output_dir: str = "./downloads"):
+    """유튜브 영상의 오디오를 MP3로 저장"""
+    os.makedirs(output_dir, exist_ok=True)
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{output_dir}/%(title)s.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',   # 128 / 192 / 320 kbps
+        }],
+        'quiet': False,
+        'noplaylist': True,             # 재생목록은 단일 영상만
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(youtube_url, download=True)
+        return {
+            "title": info.get("title"),
+            "duration": info.get("duration"),  # 초 단위
+            "channel": info.get("channel"),
+            "file": f"{output_dir}/{info.get('title')}.mp3"
+        }
+
+
+def download_playlist_mp3(playlist_url: str, output_dir: str = "./downloads"):
+    """재생목록 전체 다운로드"""
+    os.makedirs(output_dir, exist_ok=True)
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{output_dir}/%(playlist_index)02d_%(title)s.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'noplaylist': False,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([playlist_url])
+
+
+# 실행 예시
+if __name__ == "__main__":
+    url = "https://www.youtube.com/watch?v=XXXXXXXXXXX"
+    result = download_mp3(url, output_dir="C:/Music")
+    print(f"✅ 저장 완료: {result['title']}")
+
+
+
+
 # python/youtube_browser.py
 import os
 import json

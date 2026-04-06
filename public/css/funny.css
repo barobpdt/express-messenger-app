@@ -151,6 +151,12 @@ body {
 	border-radius: 20px;
 }
 
+.page-container {
+	flex: 1;
+	overflow: auto;
+	padding: 10px;
+}
+
 /* Search */
 .search-bar {
 	display: flex;

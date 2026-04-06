@@ -46,7 +46,26 @@ String.prototype.trim = function() { return this.replace(/^\s+|\s+$/g,"") }
 String.prototype.ltrim = function() { return this.replace(/^\s+/,"") }
 String.prototype.rtrim = function() { return this.replace(/\s+$/,"") }
 */
-
+function setActivePage(event, parent) {
+	if (parent && typeof (parent.setActivePage) == 'function') {
+		parent.setActivePage(event)
+		return;
+	}
+	if (!pageInfo.bridge) return;
+	if (pageInfo.focusTick) {
+		if ((new Date().getTime() - pageInfo.focusTick) > 250) return;
+	}
+	if (pageInfo.blurTick) {
+		if ((new Date().getTime() - pageInfo.blurTick) < 250) return;
+	}
+	const target = event.target
+	const tag = target.tagName
+	if (tag == 'INPUT' || tag == 'TEXTAREA') {
+		pageInfo.focusTick = 0
+		return;
+	}
+	pageInfo.bridge.logAppend('pageActive');
+}
 function checkMessenger() {
 	const urlParams = new URLSearchParams(window.location.search);
 	const target = urlParams.get('opener');

@@ -197,6 +197,58 @@ regServiceFolder(serviceMode, path) {
 </script>
 
 <script type="common" note="공통유틸리티 함수">
+// 주어진 경로 파일리스트 리턴
+getFileList(path, node, arr, depth ) {
+	not(node) node=_node()
+	if(typeof(arr,'array')) {
+		checkChild= true
+	} else {
+		checkChild = false
+		arr=_arr()
+	}
+	relativePath = node.relativeName
+	not(path) {
+		not(relativePath) return print("@@ getFileList 경로가 없거나 부모노드 경로가 없습니다")
+		root=findParentNode(node,'@rootPath')
+		not(root) return print("@@ getFileList 최상위 노드 경로가 없습니다")
+		path=pathJoin(root.@rootPath, relativePath)
+		print("path == $path ")
+	}
+	not(depth) {
+		fileObject = Baro.file('baro')
+		node.inject(@fileSort, @fileFilter, @nameFilter)
+		if(fileSort) {
+			// name, time, size, type, case
+			fileObject.@sort = fileSort
+		}
+		if(fileFilter) {
+			// folder, files, hidden
+			fileObject.@filter = fileFilter
+		}
+		if(nameFilter) {
+			// *.svg
+			fileObject.@nameFilter = nameFilter
+		}
+		depth=0
+	}
+	depth+=1;
+	fileObject.list(path, func(info) {
+		while(info.next()) {			
+			info.inject(type,fullPath,name,modifyDt)
+			if(type.eq('file')) {				
+				cur=node.addNode().with(type, name, fullPath, size, modifyDt)
+				if( relativePath ) {
+					cur.relativeName = pathJoin(relativePath, name)
+				}
+				arr.add(cur)
+			} else if(checkChild) {
+				getFileList(fullPath,node,arr,depth)
+			}
+		}
+	});
+	return arr;
+}
+
 // 주어진 경로 폴더리스트 리턴
 getFolderList(path, node, depthNumber, pathLength) {
 	asize=args().size()
@@ -382,7 +434,6 @@ json(node, childPrefix, useIndent) {
 
 
 <script type="worker" note="작업관리">
-
 /* 웹요청처리를 위한 호출 정보생성 */
 webRequestInfo(web, url, method, data, headerInfo) {
 	not(method) method='GET'
@@ -857,6 +908,11 @@ initWas(port,path,devMode) {
 </script>
 
 <script type="baro" note="모듈 공통유틸리티">
+/* ==============================================================
+*
+* 모듈 공통함수
+*
+==============================================================*/
 @baro.jobFilename(obj) {
 	not(typeof(obj,'node')) {
 		return log("error::workerDownPath 객체오류");
@@ -870,11 +926,6 @@ initWas(port,path,devMode) {
 	idx=obj.incrNum('@downloadIndex')
 	return pathJoin(path, "${tag}-${id}-${idx}.data");
 }
-/* ==============================================================
-*
-* 모듈 공통함수
-*
-==============================================================*/
 @baro.isSingleTag(tag,&s) {
 	left=s.findPos('>')
 	c=left.ch(-1)
@@ -926,29 +977,6 @@ initWas(port,path,devMode) {
 	}
 	return arr
 }
-// 파이션 설치경로 설정
-@baro.setPythonPath() { ;
-	runCommand('echo %userprofile%', func(&result, endCheck) {
-		not( endCheck) return;
-		not( result.start('echo %userprofile%', true) ) return;
-		not( result.ch()) return;
-		userprofilePath=result.findPos("\n").trim()
-		if(line) {
-			conf('cf.userprofile', userprofilePath.replace('\','/'), true)	
-		}
-		pythonPath=pathJoin(basePath,'AppData/Local/Programs/Python')		
-		node=getFolderList(pythonPath)
-		if(node && node.childCount() ) {
-			cur=node.child(0)
-			path=getNodePath(cur)
-			if(path) pythonPath=path
-		}
-		not(pythonPath ) return print("@@ baro.setPythonPath 파이션경로를 찾을수 없습니다")
-		conf('python.path', pythonPath, true)
-		log('파이션경로가 설정되었습니다 파이션경로: $pythonPath')
-	});
-}
-
 </script>
 
 <script type="base_type" note="공통타입 정보">

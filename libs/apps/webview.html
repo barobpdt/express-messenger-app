@@ -5,6 +5,8 @@
 <script module="webview_page">
 	init() {	
 		this.@canvas = widget('webview')
+		this.@canvas.initWebview('messenger')
+		this.addArray('@subPageList')
 		if(conf('webview.useTray')) {
 			tray = this.tray()
 			tray.icon('vicon:application_add')
@@ -50,17 +52,41 @@
 	onAction(action) {
 	
 	}
+	getSubPage(name, rc, url) {	
+		page=createWidget('page', name)
+		not(this.@subPageList.find(page)) this.@subPageList.add(page)
+		not(page.@canvas) {
+			canvas=createWidget('canvas','subpageCanvas',page,'webview_canvas')
+			canvas.initWebview(name)
+			vbox=page.child(0)
+			vbox.margin(0)
+			vbox.addChild(canvas)			
+			page.@canvas=canvas
+		}
+		if(typeof(rc,'rect')) {
+			page.move(rc)
+			page.open()
+		} 
+		startCheck=pp.@canvas.@status.eq('start') && pp.@canvas.@cmd.@jobStatus.ne('finish')
+		if( startCheck ) {
+			if(url) page.@canvas.@penddingList.add("@#>url:$url")
+		} else {		
+			page.@canvas.webviewStart(url)
+		}
+		return page
+	}
 </script>
 
 <script module="webview_canvas">
-	init() {
-		this.@cmd=Baro.process('pythonWebview')
+	initWebview(name) {
+		this.@webviewName=name
+		this.@cmd=Baro.process(name)
+		this.@worker=Baro.worker(name)
 		this.@status='first'
-		this.@useTimer=true
 		this.@checkStart=false
 		this.@startWebviewTick=0
 		this.@finishCnt=0 
-		this.@dcCanvas = object('dc.webview')
+		this.@dcCanvas = object("dc.$name")
 		this.addArray('@penddingList')
 		this.timer(250)
 	}
@@ -171,6 +197,12 @@
 		not(status.eq('start')) {
 			return print(">> status error [$status]")
 		}
+		if(isValid(this.@penddingList) ) {
+			execSource=this.@penddingList.pop()
+			print("@@ pendding execSource:$execSource")
+			this.webviewExec(execSource, true)
+			return;
+		}
 		if(checkTick(this.@webviewResizeTick) ) {
 			return this.webviewResize();
 		} 
@@ -179,12 +211,6 @@
 				this.@checkStart = true
 				this.webviewExec("setParent:${this.winId()}")
 				this.@webviewResizeTick=System.tick()
-			}
-			if(isValid(this.@penddingList) ) {
-				execSource=this.@penddingList.pop()
-				print("@@ pendding execSource:$execSource")
-				this.webviewExec(execSource, true)
-				return;
 			}
 		}			
 		
@@ -231,13 +257,16 @@
 			not(s.start('bridge:',true)) break;
 		}  
 	}
-	webviewStart() {
+	webviewStart(url) {
 		this.@status='init'
 		this.@checkStart=false
 		this.@startWebviewTick=0
 		this.@penddingList.reuse()
 		cmd=this.@cmd 
-		not(checkTag(cmd,'process')) return print("@@webviewStart 오류 (webview command 객체 미정의)");
+		name=this.@webviewName
+		not(checkTag(cmd,'process')) {
+			return print("@@webviewStart 오류 ($name webview command 객체 미정의)");
+		}
 		if( cmd.@jobStatus=='run' ) {
 			print("webview 프로세스가 이미 실행중입니다")
 			return;
@@ -248,18 +277,16 @@
 		not(isFile(sourcePath)) {
 			log("error::@python.getCommand 소스파일 경로가 없습니다 (경로:$sourcePath)")
 		}
-		logObj = logAppend("pythonWebview-log")
-		outObj = logTail("pythonWebview-out")		
+		logObj = logAppend("$name-log")
+		outObj = logTail("$name-out")		
 		not( cmd.@jobMode ) {
 			// job
-			cmd.@jobMode='pythonWebview'		
+			cmd.@jobMode='Webview'		
 			cmd.@jobStatus='start'
 			cmd.@logAppend=logObj
 			cmd.@logTail=outObj
 			cmd.@canvas=this
 			cmd.addArray('@cmdJobList')
-			// worker 
-			cmd.@callbackWorker=@webview.callbackWorker
 			cmd.addArray('@webviewCommandList')
 			addCmdJob(cmd)
 		}
@@ -267,9 +294,7 @@
 		logFileName=logObj.get('logFileName')
 		outFileName=outObj.get('logFileName')
 		line=f["$py" "$sourcePath" --command="$logFileName" --out="$outFileName"]
-		url=this.@movePageUrl
 		if(url) {
-			this.@movePageUrl=''
 			line.add(" --url=$url")
 		}
 		addCmdJob(cmd, line)
@@ -283,7 +308,7 @@
 		}
 		if(checkTick(this.@startWebviewTick)) {
 			cmd.@webviewCommandList.add(execSource)
-			addUserWorker('webviewCommand', cmd )
+			addUserWorker(this.@worker, cmd, @webview.callbackWorker )
 		}  else {
 			this.@penddingList.add(execSource)
 			print(">> webview.exec : ${this.@penddingList}")
@@ -291,7 +316,7 @@
 	}
 	webviewStop() {
 		this.webviewExec('quit:')
-	}	
+	}
 </script>
 
 <script>
@@ -312,6 +337,7 @@
 			}
 		}
 		source=cmd.@webviewCommandList.pop()
+		not(source) return print(">> 웹뷰 worker 실행오류 webviewCommandList 내용이 없습니다");
 		print(">> webview command start")
 		cmd.@execStartTick = System.tick()
 		cmd.@logTail.timeout()
@@ -321,7 +347,7 @@
 			System.sleep(25)
 			result = cmd.@logTail.timeout()
 			if(result) {
-				print(">>@webview callback result: $result ($n)")
+				// print(">>@webview callback result: $result ($n)")
 				cmd.@canvas.setWebviewResult(result)
 				break;
 			}

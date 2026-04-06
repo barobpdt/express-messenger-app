@@ -31,7 +31,7 @@ initApp() {
 		}
 	}
 	this.@clipboardTick=System.tick()
-	cmd=Baro.process('pythonWebview')
+	cmd=Baro.process('messenger')
 	not(cmd.cmp('@jobStatus','run')) {
 		print("webview 실행중이 아닙니다")
 		return;
@@ -207,6 +207,32 @@ initApp() {
 		}
 	})
 }
+
+@baro.setPythonPath() { 
+	userPath = conf('path.user')	
+	setPath = function(userPath) {	
+		pythonPath=pathJoin(userPath,'AppData/Local/Programs/Python')
+		not(isFolder(pythonPath)) return print("@@ 파이션 경로 설정오류 (파이션이 설치되지 않았거나 기본위치가 아닙니다 경로:$pythonPath)");
+		node=getFolderList(pythonPath)
+		not( node.childCount() ) {
+			return print("@@ $pythonPath 경로에 파이션이 설치되지 않았습니다");
+		}
+		cur=node.child(0)
+		pythonPath = cur.fullPath
+		
+		conf('python.path', pythonPath, true)
+		log('파이션경로가 설정되었습니다 파이션경로: $pythonPath')
+	}
+	if( userPath) {
+		setPath(userPath)	
+	} else {
+		localFunc(setPath)
+		@app.userPath(function(path) {
+			call(localFunc(), this, path)
+		})
+	}
+}
+
 /*
 	node js : eval 스크립트 실행
 	scripts/node-eval.js 파일을 실행하고 추가 스크립트 로그파일에 append
