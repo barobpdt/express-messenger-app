@@ -5,14 +5,34 @@ initApp() {
 	page=page('webview:main')
 	page.openPage()
 }
-
+@app.startNodeServer(callbackError) {
+	cmd=cmdObject('node-server')
+	if(cmd.@jobStatus=='run') return print("노드 서버 프로세스가 실행중입니다");
+	path=conf('path.express')
+	cmd.@callbackError = callbackError
+	if(isValid(cmd.@cmdJobList)) cmd.@cmdJobList.reuse()
+	addCmdJob(cmd, "cd $path", @app.proc)
+	addCmdJob(cmd, "node server.js", function(result, end) {
+		not(end) return;
+		print("[node server start] $result")
+		result.findPos('Error:')
+		if(result.ch()) {
+			msg=result.findPos("\n")
+			trace=result.trim()
+			if( this.@callbackError ) {
+				call(this.@callbackError, this, msg, trace)
+			} else {
+				print("[node server start error] $msg", trace)
+			}
+		}
+	});
+}
 @app.startMessageServer(port) {
 	not(port) port=8094
 	server=object('baro.server') addModule(server,'message_server')
 	server.start(port)
 	return server;
 }
-
 @app.startMessageClient(userId, host, port, callback) {
 	not(userId) userId="guest_${System.tick()}"
 	not(host) host='localhost'
@@ -208,7 +228,7 @@ initApp() {
 	})
 }
 
-@baro.setPythonPath() { 
+@app.setPythonPath() { 
 	userPath = conf('path.user')	
 	setPath = function(userPath) {	
 		pythonPath=pathJoin(userPath,'AppData/Local/Programs/Python')
@@ -230,6 +250,14 @@ initApp() {
 		@app.userPath(function(path) {
 			call(localFunc(), this, path)
 		})
+	}
+}
+@app.cmdProc(data, end) {
+	n=this.incrNum('resultCount')
+	if(end) {
+		print("$n>> $end")
+	} else {
+		print("$n>> $data")
 	}
 }
 
@@ -515,13 +543,14 @@ splitBlank(&s) {
 			if(this.callbackResult) this.callbackResult(ok)
 		})
 	}
-	closePort(port) {
+	closePort(port, callback) {
 		not(port) port=80
 		runCommand("netstat -ano | findstr $port", function(s,endCheck) {
 			not(endCheck) return;
+			not(s.find('TCP')) return print("포트닫기 실패(${port}를 찾을수 없습니다)")
 			while(s.valid()) {		
 				s.findPos('TCP') not(s.ch()) break;
-				line = s.findPos("\n")			
+				line = s.findPos("\n")
 				line.findPos(":$port")
 				c=line.ch(0)
 				print(">> line:$line [$c]")
@@ -531,8 +560,8 @@ splitBlank(&s) {
 					if(pid) {
 						if(typeof(callback,'func')) {
 							callback(pid)
-						} else if(callback) {
-							runCommand("taskkill /PID $pid /F" )
+						} else {
+							runCommand("taskkill /PID $pid /F", @app.cmdProc)
 						}
 						return;
 					}
