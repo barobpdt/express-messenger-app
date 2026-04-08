@@ -2,11 +2,11 @@ import sys
 import argparse
 import os
 import time
-from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QSizeGrip
 from PyQt6.QtWebEngineWidgets import *
 from PyQt6.QtWebEngineCore import *
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import Qt, QTimer, QTime, QUrl, QEvent, QObject, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, QTime, QUrl, QEvent, QObject, QPoint, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 import win32.win32gui as win32gui
 
@@ -60,36 +60,36 @@ class WebPage(QWebEnginePage):
 			return False 
 		return super().acceptNavigationRequest(url, _type, isMainFrame)
 
-
 class MyWebView(QWebEngineView):
 	# Store external windows.
 	# external_windows = []
 	def __init__(self, parent=None):
 		super().__init__(parent)
 		logAppend(f'webview:init')
-		self.acceptDrops = True
 		self.urlChanged.connect(self.onUrlChange)
 		self.setPage(WebPage(self))
 		self.fp=open(args.command, 'r', encoding='utf8')
 		# self.fa=open(args.out, 'a', encoding='utf8')
 		self.lastPos=self.fp.seek(0, os.SEEK_END)
+		self.useWindowMove = True
 		self.tm=time.time()		
 		self.nextCommand = ''
 		self.parent_hwnd = None
 		self.timer = QTimer(self)
-		self.timer.setInterval(10)
+		self.timer.setInterval(50)
 		self.timer.timeout.connect(self.timeout)		
 		self.timerCount=0
-		self.setGeometry(-500, -500, 400, 400)
-		self.hide()
+		self.old_pos = QPoint()
+		# self.setGeometry(-500, -500, 400, 400)
+		# self.hide()		
 		self.timer.start()
 		try:
 			self.channel = QWebChannel(self)
 			self.bridge = Bridge(self)
 			self.channel.registerObject("bridge", self.bridge)
 			self.page().setWebChannel(self.channel)
+			self.setAcceptDrops(True)
 			# self.setBackgroundColor(QtCore.Qt.transparent)
-			# self.setAcceptDrops(True)
 			# self.setMouseTracking(True)
 			# self.focusProxy().setMouseTracking(True)
 			# self.focusProxy().installEventFilter(self)
@@ -97,7 +97,24 @@ class MyWebView(QWebEngineView):
 			profile = self.page().profile()
 			profile.clearHttpCache()						
 		except Exception as e:
-			logAppend(f'webview:start exception {e}')
+			logAppend(f'webview:init exception {e}')
+	
+	def setWindowMove(self, useWindowMove):
+		self.useWindowMove = useWindowMove
+	def getWindowMove(self):
+		return self.useWindowMove
+
+		# 5. 마우스 드래그로 창 이동 구현
+	def mousePressEvent(self, event):
+		if event.button() == Qt.MouseButton.LeftButton:
+			self.old_pos = event.globalPosition().toPoint()
+
+	def mouseMoveEvent(self, event):
+		if event.buttons() == Qt.MouseButton.LeftButton:
+			delta = QPoint(event.globalPosition().toPoint() - self.old_pos)
+			self.move(self.x() + delta.x(), self.y() + delta.y())
+			self.old_pos = event.globalPosition().toPoint()
+
 	
 	def onUrlChange(self, url):
 		logAppend(f'urlChange: {url.toString()}')
@@ -111,7 +128,9 @@ class MyWebView(QWebEngineView):
 
 	def dropEvent(self, event: QDropEvent):
 		files = [u.toLocalFile() for u in event.mimeData().urls()]
-		event.accept()
+		if files:
+			logAppend(f"@#>drop-file: {files}")
+		event.acceptProposedAction()
 
 	def acceptNavigationRequest(self, url,  type, isMainFrame):
 		if type == QWebEnginePage.NavigationTypeLinkClicked:
@@ -129,15 +148,14 @@ class MyWebView(QWebEngineView):
 		try:
 			# sender = self.sender()
 			# currentTime = QTime.currentTime().toString("hh:mm:ss")
-			if self.timerCount<10:
+			if self.timerCount<5:			
+				self.timerCount+=1
 				if self.timerCount==5:
-					urlDefault='http://localhost:8081/webview-messenger.html'
+					urlDefault='http://localhost:8081/test-tabs.html'
 					if args.url:
 						urlDefault=args.url
 					self.setUrl(QUrl(urlDefault))
-				elif self.timerCount==8:
 					logAppend('start:webview')
-				self.timerCount+=1
 				return
 			fsize=os.stat(args.command).st_size			
 			if self.nextCommand:
@@ -244,12 +262,58 @@ class MyWebView(QWebEngineView):
 			logAppend(f"mouseFocus: {event.position().x()}, {event.position().y()}")
 		return super().eventFilter(source, event)
 
+
+class FramelessBrowser(QMainWindow):
+	def __init__(self):
+		super().__init__()
+
+		# 1. 프레임리스 설정
+		self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+		# 2. 메인 위젯 및 레이아웃 설정
+		central_widget = QWidget()
+		self.setCentralWidget(central_widget)
+		layout = QVBoxLayout(central_widget)
+		layout.setContentsMargins(0, 0, 0, 0)
+		layout.setSpacing(0)
+
+		# 3. QWebEngineView 설정
+		self.browser = MyWebView()
+		layout.addWidget(self.browser)
+
+		# 4. 크기 조절을 위한 SizeGrip (우측 하단)
+		sizegrip = QSizeGrip(self)
+		layout.addWidget(sizegrip, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+
+		# 마우스 이동 관련 변수
+		self.old_pos = QPoint()
+
+	# 5. 마우스 드래그로 창 이동 구현
+	def mousePressEvent(self, event):
+		if event.button() == Qt.MouseButton.LeftButton:
+			self.old_pos = event.globalPosition().toPoint()
+
+	def mouseMoveEvent(self, event):
+		if event.buttons() == Qt.MouseButton.LeftButton and self.browser.getWindowMove():
+			delta = QPoint(event.globalPosition().toPoint() - self.old_pos)
+			self.move(self.x() + delta.x(), self.y() + delta.y())
+			self.old_pos = event.globalPosition().toPoint()
+
 def main():	
 	app = QApplication(sys.argv)
-	webview = MyWebView()
-	# webview.show()
+	'''
+	window = FramelessBrowser()
+	window.resize(1024, 768)
+	window.show()
+	'''
+	window = MyWebView()
+	window.resize(1024, 768)
+	# window.setWindowFlags(Qt.WindowType.Window&~Qt.WindowType.WindowTitleHint) #Qt.WindowType.Window | Sheet
+	window.setWindowFlags(Qt.WindowType.CustomizeWindowHint)
+	window.show()
 	sys.exit(app.exec())
-	logAppend('app:quit')
+	logAppend('close:webview')
 
 if __name__ == '__main__':
 	main()

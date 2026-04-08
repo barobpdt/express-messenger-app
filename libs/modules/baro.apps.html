@@ -2,27 +2,91 @@
 initApp() {
 	include('@apps#webview')
 	System.watcherClipboard(@app.clipboard)
+	/*
 	page=page('webview:main')
 	page.openPage()
+	*/
+}
+@app.stopNodeServer(port) {
+	not(port) port=8081
+	closePort(port)
 }
 @app.startNodeServer(callbackError) {
-	cmd=cmdObject('node-server')
-	if(cmd.@jobStatus=='run') return print("노드 서버 프로세스가 실행중입니다");
-	path=conf('path.express')
-	cmd.@callbackError = callbackError
+	cmd=cmdObject('node-server')	
+	if(cmd.@jobStatus=='run') {
+		if( callbackError ) {
+			call(callbackError, cmd, 'error', "노드 서버 프로세스가 실행중입니다")
+		}
+		return;
+	}
 	if(isValid(cmd.@cmdJobList)) cmd.@cmdJobList.reuse()
+	cmd.@callbackError = callbackError
+	path=conf('path.express')
 	addCmdJob(cmd, "cd $path", @app.proc)
 	addCmdJob(cmd, "node server.js", function(result, end) {
-		not(end) return;
-		print("[node server start] $result")
-		result.findPos('Error:')
-		if(result.ch()) {
-			msg=result.findPos("\n")
-			trace=result.trim()
+		if(end) {
+			ss=end
+		} else {
+			ss=result
+		}
+		not(typeof(ss,'stringRef')) ss.ref()
+		if( ss.find('Error:') ) {			
+			ss.findPos('Error:')
+			if(ss.ch()) {
+				msg=ss.findPos("\n")
+				trace=ss.trim()
+				if( this.@callbackError ) {
+					call(this.@callbackError, this,'error', msg, trace)
+				} else {
+					print("[node server start error] $msg", trace)
+				}
+			}
+		} else {
 			if( this.@callbackError ) {
-				call(this.@callbackError, this, msg, trace)
+				call(this.@callbackError, this,'log', ss)
 			} else {
-				print("[node server start error] $msg", trace)
+				print("node-server>> $ss")	
+			}
+		}
+	});
+}
+@app.startNodeServer(callbackError) {
+	cmd=cmdObject('node-server')	
+	if(cmd.@jobStatus=='run') {
+		if( callbackError ) {
+			call(callbackError, cmd, 'error', "노드 서버 프로세스가 실행중입니다")
+		}
+		return;
+	}
+	if(isValid(cmd.@cmdJobList)) cmd.@cmdJobList.reuse()
+	cmd.@callbackError = callbackError
+	path=conf('path.express')
+	addCmdJob(cmd, "cd $path", @app.proc)
+	addCmdJob(cmd, "node server.js", function(result, end) {
+		endCheck=false
+		if(end) {
+			endCheck=true
+			ss=end
+		} else {
+			ss=result
+		}
+		not(typeof(ss,'stringRef')) ss.ref()
+		if( ss.find('Error:') ) {			
+			ss.findPos('Error:')
+			if(ss.ch()) {
+				msg=ss.findPos("\n")
+				trace=ss.trim()
+				if( this.@callbackError ) {
+					call(this.@callbackError, this,'error', msg, trace)
+				} else {
+					print("[node server start error] $msg", trace)
+				}
+			}
+		} else {
+			if( this.@callbackError ) {
+				call(this.@callbackError, this,'log', ss)
+			} else {
+				print("node-server>> $ss")	
 			}
 		}
 	});
@@ -260,9 +324,78 @@ initApp() {
 		print("$n>> $data")
 	}
 }
+@app.webviewWorker() {
+	cmd=this.@cmd
+	not(cmd.run()) return;
+	if(cmd.@jobStatus.eq('finish')) {
+		if(this.@finishTick) {
+			dist=System.tick() - this.@finishTick
+			if(dist<5000) {
+				return;
+			}
+			print("@webview 작업이 종료됨", cmd.id, cmd.@webviewUrl)
+			this.@finishTick=0
+		} else {
+			this.@finishTick = System.tick()
+		}
+		return;			
+	}
+	data=cmd.@logTail.timeout()
+	not(data) {			
+		System.sleep(250)
+		return;
+	}
+	@user.webviewLogResult(cmd, data)	
+}
+/*
+	python webview 실행	
+*/
+@app.runPythonWebview(name, url) {
+	not(name) name='webview'
+	cmd=cmdObject(name)
+	worker=workerObject(name)
+	worker.@cmd=cmd
+	not(worker.@callback) {
+		worker.start(@app.webviewWorker, true)
+	}
+	py=pathJoin(conf('python.path'), 'python.exe')
+	sourcePath=pathJoin(conf('python.RUN_PATH'), 'webviewWindow.py')
+	not(isFile(sourcePath)) {
+		log("error::@@app.runPythonWebview 소스파일 경로가 없습니다 (경로:$sourcePath)")
+	}
+	cmd.@webviewUrl = url
+	logObj = logAppend("$name-log")
+	outObj = logTail("$name-out")		
+	not( cmd.@jobMode ) {
+		// job
+		cmd.@jobMode='Webview'		
+		cmd.@jobStatus='start'
+		cmd.@logAppend=logObj
+		cmd.@logTail=outObj
+		cmd.@canvas=this
+		cmd.addArray('@cmdJobList')
+		cmd.addArray('@webviewCommandList')
+	}
+	cmd.@webviewCommandList.reuse()
+	logFileName=logObj.get('logFileName')
+	outFileName=outObj.get('logFileName')
+	line=f["$py" "$sourcePath" --command="$logFileName" --out="$outFileName"]
+	if(url) {
+		line.add(" --url=$url")
+	}
+	addCmdJob(cmd, line, function(result, end) {
+		if(end) {
+			ss=end
+		} else {
+			ss=result
+		}
+		print("python-webview >> $ss")
+	})
+	return cmd;
+}
 
 /*
-	node js : eval 스크립트 실행
+	node js eval 스크립트 실행
 	scripts/node-eval.js 파일을 실행하고 추가 스크립트 로그파일에 append
 	만약 command=='quit' 라면 node-eval.js를 종료한다
 */
@@ -283,8 +416,8 @@ initApp() {
 	page=page('webview:main')
 	logOut=null
 	if(page) {
-		cmdWebview=Baro.process('pythonWebview')
-		outName=cmdWebview.@logAppend.get('logFileName')
+		cmdMessenger=Baro.process('messenger')
+		outName=cmdMessenger.@logAppend.get('logFileName')
 		logOut=logTail('node-eval', outName)
 	} else {
 		logOut=logTail('node-eval')
@@ -315,13 +448,19 @@ initApp() {
 */
 @app.killProcess(name) {
 	not(name) return print("삭제할 프로세스명이 없습니다")
-	cmd=Baro.process('common')
-	addCmdJob(cmd, "tasklist | findstr $name", function(s,end) {
-		not(end) return;
-		s.findPos("\n")
+	cmd=cmdObject()
+	addCmdJob(cmd, "tasklist | findstr $name", function(result,end) {
+		if(end) {
+			ss= end
+		} else {
+			ss = result
+		}
+		not(ss) return;
+		not(typeof(ss,'stringRef')) ss.ref()
+		ss.findPos("\n")
 		root=object('app.tasklist').removeAll()
-		while(s.valid()) {
-			line=s.findPos("\n") not(s.ch()) break;
+		while(ss.valid()) {
+			line=ss.findPos("\n") not(s.ch()) break;
 			splitBlank(line).inject(name,pid,type,no,size)
 			root.addNode().with(name,pid,type,no,size)
 		}

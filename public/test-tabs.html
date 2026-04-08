@@ -23,7 +23,23 @@
 			const tabs = new RenderTabs('.app-container');
 			pageInfo.tabs = tabs
 			tabs.render();
-			tabs.createTab('zip', '압축파일 정보', '', '/test-zip.html');
+			tabs.createTab('zip', '테스트 페이지', '', '/test-page.html');
+			$('.tab-list-wrap').on('mousedown', (e) => {
+				const el = $(e.target)
+				if (el.hasClass('tab') || el.parent().hasClass('tab')) {
+					return;
+				}
+				pageInfo.isDragging = true
+				pageInfo.startX = e.screenX
+				pageInfo.startY = e.screenY
+				// pageInfo.bridge.logAppend('#windowMove')
+				e.preventDefault()
+			})
+			$('.tab-list-wrap').on('mouseup', (e) => {
+				pageInfo.isMoveWindow = false
+				pageInfo.isDragging = false
+				// pageInfo.bridge.logAppend('#windowMoveEnd')
+			})
 		});
 		if (typeof QWebChannel !== 'undefined') {
 			new QWebChannel(qt.webChannelTransport, channel => {
@@ -33,6 +49,24 @@
 		}
 		window.onfocus = () => pageInfo.focusTick = new Date().getTime()
 		window.onblur = () => pageInfo.blurTick = new Date().getTime()
+		window.addEventListener('mousemove', (e) => {
+			if (pageInfo.isDragging) {
+				const dx = e.screenX - pageInfo.startX
+				const dy = e.screenY - pageInfo.startY
+				console.log(dx, dy)
+
+				if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+					pageInfo.isMoveWindow = true
+				}
+				if (pageInfo.isMoveWindow) {
+					if (pageInfo.bridge && (dx != 0 || dy != 0)) {
+						pageInfo.bridge.logAppend(`#${dx},${dy}`)
+					}
+					pageInfo.startX = e.screenX
+					pageInfo.startY = e.screenY
+				}
+			}
+		}); 
 	</script>
 </body>
 

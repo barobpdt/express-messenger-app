@@ -1,4 +1,32 @@
 <script module="user">
+	webviewLogResult(cmd, &s) {
+		s.findPos('@#>') not(s.ch()) break;
+		log=cmd.@logAppend
+		while(s.valid()) {
+			line=s.findPos('@#>')
+			type=line.findPos(':').trim()
+			switch(type) {
+			case start:
+				info=conf("webviewPosition.${cmd.id}")
+				if(info) {
+					info.split(',').inject(x,y,w,h)
+				} else {
+					rcCenter = System.info('screenRect').center(1000,800)
+					toRect(rcCenter).inject(x,y,w,h)
+				}
+				log.append("@#>geo:$x,$y,$w,$h,0")			
+			case echo:
+				print("echo>> $line")
+			case close:
+				
+			default:
+			}
+			not(s.ch()) break;
+		}
+	}
+</script>
+
+<script module="user">
 	/* cmd 실행 */
 	bridge_cmd(webview, index, param) {
 		cmd=cmdObject()

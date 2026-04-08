@@ -349,7 +349,7 @@ isNull(s) {
 	return when(s,false,true) 
 }
 cmdObject(id) {
-	if(id) return Baro.cmd(id);
+	if(id) return Baro.process(id);
 	while(n=0,32) {
 		cmd=Baro.process("cmd-$n")
 		not(cmd.@c) return cmd;
@@ -382,6 +382,15 @@ fileObject(id) {
 		return file;
 	}
 	return Baro.file();
+}
+workerObject(id) {
+	if(id) return Baro.worker(id);
+	while(n=0,16) {
+		worker=Baro.worker("worker-$n")
+		if(w.@canllback) continue;
+		return worker;
+	}
+	return Baro.worker();
 }
 
 checkVar(name) {

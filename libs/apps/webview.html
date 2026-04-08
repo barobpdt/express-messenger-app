@@ -145,8 +145,10 @@
 		page=page('main')
 		if( page.@activeChangeTick) {
 			dist=System.tick() - page.@activeChangeTick
-			console.log(">> webviewActive dist == $dist")
-			if(dist<500) return;
+			if(dist<500) {
+				print(">> webviewActive SKIP dist == $dist")
+				return;
+			}
 		}
 		page.flags('active')
 		page.active()
