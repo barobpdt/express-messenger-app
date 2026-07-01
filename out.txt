@@ -1,3 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIMS Dashboard - API Test Tool</title>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/api-test.css">
+    <script src="js/jquery.js"></script>
+    <script src="js/common.js"></script>
+</head>
+
+<body>
+
+    <!-- Sidebar (Dynamically rendered by sidebar.js) -->
+    <aside class="sidebar" id="app-sidebar" style="display:none;"></aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="search-btn">
+                    <i class="fa-solid fa-search"></i>
+                </div>
+                <div class="breadcrumb">
+                    snc > kor > so > solu > test(test01) > api-test
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="language" id="lang-toggle" style="cursor:pointer;">
+                    <span id="current-language">English <i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+                <div class="profile-btn">
+                    admin <div class="profile-avatar">Stor</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <main class="content">
+
+            <div class="page-title">
+                <i class="fa-solid fa-terminal"></i>
+                <h1 data-i18n="title_api_test">API Test</h1>
+            </div>
+
+            <!-- main split layout -->
+            <div class="api-test-layout">
+
+                <!-- Left Pane: API Tree -->
+                <aside class="api-tree-panel">
+                    <div class="panel-header">
+                        <i class="fa-solid fa-folder-tree"></i>
+                        <span data-i18n="lbl_api_list">API List</span>
+                    </div>
+                    <div class="api-tree-search">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="api-search-input" placeholder="Search API...">
+                    </div>
+                    <ul class="api-tree" id="api-tree-root">
+                        <!-- Populated dynamically via JS -->
+                    </ul>
+                </aside>
+
+                <!-- Right Pane: Main Work Editor & Results -->
+                <section class="api-work-panel">
+
+                    <!-- Request Bar Card -->
+                    <div class="api-card request-bar-card">
+                        <div class="request-row">
+                            <span class="method-tag method-get" id="request-method">GET</span>
+                            <input type="text" id="request-path" class="path-input" readonly value="/common/labels">
+                            <button class="btn btn-send" id="btn-send-request">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                <span data-i18n="btn_send">Send Request</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Config Card -->
+                    <div class="api-card config-card">
+                        <div class="tabs-header">
+                            <div class="tab-btn active" data-tab="params">
+                                <span data-i18n="lbl_req_params">Query Parameters</span>
+                                <span class="tab-count-badge" id="params-count">0</span>
+                            </div>
+                            <div class="tab-btn" data-tab="body">
+                                <span data-i18n="lbl_req_body">Request Body (JSON)</span>
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Params -->
+                        <div class="tab-content active" id="tab-params">
+                            <div class="params-table-container">
+                                <table class="params-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Key</th>
+                                            <th>Value</th>
+                                            <th>Description</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="params-table-body">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                                <button class="btn btn-add-row" id="btn-add-param-row">
+                                    <i class="fa-solid fa-plus"></i> Add Parameter
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Body -->
+                        <div class="tab-content" id="tab-body">
+                            <div class="json-editor-container" id="json-editor-container">
+                                <textarea id="request-body-editor" data-i18n="[placeholder]ph_enter_json"
+                                    placeholder="Enter JSON request body here..."></textarea>
+                                <div class="editor-actions">
+                                    <button class="btn btn-small" id="btn-format-json">Format JSON</button>
+                                    <span class="json-validation-msg" id="json-val-msg"></span>
+                                </div>
+                            </div>
+                            <!-- File Upload Area for Excel file uploads -->
+                            <div class="file-uploader-container" id="file-uploader-container" style="display: none; padding: 20px;">
+                                <div style="border: 2px dashed #cbd5e1; padding: 30px; text-align: center; border-radius: 8px; background-color: #f8fafc;">
+                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 32px; color: #64748b; margin-bottom: 12px;"></i>
+                                    <p style="margin-bottom: 12px; color: #334155; font-size: 14px;">Select an Excel file to upload (.xlsx)</p>
+                                    <input type="file" id="request-file-input" accept=".xlsx" style="display: none;">
+                                    <button type="button" class="btn btn-secondary" style="background-color: #e2e8f0; color: #1e293b; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer;" onclick="document.getElementById('request-file-input').click()">Choose File</button>
+                                    <div id="selected-file-name" style="margin-top: 12px; font-weight: 500; color: #3b82f6; font-size: 13px;">No file selected</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Response Card -->
+                    <div class="api-card response-card">
+                        <div class="response-header">
+                            <div class="response-title">
+                                <i class="fa-solid fa-reply"></i>
+                                <span data-i18n="lbl_res_body">Response Body</span>
+                            </div>
+                            <div class="response-meta" id="response-meta-info" style="display:none;">
+                                <span class="meta-badge" id="res-status-badge">200 OK</span>
+                                <span class="meta-badge" id="res-time-badge"><i class="fa-regular fa-clock"></i>
+                                    45ms</span>
+                            </div>
+                        </div>
+                        <div class="response-body-wrapper">
+                            <pre id="response-body-output">// Response JSON will be displayed here...</pre>
+                        </div>
+                    </div>
+
+                    <!-- Logs Console Card -->
+                    <div class="api-card console-card" id="console-card-panel">
+                        <div class="console-header">
+                            <div class="console-title">
+                                <i class="fa-solid fa-rectangle-list"></i>
+                                <span data-i18n="lbl_res_log">Execution Logs</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-small btn-clear-console" id="btn-clear-console">
+                                    <i class="fa-solid fa-trash-can"></i> Clear
+                                </button>
+                                <button class="btn btn-small btn-toggle-console" id="btn-toggle-console">
+                                    <i class="fa-solid fa-chevron-down" id="console-toggle-icon"></i>
+                                    <span id="console-toggle-text" data-i18n="btn_hide">Hide</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="console-logs" id="console-logs-list">
+                            <div class="console-line system-msg">Console initialized. Ready to execute Swagger API
+                                requests.</div>
+                        </div>
+                    </div>
+
+                </section>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/i18n.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/api-test.js"></script>
+</body>
+
+</html>
 
 // ------------------------------------
 // [Phase 3] 일괄 Unassign 기능
